@@ -2,7 +2,8 @@
 set -euo pipefail
 
 PROJECT_DIR="${0:A:h:h}"
-APP_PATH="$($PROJECT_DIR/scripts/build-app.sh)"
+PUBLIC_DISPLAY_NAME="MAC版灵动岛--Agent运行监测"
+APP_PATH="$(LC_ALL=C AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" "$PROJECT_DIR/scripts/build-app.sh")"
 ARCHIVE_PATH="$PROJECT_DIR/dist/AgentIsland-macOS-universal.zip"
 BINARY="$APP_PATH/Contents/MacOS/AgentIsland"
 FIXTURE="$PROJECT_DIR/Tests/Fixtures/custom-agent.jsonl"
@@ -21,6 +22,7 @@ trap 'rm -rf "$VERIFY_ROOT"' EXIT
 [[ "$(plutil -extract CFBundleVersion raw "$PROJECT_DIR/Resources/Info.plist")" == "8" ]]
 [[ "$(plutil -extract CFBundleShortVersionString raw "$APP_PATH/Contents/Info.plist")" == "0.6.1" ]]
 [[ "$(plutil -extract CFBundleVersion raw "$APP_PATH/Contents/Info.plist")" == "8" ]]
+[[ "$(plutil -extract CFBundleDisplayName raw "$APP_PATH/Contents/Info.plist")" == "$PUBLIC_DISPLAY_NAME" ]]
 [[ "$(plutil -extract NSAppTransportSecurity.NSAllowsLocalNetworking raw "$PROJECT_DIR/Resources/Info.plist")" == "true" ]]
 [[ "$(plutil -extract NSAppTransportSecurity.NSAllowsLocalNetworking raw "$APP_PATH/Contents/Info.plist")" == "true" ]]
 [[ "$(plutil -extract AgentIslandPrivacyPolicyURL raw "$PROJECT_DIR/Resources/Info.plist")" == "" ]]
@@ -1069,4 +1071,4 @@ ditto -x -k "$ARCHIVE_PATH" "$VERIFY_ROOT"
 xattr -cr "$VERIFY_ROOT/AgentIsland.app"
 codesign --verify --deep --strict --verbose=2 "$VERIFY_ROOT/AgentIsland.app"
 
-echo "Aivulet tests passed"
+echo "MAC版灵动岛--Agent运行监测 tests passed"

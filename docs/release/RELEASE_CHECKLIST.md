@@ -1,4 +1,4 @@
-# Aivulet 发布检查清单
+# MAC版灵动岛--Agent运行监测 发布检查清单
 
 > 当前状态：macOS 0.6.1（Build 8）仍是 `local.agentisland.desktop` + ad-hoc 签名的本机开发预览；iOS 0.1.0（Build 1）已有 SwiftUI App、Widget/Live Activity Extension、按 iCloud 账号隔离的私有 CloudKit 接收器、离线缓存、Xcode 工程和图标，Mac CloudKit producer 也已实现并通过本地 CLI/回归。当前仍使用 `com.example.agentisland`/`iCloud.com.example.agentisland`/空 Team ID，且真实 Developer ID CloudKit entitlement/profile、Production schema、同账号 Mac→iPhone 真机验证和经完整 Xcode+iOS SDK 验证的 Archive 均未完成。下面分别覆盖 Developer ID、Mac App Store 和 iOS TestFlight/App Store。
 
@@ -7,7 +7,7 @@
 - [ ] 选择渠道：`Developer ID 官网分发` / `Mac App Store` / `iOS TestFlight` / `iOS App Store`，并为不同平台分别记录构建和审核状态。
 - [ ] Mac producer 和 iOS receiver 代码链路已实现，但在正式签名/Container/schema 和同账号真机验证通过前不宣传“手机可查看 Mac Agent”；不把本地回归通过当成已上线服务。
 - [ ] 确定正式产品名，并检索 App Store、商标和域名冲突。
-- [ ] 核验公开工作名 `Aivulet` 的 App Store、商标与域名可用性，或选择替代名称；将最终 2–30 字符名称设置为 `AGENT_ISLAND_DISPLAY_NAME`，并核对 `CFBundleDisplayName` 与商店名称一致。构建门禁仍会拒绝旧的冲突工作名 `Agent Island` / `TaskLume`。
+- [ ] 核验公开工作名 `MAC版灵动岛--Agent运行监测` 的 App Store、商标与域名可用性，或选择替代名称；将最终 2–30 字符名称设置为 `AGENT_ISLAND_DISPLAY_NAME`，并核对 `CFBundleDisplayName` 与商店名称一致。构建门禁仍会拒绝旧的冲突工作名 `Agent Island` / `TaskLume`。
 - [ ] 确定版本号；首次公开发布建议采用清晰的 `1.0.0` 或经确认的版本策略。
 - [x] 已于 2026-09-02 根据 DeepSeek 官方 API 文档、隐私政策和开放平台服务协议完成公开资料基线审计，并归档到 `DEEPSEEK_TRANSLATION_PRIVACY_AUDIT.md`。
 - [ ] 确定正式版是否保留 DeepSeek 默认端点；如保留，取得 API 请求保留/训练的专用书面依据，或接受无固定保留期与可能训练/优化的保守披露，并实施分层同意。

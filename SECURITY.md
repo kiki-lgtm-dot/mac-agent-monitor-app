@@ -6,4 +6,4 @@ Please do not publish exploitable details, credentials, private logs, or user da
 
 ## Sensitive data
 
-Aivulet reads local metadata and usage records only after user consent. Security reports and reproduction fixtures must not contain prompt or response bodies, real task titles, local project paths, API keys, Apple signing material, CloudKit identifiers, or production telemetry.
+MAC版灵动岛--Agent运行监测 reads local metadata and usage records only after user consent. Security reports and reproduction fixtures must not contain prompt or response bodies, real task titles, local project paths, API keys, Apple signing material, CloudKit identifiers, or production telemetry.

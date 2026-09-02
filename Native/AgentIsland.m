@@ -476,7 +476,7 @@ static NSDictionary *AITranslationUsageSession(void) {
         @"conversationTitle": conversationTitle, @"titleSource": @"agent-island.translator",
         @"taskSummary": [NSString stringWithFormat:AIText(@"已完成 %lld 次翻译", @"%lld translations completed"), count],
         @"provider": @"Translator", @"providerKey": @"translator", @"toolKey": @"translator",
-        @"toolName": @"Aivulet Translator",
+        @"toolName": AIText(@"翻译学习", @"Translation & Learning"),
         @"model": config[@"model"], @"project": @"", @"startedAt": usage[@"startedAt"],
         @"updatedAt": usage[@"updatedAt"], @"durationMs": @0,
         @"input": usage[@"input"] ?: @0, @"cached": usage[@"cached"] ?: @0,
@@ -2880,7 +2880,7 @@ static NSArray<NSDictionary *> *AIStandardEditCommandSpecifications(void) {
 }
 
 static NSMenu *AIApplicationMainMenu(void) {
-    NSString *appName = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleDisplayName"] ?: @"Aivulet";
+    NSString *appName = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleDisplayName"] ?: @"MAC版灵动岛--Agent运行监测";
     NSMenu *mainMenu = [[NSMenu alloc] initWithTitle:@""];
 
     NSMenuItem *applicationRoot = [[NSMenuItem alloc] initWithTitle:@"" action:nil keyEquivalent:@""];
@@ -3150,15 +3150,15 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 - (void)createStatusItem {
     if (!self.statusItem) self.statusItem = [NSStatusBar.systemStatusBar statusItemWithLength:NSSquareStatusItemLength];
     self.statusItem.button.title = @"⌁";
-    self.statusItem.button.toolTip = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleDisplayName"] ?: @"Aivulet";
+    self.statusItem.button.toolTip = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleDisplayName"] ?: @"MAC版灵动岛--Agent运行监测";
     [self rebuildStatusMenu];
 }
 
 - (void)rebuildStatusMenu {
-    NSString *appName = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleDisplayName"] ?: @"Aivulet";
+    NSString *appName = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleDisplayName"] ?: @"MAC版灵动岛--Agent运行监测";
     self.statusItem.button.accessibilityLabel = [NSString stringWithFormat:AIText(@"%@ 菜单", @"%@ menu"), appName];
     NSMenu *menu = [[NSMenu alloc] initWithTitle:appName];
-    [menu addItemWithTitle:[NSString stringWithFormat:AIText(@"显示 %@", @"Show %@"), appName]
+    [menu addItemWithTitle:AIText(@"显示面板", @"Show Panel")
         action:@selector(showPanel:) keyEquivalent:@""].target = self;
     [menu addItemWithTitle:AIText(@"移到鼠标所在屏幕", @"Move to Display Under Pointer")
         action:@selector(moveToPointerDisplay:) keyEquivalent:@""].target = self;
@@ -3293,8 +3293,8 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     alert.alertStyle = NSAlertStyleInformational;
     alert.messageText = AIText(@"本机 Agent 数据访问", @"Local Agent Data Access");
     alert.informativeText = AIText(
-        @"Aivulet 会只读扫描本机受支持的 Codex、Claude 和 IDE Agent 日志与元数据，仅提取运行状态、时长、Token 和来源明确提供的标题。\n\n它不提取、展示或保存 prompt 与响应正文，这些正文也不会用于 iPhone/iCloud 同步。不会请求摄像头、麦克风、屏幕录制或辅助功能权限。\n\n你可随时在“设置 → 本机数据访问”停止监测、重新查看说明，并在“高级 · 自定义数据源”移除自定义数据源。",
-        @"Aivulet performs read-only scans of supported local Codex, Claude, and IDE Agent logs and metadata. It extracts only running state, duration, Token counts, and titles explicitly supplied by a source.\n\nIt does not extract, display, or store prompt or response bodies, and those bodies are never used for iPhone/iCloud sync. It does not request Camera, Microphone, Screen Recording, or Accessibility access.\n\nYou can stop monitoring or review this notice at any time under Settings → Local Data Access, and remove custom sources under Advanced · Custom sources.");
+        @"“MAC版灵动岛--Agent运行监测”会只读扫描本机受支持的 Codex、Claude 和 IDE Agent 日志与元数据，仅提取运行状态、时长、Token 和来源明确提供的标题。\n\n它不提取、展示或保存 prompt 与响应正文，这些正文也不会用于 iPhone/iCloud 同步。不会请求摄像头、麦克风、屏幕录制或辅助功能权限。\n\n你可随时在“设置 → 本机数据访问”停止监测、重新查看说明，并在“高级 · 自定义数据源”移除自定义数据源。",
+        @"The app performs read-only scans of supported local Codex, Claude, and IDE Agent logs and metadata. It extracts only running state, duration, Token counts, and titles explicitly supplied by a source.\n\nIt does not extract, display, or store prompt or response bodies, and those bodies are never used for iPhone/iCloud sync. It does not request Camera, Microphone, Screen Recording, or Accessibility access.\n\nYou can stop monitoring or review this notice at any time under Settings → Local Data Access, and remove custom sources under Advanced · Custom sources.");
     if (allowingStart) {
         [alert addButtonWithTitle:AIText(@"允许只读监测", @"Allow Read-Only Monitoring")];
         [alert addButtonWithTitle:AIText(@"暂不开始", @"Not Now")];
@@ -3343,8 +3343,8 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     alert.alertStyle = NSAlertStyleInformational;
     alert.messageText = AIText(@"无法检查更新", @"Unable to Check for Updates");
     alert.informativeText = AIText(
-        @"当前版本尚未配置安全的 HTTPS 支持/下载页面。Aivulet 不会在后台自动下载或安装更新。",
-        @"This build has no configured HTTPS support/download page. Aivulet never downloads or installs updates in the background.");
+        @"当前版本尚未配置安全的 HTTPS 支持/下载页面。本应用不会在后台自动下载或安装更新。",
+        @"This build has no configured HTTPS support/download page. The app never downloads or installs updates in the background.");
     [alert addButtonWithTitle:AIText(@"完成", @"Done")];
     [NSApp activateIgnoringOtherApps:YES];
     [alert runModal];
@@ -3464,12 +3464,12 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     WKSnapshotConfiguration *configuration = [[WKSnapshotConfiguration alloc] init];
     configuration.afterScreenUpdates = YES;
     [self.webView takeSnapshotWithConfiguration:configuration completionHandler:^(NSImage *image, NSError *error) {
-        if (!image || error) { NSLog(@"Aivulet QA snapshot failed: %@", error); return; }
+        if (!image || error) { NSLog(@"AgentIsland QA snapshot failed: %@", error); return; }
         NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithData:image.TIFFRepresentation];
         NSData *png = [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
         NSString *path = [NSString stringWithFormat:@"/private/tmp/agentisland-%@-qa.png", name];
         [png writeToFile:path atomically:YES];
-        NSLog(@"Aivulet QA snapshot: %@", path);
+        NSLog(@"AgentIsland QA snapshot: %@", path);
     }];
 }
 
@@ -3651,7 +3651,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
             case CKErrorRequestRateLimited:
             case CKErrorZoneBusy:
                 return AIText(@"iCloud 暂时不可用，稍后会在刷新时重试",
-                    @"iCloud is temporarily unavailable; Aivulet will retry on a later refresh.");
+                    @"iCloud is temporarily unavailable; the app will retry on a later refresh.");
             case CKErrorQuotaExceeded:
                 return AIText(@"iCloud 空间不足", @"Your iCloud storage quota is full.");
             default:

@@ -5,7 +5,7 @@
 ## 1. 提交前必须准备
 
 - `[审核联系人姓名、电话、邮箱]`
-- `[最终、已检查冲突的 App Store 展示名]`；当前公开工作名为 `Aivulet`，
+- `[最终、已检查冲突的 App Store 展示名]`；当前公开工作名为 `MAC版灵动岛--Agent运行监测`，
   但仍需完成商店与商标可用性核验。
 - `[正式 iOS App Bundle ID]` 与 `[正式 Widget Bundle ID]`
 - 当前设计使用用户私有 CloudKit；若最终改为其他传输，提交前重写全部相关说明。
@@ -20,11 +20,11 @@ Apple 不应被要求自行安装 Codex/Claude、创建付费 AI API Key、运�
 
 ## 2. English submission draft
 
-Aivulet for iPhone is a companion dashboard for Aivulet on Mac. It displays a privacy-minimized snapshot produced by the Mac app: relevant agents, running-agent count, active-conversation count, state, active time, token usage, tool names, and privacy-preserving conversation placeholders. The current Mac producer leaves the schema's `safeSummary` field empty; it does not derive a task summary from prompts or responses.
+The iPhone companion for MAC版灵动岛--Agent运行监测 displays a privacy-minimized snapshot produced by the Mac app: relevant agents, running-agent count, active-conversation count, state, active time, token usage, tool names, and privacy-preserving conversation placeholders. The current Mac producer leaves the schema's `safeSummary` field empty; it does not derive a task summary from prompts or responses.
 
 This iPhone app does not scan, mount, or browse the Mac filesystem. The sync schema has no fields for prompts, response bodies, API keys, process identifiers, Mac file paths, or workspace paths. Full conversation titles are optional, excluded by default at the Mac source, and hidden again every time the iPhone app starts. Live Activities never contain conversation titles.
 
-There is no separate Aivulet account, purchase, subscription, advertising, analytics SDK, or tracking. The Mac and iPhone must use the same signed-in iCloud account because the summary is stored in that user's private CloudKit database. Private sync is off by default on the Mac and begins only after the user reviews the field scope and expressly opts in. Conversation-title sync is a separate opt-in and remains off by default.
+There is no separate app account, purchase, subscription, advertising, analytics SDK, or tracking. The Mac and iPhone must use the same signed-in iCloud account because the summary is stored in that user's private CloudKit database. Private sync is off by default on the Mac and begins only after the user reviews the field scope and expressly opts in. Conversation-title sync is a separate opt-in and remains off by default.
 
 ### Review setup
 
@@ -33,7 +33,7 @@ Use this review path: `[choose and describe the final review mode or production 
 For the current same-iCloud design:
 
 1. Install the attached/referenced compatible Mac build: `[location and version]`.
-2. Use a review Mac and iPhone signed into the same system iCloud account. Aivulet does not request or receive the Apple Account password; do not include Apple Account credentials in Review Information.
+2. Use a review Mac and iPhone signed into the same system iCloud account. The app does not request or receive the Apple Account password; do not include Apple Account credentials in Review Information.
 3. In the Mac app, open Settings → “iPhone · Private iCloud sync,” turn on “Enable private sync,” review and confirm the exact off-device fields, then select “Sync now.” Do not enable conversation-title sync unless the review case specifically tests the separate sensitive-field consent.
 4. Start the provided non-sensitive sample agent session: `[exact method that does not require the reviewer to buy a service]`.
 5. Pull to refresh on iPhone. The sync header should change from “Mac sync not configured” to the final connected/cached state.
@@ -75,15 +75,15 @@ The App target's `Config/PrivacyInfo.xcprivacy` declares linked Other Usage Data
 
 ### Independence
 
-Aivulet is an independent product and is not affiliated with or endorsed by Apple or any AI/IDE provider. Token values are synchronized from locally available source records on the user's Mac and are not provider billing totals.
+This is an independent product and is not affiliated with or endorsed by Apple or any AI/IDE provider. Token values are synchronized from locally available source records on the user's Mac and are not provider billing totals.
 
 ## 3. 中文对照稿
 
-Aivulet iPhone 版是 Mac 版的伴侣看板，展示由 Mac 生成的隐私化摘要：相关/运行中 Agent 数、活跃对话数、状态、工作时长、Token、工具名和隐私化对话占位。当前 Mac producer 会将 schema 的 `safeSummary` 留空，不会从 prompt 或回复推导任务摘要。
+“MAC版灵动岛--Agent运行监测”的 iPhone 版是 Mac 应用的伴侣看板，展示由 Mac 生成的隐私化摘要：相关/运行中 Agent 数、活跃对话数、状态、工作时长、Token、工具名和隐私化对话占位。当前 Mac producer 会将 schema 的 `safeSummary` 留空，不会从 prompt 或回复推导任务摘要。
 
 iPhone 不扫描、挂载或浏览 Mac 文件系统。同步模型没有 prompt、回复正文、API Key、进程 ID、Mac 文件路径或工作区路径字段。完整对话标题默认在 Mac 端排除；即使用户明确选择同步，iPhone 每次启动也会重新隐藏。Live Activity 永不包含对话标题。
 
-应用没有独立 Aivulet 账号、购买、订阅、广告、分析 SDK 或追踪。Mac 与 iPhone 必须登录同一 iCloud 账户，因为摘要存放在该用户的私有 CloudKit 数据库。Mac 私有同步默认关闭，只有用户阅读离机字段并明确开启后才上传；完整对话标题另需单独明确同意。
+应用没有独立应用账号、购买、订阅、广告、分析 SDK 或追踪。Mac 与 iPhone 必须登录同一 iCloud 账户，因为摘要存放在该用户的私有 CloudKit 数据库。Mac 私有同步默认关闭，只有用户阅读离机字段并明确开启后才上传；完整对话标题另需单独明确同意。
 
 审核设置使用：`[填写最终审核演示模式或生产配对的逐步操作]`。
 

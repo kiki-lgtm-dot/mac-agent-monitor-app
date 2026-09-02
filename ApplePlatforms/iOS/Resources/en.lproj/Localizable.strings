@@ -1,4 +1,4 @@
-"dashboard.title" = "Aivulet";
+"dashboard.title" = "Agent Monitor";
 
 "sync.not_configured" = "Mac sync not configured";
 "sync.connected" = "Synced from Mac";
@@ -26,7 +26,7 @@
 "state.stale" = "Update needed";
 
 "empty.title" = "No synced agents yet";
-"empty.description" = "Use the same iCloud account on Mac and iPhone, enable Private iCloud Sync in Aivulet on Mac, then refresh.";
+"empty.description" = "Use the same iCloud account on Mac and iPhone, enable Private iCloud Sync in the Mac app, then refresh.";
 "action.refresh" = "Refresh";
 
 "privacy.show_titles" = "Show full titles";

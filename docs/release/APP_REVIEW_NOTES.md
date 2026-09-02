@@ -17,13 +17,13 @@
 
 ## English submission draft
 
-Aivulet is a menu-bar/accessory macOS app. It has no Dock icon. On the first GUI launch, it displays a native Local Agent Data Access notice before any Agent-log scan or periodic refresh starts. The reviewer may choose Allow Read-Only Monitoring to continue or Not Now to leave monitoring stopped. A compact panel appears centered at the top of the active display. Hover over the top camera/notch area for approximately 150 ms to expand it. Moving the pointer away collapses it; clicking the panel pins it for interaction. The status-bar menu can also show the panel, move it to the display under the pointer, review the data-access notice, check the configured HTTPS support/download page, refresh data, or quit the app.
+MAC版灵动岛--Agent运行监测 is a menu-bar/accessory macOS app. It has no Dock icon. On the first GUI launch, it displays a native Local Agent Data Access notice before any Agent-log scan or periodic refresh starts. The reviewer may choose Allow Read-Only Monitoring to continue or Not Now to leave monitoring stopped. A compact panel appears centered at the top of the active display. Hover over the top camera/notch area for approximately 150 ms to expand it. Moving the pointer away collapses it; clicking the panel pins it for interaction. The status-bar menu can also show the panel, move it to the display under the pointer, review the data-access notice, check the configured HTTPS support/download page, refresh data, or quit the app.
 
-No separate Aivulet account, purchase, or subscription is required. A separate iOS companion target and Live Activity extension exist in the repository and are not embedded in this macOS binary. The Mac app includes optional private CloudKit sync for that companion. Sync is off by default and requires an explicit disclosure and opt-in; the local monitoring and workspace features can be reviewed without enabling it. This Review Notes draft must be used only after the submitted Mac build has the actual CloudKit entitlement/profile and the matching production container/schema and same-iCloud-account device flow have been verified.
+No separate app account, purchase, or subscription is required. A separate iOS companion target and Live Activity extension exist in the repository and are not embedded in this macOS binary. The Mac app includes optional private CloudKit sync for that companion. Sync is off by default and requires an explicit disclosure and opt-in; the local monitoring and workspace features can be reviewed without enabling it. This Review Notes draft must be used only after the submitted Mac build has the actual CloudKit entitlement/profile and the matching production container/schema and same-iCloud-account device flow have been verified.
 
 ### How to review the core features
 
-1. Launch Aivulet. Review the native data-access notice, then choose “Allow Read-Only Monitoring.” No Agent-log scan or refresh timer starts before this confirmation. Use the status-bar icon to choose “Show Aivulet” if the panel is not already visible.
+1. Launch MAC版灵动岛--Agent运行监测. Review the native data-access notice, then choose “Allow Read-Only Monitoring.” No Agent-log scan or refresh timer starts before this confirmation. Use the status-bar icon to choose “Show Panel” if the panel is not already visible.
 2. Open Monitor. If supported local agent logs are present in an authorized folder, the Live view shows active sessions and the Usage History view shows locally readable session-lifetime token totals. In Settings → Local Data Access, stop monitoring and confirm that periodic reads stop and the current monitoring snapshot clears; turn it back on to continue. The notice remains available from Settings and the status-bar menu.
 3. To review without existing Codex or Claude Code data, open Data Sources, select the custom JSONL option, and choose the review fixture described here: `[exact fixture attachment and steps]`.
 4. The Tools view distinguishes installation, host-process activity, verified agent-session activity, and token telemetry. A running IDE is not represented as an active agent unless session evidence exists.
@@ -49,7 +49,7 @@ The Privacy Policy is available at `[Privacy Policy URL]`. Support is available 
 
 ### Non-obvious UI behavior
 
-- Aivulet uses accessory-app behavior (`LSUIElement`) and intentionally has no Dock icon.
+- MAC版灵动岛--Agent运行监测 uses accessory-app behavior (`LSUIElement`) and intentionally has no Dock icon.
 - The first GUI launch remains in a no-scan state until the reviewer accepts the Local Agent Data Access notice. Declining is a supported state; the notice can be reopened later.
 - Hover temporarily expands without stealing focus; click pins the panel so text fields and buttons can be used.
 - The app refreshes local data periodically only while monitoring is enabled. This is read-only and does not continue as a separate process after the user stops monitoring or quits.
@@ -62,13 +62,13 @@ The app is an independent implementation. It is not affiliated with or endorsed 
 
 ## 中文对照稿
 
-Aivulet 是状态栏/辅助型 macOS 应用，不显示 Dock 图标。首次 GUI 启动会在任何 Agent 日志扫描或刷新定时器开始前显示原生“本机 Agent 数据访问”说明；选择“暂不开始”会保持停止。面板位于当前显示器顶部中央。将鼠标悬停在摄像头/刘海区域约 150 毫秒会展开，移出后收回；点击可固定以便交互。也可通过状态栏菜单显示面板、移动到鼠标所在显示器、重新查看数据访问说明、打开 HTTPS 支持/下载页、刷新或退出。
+MAC版灵动岛--Agent运行监测 是状态栏/辅助型 macOS 应用，不显示 Dock 图标。首次 GUI 启动会在任何 Agent 日志扫描或刷新定时器开始前显示原生“本机 Agent 数据访问”说明；选择“暂不开始”会保持停止。面板位于当前显示器顶部中央。将鼠标悬停在摄像头/刘海区域约 150 毫秒会展开，移出后收回；点击可固定以便交互。也可通过状态栏菜单显示面板、移动到鼠标所在显示器、重新查看数据访问说明、打开 HTTPS 支持/下载页、刷新或退出。
 
-此 macOS 提交无需独立 Aivulet 账号、购买或订阅。仓库另有独立 iOS 伴侣 Target 和 Live Activity Extension，它们不会嵌入此 macOS 二进制。Mac 应用包含为伴侣端提供的可选 CloudKit 私有同步：默认关闭，经离机字段说明和明确同意后才开启，本机监控和工作台无需开启同步即可审核。只有提交构建的真实 CloudKit entitlement/profile、匹配的生产 Container/schema 和同 iCloud 账号真机链路全部验证后，才可使用本审核稿。
+此 macOS 提交无需独立应用账号、购买或订阅。仓库另有独立 iOS 伴侣 Target 和 Live Activity Extension，它们不会嵌入此 macOS 二进制。Mac 应用包含为伴侣端提供的可选 CloudKit 私有同步：默认关闭，经离机字段说明和明确同意后才开启，本机监控和工作台无需开启同步即可审核。只有提交构建的真实 CloudKit entitlement/profile、匹配的生产 Container/schema 和同 iCloud 账号真机链路全部验证后，才可使用本审核稿。
 
 审核步骤：
 
-1. 启动后先查看原生数据访问说明，选择“允许只读监测”。确认前不会扫描 Agent 日志或启动周期刷新。如未看到面板，从状态栏菜单选择“显示 Aivulet”。
+1. 启动后先查看原生数据访问说明，选择“允许只读监测”。确认前不会扫描 Agent 日志或启动周期刷新。如未看到面板，从状态栏菜单选择“显示面板”。
 2. 打开“监控”。若获授权的目录中存在受支持日志，“实时”显示活跃会话，“用量历史”显示本机可读的会话生命周期累计 Token。
 3. 如审核机器没有 Codex 或 Claude Code 数据，在“数据源”中选择自定义 JSONL，并打开审核附件：`[准确的测试文件和操作步骤]`。
 4. “工具”页分别展示安装、宿主运行、可验证会话活动和 Token 遥测，不会仅凭 IDE 运行就声称 Agent 正在工作。

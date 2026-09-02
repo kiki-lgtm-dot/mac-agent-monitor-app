@@ -1,4 +1,4 @@
-# Aivulet 竞品与实现研究
+# MAC版灵动岛--Agent运行监测 竞品与实现研究
 
 ## 1. 研究范围
 
@@ -11,7 +11,7 @@
 
 ## 2. 执行结论
 
-> Aivulet 是面向同时运行多个本地 coding agent 的开发者与 AI 重度用户的 macOS 本地观测台，通过读取已有会话元数据并把实时状态固定在刘海区域，帮助用户完成“谁在工作、工作多久、消耗多少 Token、消耗集中在哪”的判断；差异点是把 CodexBar 的实时会话、CodeBurn 的分析维度与 CodeIsland/TO-DO Panel 的刘海交互合成一条路径。首要原则不是追求最多 Provider，而是保证状态、时长和 Token 口径可信且可解释。
+> MAC版灵动岛--Agent运行监测 是面向同时运行多个本地 coding agent 的开发者与 AI 重度用户的 macOS 本地观测台，通过读取已有会话元数据并把实时状态固定在刘海区域，帮助用户完成“谁在工作、工作多久、消耗多少 Token、消耗集中在哪”的判断；差异点是把 CodexBar 的实时会话、CodeBurn 的分析维度与 CodeIsland/TO-DO Panel 的刘海交互合成一条路径。首要原则不是追求最多 Provider，而是保证状态、时长和 Token 口径可信且可解释。
 
 【分析推断】不存在一个开源项目同时在“实时状态、Token/成本分析、原生刘海交互”三项都领先。最佳方案是组合三种成熟模式，而不是复制一个仓库。
 
@@ -52,7 +52,7 @@
 
 源码中的内容面板会阻止点击冒泡。因此“点击画板收回”应实现为顶部空白/收起手柄、Esc 或点击窗口外部，不能让图表、筛选和 Agent 行任意点击都收回。
 
-原项目的 AI 能力只是完成通知：`127.0.0.1:43821 /notify/{codex,gpt,claude}`，字段只有 taskId/title/project/completedAt，没有运行中状态、心跳、时长或 Token。Aivulet 因而需要独立采集模型，而不是沿用该通知队列。
+原项目的 AI 能力只是完成通知：`127.0.0.1:43821 /notify/{codex,gpt,claude}`，字段只有 taskId/title/project/completedAt，没有运行中状态、心跳、时长或 Token。MAC版灵动岛--Agent运行监测 因而需要独立采集模型，而不是沿用该通知队列。
 
 ## 5. 用户与场景
 
@@ -65,7 +65,7 @@
 
 ## 6. 核心功能判断
 
-Aivulet 采用“采集器 → 统一会话模型 → 本地聚合 → 灵动岛双态 UI”架构。核心不是图表数量，而是 provider/sessionId 联表、重复事件去重和口径标记。
+MAC版灵动岛--Agent运行监测 采用“采集器 → 统一会话模型 → 本地聚合 → 灵动岛双态 UI”架构。核心不是图表数量，而是 provider/sessionId 联表、重复事件去重和口径标记。
 
 | 模块 | 用户怎么用 | 解决的问题 | 优势 | 弱点 | 后续机会 |
 |---|---|---|---|---|---|
@@ -100,20 +100,20 @@ quadrantChart
     quadrant-2 历史刘海
     quadrant-3 历史终端
     quadrant-4 实时菜单栏
-    Aivulet: [0.82, 0.90]
+    MAC版灵动岛: [0.82, 0.90]
     CodeIsland: [0.90, 0.82]
     CodexBar: [0.82, 0.48]
     CodeBurn: [0.38, 0.52]
     ccusage: [0.18, 0.20]
 ```
 
-【分析推断】Aivulet 的机会位于“实时 × 刘海 × 历史分析”的交叉点。CodeIsland 实时更强，CodeBurn 历史维度更全，但二者都没有形成同一页面上的完整闭环。
+【分析推断】MAC版灵动岛--Agent运行监测 的机会位于“实时 × 刘海 × 历史分析”的交叉点。CodeIsland 实时更强，CodeBurn 历史维度更全，但二者都没有形成同一页面上的完整闭环。
 
 ## 9. 能力评分
 
 评分为桌面研究推断，1–5 分，不是统一环境实测 benchmark。
 
-| 维度 | Aivulet | CodexBar | CodeBurn | CodeIsland | VibeCafé |
+| 维度 | MAC版灵动岛 | CodexBar | CodeBurn | CodeIsland | VibeCafé |
 |---|---:|---:|---:|---:|---:|
 | 实时 Agent 状态 | 4 | 5 | 2 | 5 | 1 |
 | Token/缓存拆分 | 4 | 4 | 5 | 1 | 5 |

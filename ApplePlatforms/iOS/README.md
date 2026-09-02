@@ -1,4 +1,4 @@
-# Aivulet iPhone companion source
+# MAC版灵动岛--Agent运行监测 iPhone companion source
 
 This directory contains a directly openable Xcode project for an iPhone
 companion and WidgetKit Live Activity:
@@ -80,9 +80,10 @@ Use Xcode 26 or newer. The project deployment target is iOS 17.0.
 
 1. Open `AgentIsland.xcodeproj`.
 2. Edit `Config/Project.xcconfig` and verify:
-   - `AGENT_ISLAND_DISPLAY_NAME = Aivulet` is available for your target stores
-     and jurisdictions, or replace it with the final cleared name. The Widget
-     display name derives from this value.
+   - `AGENT_ISLAND_DISPLAY_NAME = MAC版灵动岛--Agent运行监测` is available for your target stores
+     and jurisdictions, or replace it with the final cleared name.
+   - `AGENT_ISLAND_WIDGET_DISPLAY_NAME = Agent运行监测` remains short enough for
+     the Widget and Dynamic Island surfaces.
    - `com.example.agentisland` with an App ID registered to your account.
    - `iCloud.com.example.agentisland` with a CloudKit container registered to
      that App ID.
@@ -272,7 +273,7 @@ the separate, deliberate upload step.
 
 ## What remains before TestFlight
 
-- Clear `Aivulet` (or a replacement) for the App Store and relevant trademark
+- Clear `MAC版灵动岛--Agent运行监测` (or a replacement) for the App Store and relevant trademark
   jurisdictions, then keep `AGENT_ISLAND_DISPLAY_NAME` aligned with that name.
 - Replace the placeholder bundle ID and select the paid Apple Developer team.
 - Register production bundle IDs and an iCloud container.

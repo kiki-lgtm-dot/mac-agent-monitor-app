@@ -1,15 +1,15 @@
-# Aivulet Privacy Policy (Draft)
+# MAC版灵动岛--Agent运行监测 Privacy Policy (Draft)
 
 Effective date: [Effective Date: YYYY-MM-DD]
 Developer: [Developer Legal Name]
 Contact email: [Support Email]
 Privacy policy URL: [Privacy Policy URL]
 
-> Publication note: This draft reflects Aivulet 0.6.1 as currently implemented and is not legal advice. Replace every placeholder and review the policy against the shipping build, the final translation-service arrangement, and applicable laws before publication.
+> Publication note: This draft reflects MAC版灵动岛--Agent运行监测 0.6.1 as currently implemented and is not legal advice. Replace every placeholder and review the policy against the shipping build, the final translation-service arrangement, and applicable laws before publication.
 
 ## 1. Scope
 
-This policy applies to Aivulet for macOS and, when offered, its iPhone companion (together, the “App”). The Mac app provides a top-of-screen panel for viewing local AI-agent activity and token usage, along with website shortcuts, notes, and an optional user-initiated translation and learning tool. The iPhone app displays a reduced agent-status summary that the user chooses to sync.
+This policy applies to MAC版灵动岛--Agent运行监测 for macOS and, when offered, its iPhone companion (together, the “App”). The Mac app provides a top-of-screen panel for viewing local AI-agent activity and token usage, along with website shortcuts, notes, and an optional user-initiated translation and learning tool. The iPhone app displays a reduced agent-status summary that the user chooses to sync.
 
 The Mac CloudKit producer and account-isolated iPhone receiver code paths are implemented, and the producer has passed local CLI/regression checks. However, the real Developer ID CloudKit entitlement and provisioning profile, production container/schema, same-iCloud-account Mac-to-iPhone device flow, and submission-ready archive have not all been verified. Sync must not be represented as release-ready until those checks pass. Before publication, this policy must be checked again against the final signed build and App Privacy answers. Third-party AI services, websites, and other applications selected by the user are governed by their own privacy policies.
 
@@ -102,7 +102,7 @@ On-device data remains until the user deletes the relevant content or local file
 - when the user turns off private sync on the Mac, the App immediately stops uploads and requests deletion of the `latest` record from the user's private CloudKit database. Cloud deletion requires iCloud/network availability, so the user should confirm the displayed status or retry if needed. When the iPhone next refreshes and finds that record missing, it clears only the current iCloud account's local cache; and
 - removing the App may leave Application Support files, preferences, and Keychain items in macOS. Users can follow the removal instructions at [Support URL] or contact [Support Email].
 
-Aivulet has no developer-operated account or data server. The developer therefore generally cannot view, export, or delete on-device data or data in a user's private CloudKit database on the user's behalf; users should use the in-app deletion controls and private-sync switch described above.
+The app has no developer-operated account or data server. The developer therefore generally cannot view, export, or delete on-device data or data in a user's private CloudKit database on the user's behalf; users should use the in-app deletion controls and private-sync switch described above.
 
 ## 7. Security
 
@@ -118,7 +118,7 @@ This policy may change as features, laws, or distribution channels change. Mater
 
 ## 10. Contact
 
-Questions about this policy or Aivulet's privacy practices can be directed to:
+Questions about this policy or the app's privacy practices can be directed to:
 
 - Developer: [Developer Legal Name]
 - Email: [Support Email]

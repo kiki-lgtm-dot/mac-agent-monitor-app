@@ -28,6 +28,10 @@ xcconfig_value() {
     "$project_root/Config/Project.xcconfig" | tail -n 1
 }
 
+utf8_character_count() {
+  printf '%s' "$1" | LC_ALL= LC_CTYPE=UTF-8 /usr/bin/wc -m | /usr/bin/tr -d '[:space:]'
+}
+
 production_https_url() {
   local value="$1"
   local authority host normalized_host
@@ -429,12 +433,14 @@ grep -Fq 'IPHONEOS_DEPLOYMENT_TARGET = 17.0' "$project_root/Config/Project.xccon
   || fail "iOS 17 deployment target is missing"
 grep -Fq 'AGENT_ISLAND_DISPLAY_NAME =' "$project_root/Config/Project.xcconfig" \
   || fail "replaceable App Store display-name configuration is missing"
+grep -Fq 'AGENT_ISLAND_WIDGET_DISPLAY_NAME =' "$project_root/Config/Project.xcconfig" \
+  || fail "short Widget display-name configuration is missing"
 grep -Fq '<string>$(AGENT_ISLAND_DISPLAY_NAME)</string>' \
   "$project_root/Config/App-Info.plist" \
   || fail "App CFBundleDisplayName must use AGENT_ISLAND_DISPLAY_NAME"
-grep -Fq '<string>$(AGENT_ISLAND_DISPLAY_NAME) Live Activity</string>' \
+grep -Fq '<string>$(AGENT_ISLAND_WIDGET_DISPLAY_NAME)</string>' \
   "$project_root/Config/Widget-Info.plist" \
-  || fail "Widget CFBundleDisplayName must derive from AGENT_ISLAND_DISPLAY_NAME"
+  || fail "Widget CFBundleDisplayName must use AGENT_ISLAND_WIDGET_DISPLAY_NAME"
 grep -Fq 'CODE_SIGN_ENTITLEMENTS = Config/AgentIslandMobile.entitlements' "$project_file" \
   || fail "App target does not use the CloudKit entitlements file"
 grep -Fq 'AGENT_ISLAND_ICLOUD_CONTAINER_ID = iCloud.' "$project_root/Config/Project.xcconfig" \
@@ -463,12 +469,15 @@ if [ "$require_release_configuration" = true ]; then
   cloud_container_id="$(xcconfig_value AGENT_ISLAND_ICLOUD_CONTAINER_ID)"
   development_team="$(xcconfig_value AGENT_ISLAND_DEVELOPMENT_TEAM)"
   display_name="$(xcconfig_value AGENT_ISLAND_DISPLAY_NAME)"
+  widget_display_name="$(xcconfig_value AGENT_ISLAND_WIDGET_DISPLAY_NAME)"
   display_name_lower="$(printf '%s' "$display_name" | tr '[:upper:]' '[:lower:]')"
+  display_name_character_count="$(utf8_character_count "$display_name")"
+  widget_display_name_character_count="$(utf8_character_count "$widget_display_name")"
   [ -n "$display_name" ] \
     || fail "AGENT_ISLAND_DISPLAY_NAME must contain the final App Store name"
   [ "$display_name_lower" != "agent island" ] \
     || fail "AGENT_ISLAND_DISPLAY_NAME still uses the known-conflicting development name"
-  [ "${#display_name}" -le 30 ] \
+  [ "$display_name_character_count" -le 30 ] \
     || fail "AGENT_ISLAND_DISPLAY_NAME exceeds the App Store 30-character limit"
   [[ "$display_name" != [[:space:]]* && "$display_name" != *[[:space:]] ]] \
     || fail "AGENT_ISLAND_DISPLAY_NAME must not start or end with whitespace"
@@ -477,6 +486,12 @@ if [ "$require_release_configuration" = true ]; then
       fail "AGENT_ISLAND_DISPLAY_NAME must be a resolved, single-line display name"
       ;;
   esac
+  [ -n "$widget_display_name" ] \
+    || fail "AGENT_ISLAND_WIDGET_DISPLAY_NAME must contain a short Widget name"
+  [ "$widget_display_name_character_count" -le 30 ] \
+    || fail "AGENT_ISLAND_WIDGET_DISPLAY_NAME exceeds the 30-character limit"
+  [[ "$widget_display_name" != [[:space:]]* && "$widget_display_name" != *[[:space:]] ]] \
+    || fail "AGENT_ISLAND_WIDGET_DISPLAY_NAME must not start or end with whitespace"
   [[ "$app_bundle_id" =~ ^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$ ]] \
     || fail "AGENT_ISLAND_APP_BUNDLE_ID must be a production reverse-DNS identifier"
   [[ "$app_bundle_id" != com.example.* ]] \
@@ -683,4 +698,4 @@ if [ "$run_build" = true ]; then
   fi
 fi
 
-echo "Aivulet iOS project validation passed."
+echo "MAC版灵动岛--Agent运行监测 iOS project validation passed."

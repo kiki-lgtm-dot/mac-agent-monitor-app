@@ -288,7 +288,7 @@ public enum SnapshotCodecError: LocalizedError, Equatable {
   public var errorDescription: String? {
     switch self {
     case .unsupportedSchema(let version):
-      return "Unsupported Aivulet snapshot schema: \(version)"
+      return "Unsupported Agent monitor snapshot schema: \(version)"
     }
   }
 }

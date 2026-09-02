@@ -1,4 +1,4 @@
-# Aivulet
+# MAC版灵动岛--Agent运行监测
 
 ### Local AI Agent Observatory for macOS
 
@@ -6,9 +6,15 @@
 
 Know which agents are working—without leaving your flow.
 
-Aivulet is a local-first macOS panel that lives around the camera/notch area. Its compact view shows only whether agents are active; hover to reveal live sessions, active time, tool state, and token usage. It also includes quick links, notes, and an optional translation-and-learning workspace.
+**MAC版灵动岛--Agent运行监测** is a local-first macOS panel that lives around the camera/notch area. Its compact view shows only whether agents are active; hover to reveal live sessions, active time, tool state, and token usage. It also includes quick links, notes, and an optional translation-and-learning workspace.
 
-![Aivulet overview](docs/media/aivulet-overview.png)
+### English interface
+
+![MAC版灵动岛--Agent运行监测 English interface](docs/media/mac-agent-monitor-overview-en.png)
+
+### 中文界面
+
+![MAC版灵动岛--Agent运行监测 中文界面](docs/media/mac-agent-monitor-overview-zh.png)
 
 > **Project status:** source preview. The macOS app is usable for local development. The iPhone companion, private CloudKit sync, signing, notarization, and App Store configuration still require your own Apple Developer identifiers and real-device validation.
 
@@ -22,11 +28,11 @@ Aivulet is a local-first macOS panel that lives around the camera/notch area. It
 - **Useful workspace:** quick websites, notes, bilingual UI, translation, one-sentence definitions, breakdowns, examples, and a searchable study book.
 - **Optional companion:** an experimental SwiftUI iPhone dashboard and Live Activity target are included under `ApplePlatforms/iOS`.
 
-![Aivulet compact and expanded states](docs/media/aivulet-states.svg)
+![MAC版灵动岛--Agent运行监测 compact and expanded states](docs/media/mac-agent-monitor-states.svg)
 
 ## Privacy boundary
 
-Aivulet starts local monitoring only after the user accepts a native disclosure.
+The app starts local monitoring only after the user accepts a native disclosure.
 
 - Agent discovery and usage scans are read-only.
 - Prompt and response bodies are not extracted, displayed, or stored.
@@ -69,8 +75,8 @@ Installed software is never treated as proof that an agent is currently working.
 Requirements: macOS 13 or newer, Apple Command Line Tools, and the system `jq` used by the test suite.
 
 ```bash
-git clone https://github.com/kiki-lgtm-dot/aivulet.git
-cd aivulet
+git clone https://github.com/kiki-lgtm-dot/mac-agent-monitor.git
+cd mac-agent-monitor
 ./scripts/build-app.sh
 open dist/AgentIsland.app
 ```
@@ -129,7 +135,7 @@ docs/                   Research, privacy, and release preparation notes
 
 ## Name compatibility
 
-**Aivulet** is the public product name. Some internal identifiers intentionally retain the historical `AgentIsland` prefix, including executable/target names, local storage keys, the `agentisland://` scheme, and the current CloudKit record contract. Renaming them without a migration would break existing local data and companion compatibility.
+**MAC版灵动岛--Agent运行监测** is the public product name. Some internal identifiers intentionally retain the historical `AgentIsland` prefix, including executable/target names, local storage keys, the `agentisland://` scheme, and the current CloudKit record contract. Renaming them without a migration would break existing local data and companion compatibility.
 
 ## Contributing
 
@@ -137,6 +143,6 @@ Bug reports and focused pull requests are welcome. Please do not attach logs or 
 
 ## License and acknowledgements
 
-MIT © 2026 Aivulet contributors. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT © 2026 MAC版灵动岛--Agent运行监测 contributors. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-Aivulet is independent and is not affiliated with or endorsed by Apple, OpenAI, Anthropic, Microsoft, Anysphere, or other tool providers mentioned in this repository.
+This is an independent project and is not affiliated with or endorsed by Apple, OpenAI, Anthropic, Microsoft, Anysphere, or other tool providers mentioned in this repository.

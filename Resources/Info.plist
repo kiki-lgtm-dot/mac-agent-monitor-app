@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleDisplayName</key><string>Aivulet</string>
+  <key>CFBundleDisplayName</key><string>MAC版灵动岛--Agent运行监测</string>
   <key>CFBundleExecutable</key><string>AgentIsland</string>
   <key>CFBundleIdentifier</key><string>local.agentisland.desktop</string>
   <key>CFBundleIconFile</key><string>AgentIsland</string>

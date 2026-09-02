@@ -76,6 +76,7 @@ BUILD_NUMBER="$(setting_value CURRENT_PROJECT_VERSION)"
 APP_BUNDLE_ID="$(setting_value AGENT_ISLAND_APP_BUNDLE_ID)"
 CLOUD_CONTAINER_ID="$(setting_value AGENT_ISLAND_ICLOUD_CONTAINER_ID)"
 DISPLAY_NAME="$(setting_value AGENT_ISLAND_DISPLAY_NAME)"
+WIDGET_DISPLAY_NAME="$(setting_value AGENT_ISLAND_WIDGET_DISPLAY_NAME)"
 
 production_https_url() {
   local value="$1"
@@ -146,8 +147,8 @@ validate_widget_info() {
   [[ "$(/usr/bin/plutil -extract CFBundleVersion raw "$plist" 2>/dev/null)" == "$BUILD_NUMBER" ]] \
     || fail "$label build does not match Project.xcconfig"
   [[ "$(/usr/bin/plutil -extract CFBundleDisplayName raw "$plist" 2>/dev/null)" == \
-      "$DISPLAY_NAME Live Activity" ]] \
-    || fail "$label display name does not derive from AGENT_ISLAND_DISPLAY_NAME"
+      "$WIDGET_DISPLAY_NAME" ]] \
+    || fail "$label display name does not match AGENT_ISLAND_WIDGET_DISPLAY_NAME"
   [[ "$(/usr/bin/plutil -extract NSExtension.NSExtensionPointIdentifier raw "$plist" 2>/dev/null)" == \
       "com.apple.widgetkit-extension" ]] \
     || fail "$label is not a WidgetKit extension"
@@ -217,14 +218,23 @@ extract_profile_entitlements_json() {
     || fail "could not convert provisioning-profile entitlements to JSON"
 }
 
+utf8_character_count() {
+  printf '%s' "$1" | LC_ALL= LC_CTYPE=UTF-8 /usr/bin/wc -m | /usr/bin/tr -d '[:space:]'
+}
+
 [[ ${#TEAM_ID} -eq 10 && "$TEAM_ID" != *[^A-Z0-9]* ]] \
   || fail "Project.xcconfig must contain the production 10-character Team ID"
+DISPLAY_NAME_CHARACTER_COUNT="$(utf8_character_count "$DISPLAY_NAME")"
+WIDGET_DISPLAY_NAME_CHARACTER_COUNT="$(utf8_character_count "$WIDGET_DISPLAY_NAME")"
 [[ -n "$DISPLAY_NAME" && "${DISPLAY_NAME:l}" != "agent island" && \
-  ${#DISPLAY_NAME} -le 30 && "$DISPLAY_NAME" != [[:space:]]* && \
+  "$DISPLAY_NAME_CHARACTER_COUNT" -le 30 && "$DISPLAY_NAME" != [[:space:]]* && \
   "$DISPLAY_NAME" != *[[:space:]] && \
   "$DISPLAY_NAME" != *'$('* && "$DISPLAY_NAME" != *'${'* && \
   "$DISPLAY_NAME" != *$'\n'* && "$DISPLAY_NAME" != *$'\r'* ]] \
   || fail "Project.xcconfig must contain a final, conflict-checked AGENT_ISLAND_DISPLAY_NAME"
+[[ -n "$WIDGET_DISPLAY_NAME" && "$WIDGET_DISPLAY_NAME_CHARACTER_COUNT" -le 30 && \
+  "$WIDGET_DISPLAY_NAME" != [[:space:]]* && "$WIDGET_DISPLAY_NAME" != *[[:space:]] ]] \
+  || fail "Project.xcconfig must contain a short AGENT_ISLAND_WIDGET_DISPLAY_NAME"
 print -r -- "$VERSION" | /usr/bin/grep -Eq '^[0-9]+(\.[0-9]+){1,2}$' \
   || fail "MARKETING_VERSION must contain two or three numeric components"
 print -r -- "$BUILD_NUMBER" | /usr/bin/grep -Eq '^[1-9][0-9]*$' \
@@ -646,7 +656,7 @@ fi
 
 CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
 /usr/bin/jq -n \
-  --arg product "Aivulet iPhone companion" \
+  --arg product "MAC版灵动岛--Agent运行监测 iPhone companion" \
   --arg version "$VERSION" \
   --arg build "$BUILD_NUMBER" \
   --arg archivePath "$ARCHIVE_PATH" \

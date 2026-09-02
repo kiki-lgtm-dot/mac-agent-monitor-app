@@ -6,7 +6,7 @@
 
 | 字段 | 建议值 |
 | --- | --- |
-| App 名称 | Aivulet |
+| App 名称 | MAC版灵动岛--Agent运行监测 |
 | 平台 | macOS |
 | 正式 Bundle ID | `[正式Bundle ID]`（必须替换当前 `local.agentisland.desktop`） |
 | SKU | `[SKU]` |
@@ -26,7 +26,7 @@
 
 ### 名称（最多 30 个字符）
 
-Aivulet
+MAC版灵动岛--Agent运行监测
 
 ### 副标题（最多 30 个字符）
 
@@ -38,7 +38,7 @@ Aivulet
 
 ### 描述（最多 4,000 个字符）
 
-Aivulet 是一个位于 Mac 屏幕顶部的本地 AI Agent 观测与快捷工作台。鼠标悬停即可展开，移出后自动收回；需要持续操作时，也可以点击固定面板。
+MAC版灵动岛--Agent运行监测 是一个位于 Mac 屏幕顶部的本地 AI Agent 观测与快捷工作台。鼠标悬停即可展开，移出后自动收回；需要持续操作时，也可以点击固定面板。
 
 实时掌握正在发生的工作
 • 查看本机发现的 Agent 工具、IDE 宿主与扩展
@@ -59,7 +59,7 @@ Agent 日志解析、Token 聚合、网站清单、备忘录和学习条目均�
 
 Token 数字来自本机仍可读取的结构化日志，可能因工具、日志保留期限和数据质量而不完整，也不代表服务商账单。并非所有已安装工具都会提供会话或 Token 遥测。
 
-需要 macOS 13.0 或更高版本。部分监控功能要求相关 AI 工具已经在本机生成受支持的日志，并需要你授权 Aivulet 读取相应目录。
+需要 macOS 13.0 或更高版本。部分监控功能要求相关 AI 工具已经在本机生成受支持的日志，并需要你授权本应用读取相应目录。
 
 ### 关键词（不超过 100 字节；提交前在 App Store Connect 复核）
 
@@ -76,7 +76,7 @@ Token 数字来自本机仍可读取的结构化日志，可能因工具、日�
 
 ### Name (30 characters maximum)
 
-Aivulet
+MAC版灵动岛--Agent运行监测
 
 ### Subtitle (30 characters maximum)
 
@@ -88,7 +88,7 @@ See active AI agents, conversations, runtime, and locally available token usage 
 
 ### Description (4,000 characters maximum)
 
-Aivulet is a local AI-agent dashboard and compact workspace at the top of your Mac. Hover to reveal the panel and move away to collapse it, or click to keep it open for interaction.
+MAC版灵动岛--Agent运行监测 is a local AI-agent dashboard and compact workspace at the top of your Mac. Hover to reveal the panel and move away to collapse it, or click to keep it open for interaction.
 
 See what is working now
 • Discover supported AI tools, IDE hosts, and extensions on your Mac
@@ -109,7 +109,7 @@ Optional private iPhone sync is off by default. Only after you review the off-de
 
 Token figures come from structured logs still available on the Mac. They may be incomplete because of tool support, log retention, or source quality, and they are not provider billing totals. An installed tool does not necessarily expose conversation or token telemetry.
 
-Requires macOS 13.0 or later. Some monitoring features require supported logs produced by the relevant AI tool and your authorization for Aivulet to read their locations.
+Requires macOS 13.0 or later. Some monitoring features require supported logs produced by the relevant AI tool and your authorization for the app to read their locations.
 
 ### Keywords (100 bytes maximum; recheck in App Store Connect)
 

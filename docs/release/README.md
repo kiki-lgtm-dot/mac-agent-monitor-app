@@ -1,8 +1,8 @@
-# Aivulet 上线材料索引
+# MAC版灵动岛--Agent运行监测 上线材料索引
 
 > 状态：草案。生成日期：2026-09-01。以下文件不能在保留占位符的情况下直接发布或提交 App Review。
 
-本目录以 Aivulet 0.6.1（Build 8）的 macOS 实现和 `ApplePlatforms/iOS` 中的 iPhone 伴侣工程为准，覆盖 macOS 直接分发、Mac App Store、iOS App Store 与 TestFlight 准备。仓库现已包含 Mac CloudKit 隐私化快照 producer、SwiftUI iPhone 看板、Widget/Live Activity Extension、按 iCloud 账号隔离的私有 CloudKit receiver/离线缓存、App 与 Widget 独立 Privacy Manifest、可直接打开的 Xcode 工程、App Icon 和只归档/可选导出但不上传的 `scripts/release-ios.sh`，且 producer 的本地 CLI/回归验证已通过。但正式 Team/Bundle/Container ID、Mac 端真实 Developer ID CloudKit entitlement 与 provisioning profile、Production schema、同一 iCloud 账号的 Mac→iPhone 真机验证、完整 Xcode+iOS SDK 编译及可提交 Archive 仍未完成，因此不能宣称当前同步已具备上线条件。
+本目录以 MAC版灵动岛--Agent运行监测 0.6.1（Build 8）的 macOS 实现和 `ApplePlatforms/iOS` 中的 iPhone 伴侣工程为准，覆盖 macOS 直接分发、Mac App Store、iOS App Store 与 TestFlight 准备。仓库现已包含 Mac CloudKit 隐私化快照 producer、SwiftUI iPhone 看板、Widget/Live Activity Extension、按 iCloud 账号隔离的私有 CloudKit receiver/离线缓存、App 与 Widget 独立 Privacy Manifest、可直接打开的 Xcode 工程、App Icon 和只归档/可选导出但不上传的 `scripts/release-ios.sh`，且 producer 的本地 CLI/回归验证已通过。但正式 Team/Bundle/Container ID、Mac 端真实 Developer ID CloudKit entitlement 与 provisioning profile、Production schema、同一 iCloud 账号的 Mac→iPhone 真机验证、完整 Xcode+iOS SDK 编译及可提交 Archive 仍未完成，因此不能宣称当前同步已具备上线条件。
 
 ## 文件
 

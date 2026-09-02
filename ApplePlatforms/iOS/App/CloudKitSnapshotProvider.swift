@@ -218,7 +218,7 @@ public enum CloudKitSnapshotError: LocalizedError, Sendable {
     case .unexpectedRecordType(let expected, let actual):
       return "Expected CloudKit record type \(expected), received \(actual)."
     case .accountUnavailable:
-      return "Sign in to iCloud to load the synced Aivulet snapshot."
+      return "Sign in to iCloud to load the synced app snapshot."
     case .accountChanged:
       return "The iCloud account changed while the snapshot was loading. Refresh and try again."
     }

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'" />
-  <title>Aivulet</title>
+  <title>MAC版灵动岛--Agent运行监测</title>
   <style>
     :root {
       color-scheme: dark;
@@ -101,7 +101,7 @@
       position:absolute;
       inset:0;
       display:grid;
-      grid-template-columns:196px minmax(0,1fr);
+      grid-template-columns:220px minmax(0,1fr);
       overflow:hidden;
       background:var(--bg);
       border:1px solid rgba(255,255,255,.1);
@@ -144,9 +144,9 @@
     .brand {
       display:flex;
       align-items:center;
-      gap:12px;
+      gap:10px;
       min-height:48px;
-      padding:0 8px 28px;
+      padding:0 4px 28px;
     }
     .brand-icon {
       width:42px;
@@ -160,13 +160,24 @@
       font-size:20px;
       font-weight:900;
     }
-    .brand strong { display:block; font-size:18px; white-space:nowrap; }
+    .brand > span:last-child { min-width:0; overflow:hidden; }
+    .brand strong {
+      display:block;
+      overflow:hidden;
+      font-size:17px;
+      white-space:nowrap;
+      text-overflow:ellipsis;
+    }
     .brand small {
       display:block;
+      overflow:hidden;
       margin-top:3px;
       color:rgba(61,238,179,.76);
       font-size:14px;
       font-weight:750;
+      letter-spacing:.25px;
+      white-space:nowrap;
+      text-overflow:ellipsis;
     }
     nav { display:grid; gap:8px; }
     .nav-btn {
@@ -1160,18 +1171,18 @@
   </style>
 </head>
 <body class="collapsed">
-  <button id="compact" aria-label="展开 Aivulet" aria-controls="dashboard" aria-expanded="false" aria-hidden="false">
+  <button id="compact" aria-label="展开 MAC版灵动岛--Agent运行监测" aria-controls="dashboard" aria-expanded="false" aria-hidden="false">
     <span class="compact-status" id="compactStatus" aria-live="polite">正在检查 Agent…</span>
   </button>
 
   <section id="dashboard" aria-hidden="true" inert>
-    <button class="notch-handle" data-action="collapse" aria-label="收回 Aivulet" title="收回">
+    <button class="notch-handle" data-action="collapse" data-i18n-aria-label="collapsePanel" data-i18n-title="collapse" aria-label="收回面板" title="收回">
       <span class="notch-dot" id="notchDot"></span><span class="notch-bar"></span><span class="notch-arrow">⌃</span>
     </button>
     <aside>
       <div class="brand">
         <span class="brand-icon">⌁</span>
-        <span><strong>Aivulet</strong><small>LOCAL AGENT OBSERVATORY</small></span>
+        <span><strong>MAC版灵动岛</strong><small>AGENT 运行监测</small></span>
       </div>
       <nav aria-label="主导航">
         <button class="nav-btn active" data-tab="monitor"><span class="nav-icon">●</span><span class="nav-label" data-i18n="monitor">监控</span><span class="nav-count" id="navActive" hidden>0</span></button>
@@ -1189,7 +1200,7 @@
           <p><span class="live-tiny"></span><span id="scanTime" aria-live="polite">正在连接本地数据</span></p>
         </div>
         <div class="header-spacer"></div>
-        <button class="icon-btn" data-action="collapse" aria-label="收回 Aivulet" title="收回">↗</button>
+        <button class="icon-btn" data-action="collapse" data-i18n-aria-label="collapsePanel" data-i18n-title="collapse" aria-label="收回面板" title="收回">↗</button>
       </header>
 
       <div class="viewport">
@@ -1459,7 +1470,7 @@
         <button class="ghost-btn" id="deepSeekTermsButton" type="button" data-action="openExternalPolicy" data-i18n="deepSeekOpenPlatformTerms">DeepSeek 开放平台协议</button>
       </div>
       <div class="consent-links">
-        <button class="ghost-btn" id="translationAppPrivacyButton" type="button" data-action="openReleaseLink" data-kind="privacyPolicy" data-i18n="agentIslandPrivacyPolicy">Aivulet 隐私政策</button>
+        <button class="ghost-btn" id="translationAppPrivacyButton" type="button" data-action="openReleaseLink" data-kind="privacyPolicy" data-i18n="agentIslandPrivacyPolicy">MAC版灵动岛--Agent运行监测 隐私政策</button>
       </div>
       <p class="consent-risk" data-i18n="translationConsentAuthority">继续即确认你有权发送当前内容；请勿提交敏感、受监管或无权披露的信息。</p>
       <div class="consent-actions">
@@ -1477,7 +1488,7 @@
         zh:{
           monitor:"监控",workspace:"工作台",translateLearn:"翻译学习",settings:"设置",localOnly:"本地工作台",
           connecting:"正在连接本地数据",updatedAt:"更新于 {time}",reading:"正在读取本机 Agent",
-          compactWorking:"{agents} 个 Agent 工作中",compactIdle:"暂无 Agent 工作",compactReading:"正在检查 Agent…",compactMonitoringOff:"监测已关闭",compactExpandLabel:"{status}；悬浮或点击展开",
+          compactWorking:"{agents} 个 Agent 工作中",compactIdle:"暂无 Agent 工作",compactReading:"正在检查 Agent…",compactMonitoringOff:"监测已关闭",compactExpandLabel:"{status}；悬浮或点击展开",collapsePanel:"收回面板",collapse:"收回",
           activeTokens:"活跃 Token",agentsAndConversations:"{agents} 个 Agent · {conversations} 个对话",
           toolsAndComponents:"{tools} 个工具 · {components} 个 Agent 组件",clickToExpand:"点击展开",
           agentComponents:"Agent 组件",tools:"本机工具",runningTools:"运行工具",executingAgents:"执行中 Agent",
@@ -1513,7 +1524,7 @@
           translationConsentEyebrow:"离机传输确认",translationConsentTitle:"翻译文本将离开这台 Mac",
           translationConsentDeepSeek:"是否允许将当前输入发送至 {destination}？\n\nDeepSeek 的公开政策称，其所覆盖的个人信息在中华人民共和国境内处理/存储，输入可能用于模型训练和服务优化；但该政策明确不说明下游应用终端用户的具体处理规则，公开资料也没有给出固定的 API 请求保留期或不训练承诺。请先查看政策，再决定是否发送。",
           translationConsentCustom:"是否允许将当前输入发送至 {destination} 进行翻译或解析？该服务可能接收提交文本、IP 地址与请求元数据，并按其自己的条款保留或处理。请先核对该服务的隐私政策。",
-          deepSeekPrivacyPolicy:"DeepSeek 隐私政策",deepSeekOpenPlatformTerms:"DeepSeek 开放平台协议",agentIslandPrivacyPolicy:"Aivulet 隐私政策",
+          deepSeekPrivacyPolicy:"DeepSeek 隐私政策",deepSeekOpenPlatformTerms:"DeepSeek 开放平台协议",agentIslandPrivacyPolicy:"MAC版灵动岛--Agent运行监测 隐私政策",
           translationConsentAuthority:"继续即确认你有权发送当前内容；请勿提交敏感、受监管或无权披露的信息。",translationConsentCancel:"暂不发送",translationConsentContinue:"同意并发送",
           autoDetect:"自动识别",translationPlaceholder:"输入要翻译或学习的中文 / English",
           translateOnly:"仅翻译",analyzeForLearning:"学习解析",result:"结果",copy:"复制",saveToStudy:"存入学习本",
@@ -1552,7 +1563,7 @@
         en:{
           monitor:"Monitor",workspace:"Workspace",translateLearn:"Translate & Learn",settings:"Settings",localOnly:"Local workspace",
           connecting:"Connecting to local data",updatedAt:"Updated {time}",reading:"Reading local Agents",
-          compactWorking:"{agents} Agents active",compactIdle:"No Agents active",compactReading:"Checking Agents…",compactMonitoringOff:"Monitoring off",compactExpandLabel:"{status}; hover or click to expand",
+          compactWorking:"{agents} Agents active",compactIdle:"No Agents active",compactReading:"Checking Agents…",compactMonitoringOff:"Monitoring off",compactExpandLabel:"{status}; hover or click to expand",collapsePanel:"Collapse panel",collapse:"Collapse",
           activeTokens:"Active Tokens",agentsAndConversations:"{agents} Agents · {conversations} conversations",
           toolsAndComponents:"{tools} tools · {components} Agent components",clickToExpand:"Click to expand",
           agentComponents:"Agent components",tools:"Local tools",runningTools:"Running tools",executingAgents:"Executing Agents",
@@ -1588,7 +1599,7 @@
           translationConsentEyebrow:"Off-device transfer",translationConsentTitle:"Translation text will leave this Mac",
           translationConsentDeepSeek:"Allow the current input to be sent to {destination}?\n\nDeepSeek's public policy says the personal data it covers is processed/stored in the People's Republic of China and inputs may be used for model training and service improvement. That policy expressly does not describe the specific processing rules for end users of downstream apps, and the public materials provide no fixed API-request retention period or no-training commitment. Review the policies before deciding whether to send.",
           translationConsentCustom:"Allow the current input to be sent to {destination} for translation or analysis? That service may receive the submitted text, IP address, and request metadata and may retain or process them under its own terms. Review the provider's privacy policy first.",
-          deepSeekPrivacyPolicy:"DeepSeek privacy policy",deepSeekOpenPlatformTerms:"DeepSeek Open Platform terms",agentIslandPrivacyPolicy:"Aivulet privacy policy",
+          deepSeekPrivacyPolicy:"DeepSeek privacy policy",deepSeekOpenPlatformTerms:"DeepSeek Open Platform terms",agentIslandPrivacyPolicy:"App privacy policy",
           translationConsentAuthority:"By continuing, you confirm that you are authorized to send this content. Do not submit sensitive, regulated, or unauthorized information.",translationConsentCancel:"Do not send",translationConsentContinue:"Agree and send",
           autoDetect:"Auto detect",translationPlaceholder:"Enter Chinese or English to translate or learn",
           translateOnly:"Translate only",analyzeForLearning:"Learning analysis",result:"Result",copy:"Copy",saveToStudy:"Save to study book",
@@ -2055,6 +2066,7 @@
         $$("[data-i18n]").forEach(function(node){ node.textContent=t(node.dataset.i18n); });
         $$("[data-i18n-placeholder]").forEach(function(node){ node.placeholder=t(node.dataset.i18nPlaceholder); });
         $$("[data-i18n-aria-label]").forEach(function(node){ node.setAttribute("aria-label",t(node.dataset.i18nAriaLabel)); });
+        $$("[data-i18n-title]").forEach(function(node){ node.setAttribute("title",t(node.dataset.i18nTitle)); });
         $$(".language-picker button").forEach(function(button){
           var active=button.dataset.language===state.language;
           button.classList.toggle("active",active);
@@ -2988,7 +3000,7 @@
             }
             persistWorkspaceEnvelope();
             updateWorkspaceSaveState();
-            console.warn("Aivulet workspace save failed");
+            console.warn("Agent monitor workspace save failed");
           } else {
             if(responseRevision>=state.workspaceRevision&&pendingRevision===state.workspaceRevision){
               state.workspaceRevision=responseRevision||state.workspaceRevision;

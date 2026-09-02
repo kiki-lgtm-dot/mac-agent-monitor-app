@@ -1,4 +1,4 @@
-# Aivulet
+# MAC版灵动岛--Agent运行监测
 
 ### 本地 AI Agent 观测台
 
@@ -6,9 +6,15 @@
 
 不切窗口，也知道哪些 Agent 正在工作。
 
-Aivulet 是一款驻留在 Mac 摄像头/刘海区域的本地优先面板。折叠时只显示 Agent 是否在工作；鼠标悬停后展开实时看板，查看相关工具、运行中的 Agent、对话、工作时长和 Token 用量。它还提供常用网站、备忘录以及可选的翻译学习器。
+**MAC版灵动岛--Agent运行监测** 是一款驻留在 Mac 摄像头/刘海区域的本地优先面板。折叠时只显示 Agent 是否在工作；鼠标悬停后展开实时看板，查看相关工具、运行中的 Agent、对话、工作时长和 Token 用量。它还提供常用网站、备忘录以及可选的翻译学习器。
 
-![Aivulet 功能总览](docs/media/aivulet-overview.png)
+### 中文界面
+
+![MAC版灵动岛--Agent运行监测 中文界面](docs/media/mac-agent-monitor-overview-zh.png)
+
+### English interface
+
+![MAC版灵动岛--Agent运行监测 English interface](docs/media/mac-agent-monitor-overview-en.png)
 
 > **当前状态：**源码预览版。macOS 版可供本地构建使用；iPhone 伴侣、私有 CloudKit 同步、正式签名、公证和 App Store 配置仍需使用你自己的 Apple Developer 标识并完成真机验证。
 
@@ -22,11 +28,11 @@ Aivulet 是一款驻留在 Mac 摄像头/刘海区域的本地优先面板。折
 - **快捷工作台：**常用网站、备忘录、中英文界面、翻译、单句定义、拆解、例句和可搜索学习本。
 - **可选手机伴侣：**`ApplePlatforms/iOS` 中包含实验性的 SwiftUI 看板和 Live Activity Target。
 
-![Aivulet 折叠与展开状态](docs/media/aivulet-states.svg)
+![MAC版灵动岛--Agent运行监测 折叠与展开状态](docs/media/mac-agent-monitor-states.svg)
 
 ## 隐私边界
 
-Aivulet 只有在用户确认原生说明后才开始本地监测。
+本应用只有在用户确认原生说明后才开始本地监测。
 
 - Agent 发现与用量扫描只读，不修改第三方日志。
 - 不提取、展示或保存 prompt 与回复正文。
@@ -69,8 +75,8 @@ macOS 外壳使用 AppKit 和 `WKWebView`，不依赖 Electron 或第三方运�
 要求：macOS 13 或更高版本、Apple Command Line Tools，以及测试脚本使用的系统 `jq`。
 
 ```bash
-git clone https://github.com/kiki-lgtm-dot/aivulet.git
-cd aivulet
+git clone https://github.com/kiki-lgtm-dot/mac-agent-monitor.git
+cd mac-agent-monitor
 ./scripts/build-app.sh
 open dist/AgentIsland.app
 ```
@@ -129,7 +135,7 @@ docs/                   研究、隐私与上线准备材料
 
 ## 名称兼容
 
-**Aivulet** 是公开产品名。部分内部标识会继续保留历史 `AgentIsland` 前缀，包括可执行文件/Target、存储键、`agentisland://` Scheme 和当前 CloudKit 记录契约。直接全局改名会破坏旧数据与伴侣端兼容，因此需要单独的迁移版本。
+**MAC版灵动岛--Agent运行监测** 是公开产品名。部分内部标识会继续保留历史 `AgentIsland` 前缀，包括可执行文件/Target、存储键、`agentisland://` Scheme 和当前 CloudKit 记录契约。直接全局改名会破坏旧数据与伴侣端兼容，因此需要单独的迁移版本。
 
 ## 参与贡献
 
@@ -137,6 +143,6 @@ docs/                   研究、隐私与上线准备材料
 
 ## 许可与致谢
 
-MIT © 2026 Aivulet contributors。详见 [LICENSE](LICENSE) 和 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+MIT © 2026 MAC版灵动岛--Agent运行监测 contributors。详见 [LICENSE](LICENSE) 和 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-Aivulet 是独立项目，与 Apple、OpenAI、Anthropic、Microsoft、Anysphere 及仓库中提到的其他工具供应商均无隶属或背书关系。
+本项目独立开发，与 Apple、OpenAI、Anthropic、Microsoft、Anysphere 及仓库中提到的其他工具供应商均无隶属或背书关系。

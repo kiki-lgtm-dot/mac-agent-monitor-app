@@ -1,6 +1,6 @@
-# Contributing to Aivulet
+# Contributing to MAC版灵动岛--Agent运行监测
 
-Thanks for helping improve Aivulet.
+Thanks for helping improve MAC版灵动岛--Agent运行监测.
 
 1. Open an issue for behavior changes or new data-source adapters before a large pull request.
 2. Keep monitoring read-only and preserve the distinction between tool state, agent activity, and measurable token evidence.

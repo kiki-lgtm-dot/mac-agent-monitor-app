@@ -15,7 +15,7 @@ node "$VALIDATOR" >"$RESULT"
   .icons.ready == true and
   (.metadata | length == 4) and
   (.metadata | all(
-    .measurements.name.value == "Aivulet" and
+    .measurements.name.value == "MAC版灵动岛--Agent运行监测" and
     .measurements.name.measured >= 2 and .measurements.name.measured <= 30 and
     .measurements.subtitle.measured <= 30 and
     .measurements.promotionalText.measured <= 170 and

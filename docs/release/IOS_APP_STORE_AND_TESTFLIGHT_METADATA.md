@@ -6,7 +6,7 @@
 
 | 字段 | 建议值 |
 | --- | --- |
-| App 名称 | Aivulet |
+| App 名称 | MAC版灵动岛--Agent运行监测 |
 | 平台 | iOS |
 | iOS Bundle ID | `[正式iOS Bundle ID]`（替换 `com.example.agentisland`） |
 | Widget Bundle ID | `[正式iOS Widget Bundle ID]`（建议为 App ID + `.liveactivity`） |
@@ -31,7 +31,7 @@
 
 ### 名称（最多 30 个字符）
 
-Aivulet
+MAC版灵动岛--Agent运行监测
 
 ### 副标题（最多 30 个字符）
 
@@ -43,7 +43,7 @@ Mac AI Agent 随身看板
 
 ### 描述（最多 4,000 个字符）
 
-Aivulet for iPhone 是 Mac 版 Aivulet 的隐私优先伴侣看板。在 Mac 与 iPhone 使用同一 iCloud 账户并启用同步后，无需回到电脑前，也能查看经过精简的 AI Agent 工作摘要。
+“MAC版灵动岛--Agent运行监测”的 iPhone 伴侣版是一款隐私优先看板。在 Mac 与 iPhone 使用同一 iCloud 账户并启用同步后，无需回到电脑前，也能查看经过精简的 AI Agent 工作摘要。
 
 刷新查看运行状态
 • 查看相关 Agent、正在运行数量和活跃对话数量
@@ -65,7 +65,7 @@ iPhone 不会直接读取或浏览 Mac 文件。Mac 私有同步默认关闭，�
 
 Token 来自 Mac 端可验证的本地数据源摘要，可能受工具支持、日志保留和来源质量影响，不代表服务商账单。
 
-需要 iOS 17.0 或更高版本，并需要安装兼容的 Mac 版 Aivulet，在两台设备使用同一 iCloud 账户并启用同步。没有同步时，iPhone 会显示明确的未配置状态，不会生成或猜测 Agent 数据。
+需要 iOS 17.0 或更高版本，并需要安装兼容的 Mac 版应用，在两台设备使用同一 iCloud 账户并启用同步。没有同步时，iPhone 会显示明确的未配置状态，不会生成或猜测 Agent 数据。
 
 ### 关键词（不超过 100 字节；提交前复核）
 
@@ -83,7 +83,7 @@ Token 来自 Mac 端可验证的本地数据源摘要，可能受工具支持、
 
 ### Name (30 characters maximum)
 
-Aivulet
+MAC版灵动岛--Agent运行监测
 
 ### Subtitle (30 characters maximum)
 
@@ -95,7 +95,7 @@ Enable private sync on Mac, then refresh iPhone to see agents, conversations, ti
 
 ### Description (4,000 characters maximum)
 
-Aivulet for iPhone is a privacy-first companion dashboard for Aivulet on Mac. After enabling sync under the same iCloud account on both devices, it lets you check a minimized summary of AI-agent activity without returning to your computer.
+The iPhone companion for MAC版灵动岛--Agent运行监测 is a privacy-first dashboard. After enabling sync under the same iCloud account on both devices, it lets you check a minimized summary of AI-agent activity without returning to your computer.
 
 See current activity
 • View relevant agents, running-agent count, and active-conversation count
@@ -117,7 +117,7 @@ The iPhone app never browses or reads files on your Mac. Private sync is off by 
 
 Token values come from verifiable local-source summaries on the Mac. They may be incomplete because of tool support, log retention, or source quality and are not provider billing totals.
 
-Requires iOS 17.0 or later, a compatible Aivulet app on Mac, and sync enabled under the same iCloud account on both devices. When sync is not configured, the iPhone shows a clear empty state and never invents agent data.
+Requires iOS 17.0 or later, the compatible Mac app, and sync enabled under the same iCloud account on both devices. When sync is not configured, the iPhone shows a clear empty state and never invents agent data.
 
 ### Keywords (100 bytes maximum; recheck before submission)
 
@@ -149,11 +149,11 @@ AI monitor,token usage,developer tools,Live Activity,Mac companion,productivity
 
 ### Beta App Description — 简体中文
 
-Aivulet iPhone Beta 是 Mac Agent 状态的隐私化伴侣看板。在 Mac 与 iPhone 使用同一 iCloud 账户，并在 Mac 上阅读范围后明确开启私有同步，可查看运行中 Agent、活跃对话、工作时长和 Token 摘要，并测试锁屏 Live Activity 与灵动岛。同步摘要不包含 prompt、任务摘要、回复、模型名、API Key、备忘录、翻译内容或 Mac 路径，完整对话标题默认不发送且每次启动重新隐藏。Live Activity 仅在 App 启动、回前台或手动刷新时更新。
+MAC版灵动岛--Agent运行监测 iPhone Beta 是 Mac Agent 状态的隐私化伴侣看板。在 Mac 与 iPhone 使用同一 iCloud 账户，并在 Mac 上阅读范围后明确开启私有同步，可查看运行中 Agent、活跃对话、工作时长和 Token 摘要，并测试锁屏 Live Activity 与灵动岛。同步摘要不包含 prompt、任务摘要、回复、模型名、API Key、备忘录、翻译内容或 Mac 路径，完整对话标题默认不发送且每次启动重新隐藏。Live Activity 仅在 App 启动、回前台或手动刷新时更新。
 
 ### Beta App Description — English
 
-Aivulet for iPhone Beta is a privacy-minimized companion for Mac agent status. After reviewing the scope and expressly enabling private sync on a Mac that uses the same iCloud account, it shows running agents, active conversations, active time, and token summaries and lets testers exercise the Lock Screen Live Activity and Dynamic Island. Synced summaries exclude prompts, task summaries, responses, model names, API keys, notes, translation content, and Mac paths. Full titles are excluded by default and hidden again on every launch. Live Activity updates occur only on app launch, foreground return, or manual refresh.
+MAC版灵动岛--Agent运行监测 for iPhone Beta is a privacy-minimized companion for Mac agent status. After reviewing the scope and expressly enabling private sync on a Mac that uses the same iCloud account, it shows running agents, active conversations, active time, and token summaries and lets testers exercise the Lock Screen Live Activity and Dynamic Island. Synced summaries exclude prompts, task summaries, responses, model names, API keys, notes, translation content, and Mac paths. Full titles are excluded by default and hidden again on every launch. Live Activity updates occur only on app launch, foreground return, or manual refresh.
 
 ### What to Test — 简体中文
 

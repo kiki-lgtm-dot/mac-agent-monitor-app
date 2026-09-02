@@ -1,6 +1,7 @@
 // Public display name. Internal AgentIsland target, storage, URL-scheme, and
 // CloudKit identifiers stay unchanged until a compatibility migration exists.
-AGENT_ISLAND_DISPLAY_NAME = Aivulet
+AGENT_ISLAND_DISPLAY_NAME = MAC版灵动岛--Agent运行监测
+AGENT_ISLAND_WIDGET_DISPLAY_NAME = Agent运行监测
 
 // Replace these identifiers with values registered to your Apple account.
 AGENT_ISLAND_APP_BUNDLE_ID = com.example.agentisland

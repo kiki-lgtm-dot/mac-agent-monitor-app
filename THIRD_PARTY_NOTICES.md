@@ -2,9 +2,9 @@
 
 ## TO-DO Panel
 
-Aivulet references the interaction and behavior patterns of [TO-DO Panel](https://github.com/xiaopu-ai/TO-DO-Panel) v1.0.5 at commit [`e69cccaa27dd13333f6eeee483ac9187bade2299`](https://github.com/xiaopu-ai/TO-DO-Panel/tree/e69cccaa27dd13333f6eeee483ac9187bade2299), including its expandable notch workspace, quick links, and notes workflow.
+MAC版灵动岛--Agent运行监测 references the interaction and behavior patterns of [TO-DO Panel](https://github.com/xiaopu-ai/TO-DO-Panel) v1.0.5 at commit [`e69cccaa27dd13333f6eeee483ac9187bade2299`](https://github.com/xiaopu-ai/TO-DO-Panel/tree/e69cccaa27dd13333f6eeee483ac9187bade2299), including its expandable notch workspace, quick links, and notes workflow.
 
-Aivulet is an independent AppKit/WKWebView implementation. It does not copy or redistribute the TO-DO Panel name, logo, screenshots, photography, or other brand assets. This notice preserves the upstream attribution and license for any behavior, structure, or implementation ideas considered during development; it does not imply endorsement by or affiliation with the TO-DO Panel contributors.
+MAC版灵动岛--Agent运行监测 is an independent AppKit/WKWebView implementation. It does not copy or redistribute the TO-DO Panel name, logo, screenshots, photography, or other brand assets. This notice preserves the upstream attribution and license for any behavior, structure, or implementation ideas considered during development; it does not imply endorsement by or affiliation with the TO-DO Panel contributors.
 
 TO-DO Panel is licensed under the MIT License:
 

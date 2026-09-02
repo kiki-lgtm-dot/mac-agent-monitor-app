@@ -73,10 +73,16 @@ production_team_id() {
   [[ "$1" == [A-Z0-9]## && ${#1} -eq 10 && "${1:l}" != *placeholder* ]]
 }
 
+utf8_character_count() {
+  printf '%s' "$1" | LC_ALL= LC_CTYPE=UTF-8 /usr/bin/wc -m | /usr/bin/tr -d '[:space:]'
+}
+
 production_display_name() {
   local value="$1"
   local comparison
-  (( ${#value} >= 2 && ${#value} <= 30 )) || return 1
+  local character_count
+  character_count="$(utf8_character_count "$value")"
+  (( character_count >= 2 && character_count <= 30 )) || return 1
   [[ "$value" != [[:space:]]* && "$value" != *[[:space:]] && "$value" != *[[:cntrl:]]* ]] || return 1
   comparison="$(print -rn -- "$value" | /usr/bin/tr -cd '[:alnum:]' | /usr/bin/tr '[:upper:]' '[:lower:]')"
   [[ "$comparison" != "agentisland" && "$comparison" != "tasklume" ]]

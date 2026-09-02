@@ -1,4 +1,4 @@
-"dashboard.title" = "Aivulet";
+"dashboard.title" = "Agent运行监测";
 
 "sync.not_configured" = "尚未配置 Mac 同步";
 "sync.connected" = "已从 Mac 同步";
@@ -26,7 +26,7 @@
 "state.stale" = "等待更新";
 
 "empty.title" = "还没有同步的 Agent";
-"empty.description" = "请让 Mac 和 iPhone 登录同一 iCloud 账号，在 Mac 版 Aivulet 中开启“iCloud 私有同步”，再进行刷新。";
+"empty.description" = "请让 Mac 和 iPhone 登录同一 iCloud 账号，在 Mac 版应用中开启“iCloud 私有同步”，再进行刷新。";
 "action.refresh" = "刷新";
 
 "privacy.show_titles" = "显示完整标题";
