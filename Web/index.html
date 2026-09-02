@@ -1,0 +1,3315 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'" />
+  <title>Aivulet</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg:#090a0c;
+      --card:#18181c;
+      --surface:#111216;
+      --surface-2:#202126;
+      --line:#303137;
+      --text:#f7f7f8;
+      --muted:#a9a9b2;
+      --dim:#7d7d87;
+      --mint:#3deeb3;
+      --blue:#6aa9ff;
+      --orange:#fb923c;
+      --yellow:#f5c451;
+      --red:#f87171;
+      --fs-caption:14px;
+      --fs-body:16px;
+      --fs-emphasis:18px;
+      --fs-section:22px;
+      --fs-title:30px;
+      --fs-metric:34px;
+    }
+    * { box-sizing:border-box; }
+    html,body {
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      background:transparent;
+      color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue",sans-serif;
+      font-size:var(--fs-body);
+      -webkit-font-smoothing:antialiased;
+      user-select:none;
+    }
+    button,input,textarea,select { font:inherit; color:inherit; }
+    input,textarea { user-select:text; }
+    button { border:0; cursor:pointer; }
+    button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible {
+      outline:3px solid rgba(61,238,179,.8);
+      outline-offset:2px;
+    }
+    button:disabled { cursor:not-allowed; opacity:.55; }
+    [hidden] { display:none!important; }
+
+    #compact {
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 12px;
+      color:var(--text);
+      background:#000;
+      border:0;
+      border-radius:17px;
+      box-shadow:none;
+      overflow:hidden;
+      transition:opacity .16s ease,transform .25s cubic-bezier(.2,.8,.2,1);
+    }
+    .collapsed #dashboard {
+      opacity:0;
+      pointer-events:none;
+      visibility:hidden;
+      transform:scale(.96);
+      transform-origin:top center;
+      transition:opacity .18s ease,transform .28s ease,visibility 0s linear .28s;
+    }
+    .expanded #compact {
+      opacity:0;
+      pointer-events:none;
+      visibility:hidden;
+      transform:scale(.86);
+      transition:opacity .16s ease,transform .25s ease,visibility 0s linear .16s;
+    }
+    .compact-status {
+      display:block;
+      max-width:196px;
+      text-align:center;
+      color:#9898a1;
+      font-size:14px;
+      font-weight:650;
+      line-height:1;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    #compact.live .compact-status { color:var(--mint); }
+
+    #dashboard {
+      position:absolute;
+      inset:0;
+      display:grid;
+      grid-template-columns:196px minmax(0,1fr);
+      overflow:hidden;
+      background:var(--bg);
+      border:1px solid rgba(255,255,255,.1);
+      border-top-color:#000;
+      border-radius:30px;
+      opacity:1;
+      transform:scale(1);
+      transform-origin:top center;
+      transition:opacity .18s ease .08s,transform .3s cubic-bezier(.2,.85,.2,1);
+    }
+    .notch-handle {
+      position:absolute;
+      z-index:30;
+      top:7px;
+      left:50%;
+      transform:translateX(-50%);
+      width:150px;
+      height:34px;
+      border-radius:18px;
+      background:#000;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      color:var(--muted);
+    }
+    .notch-dot { width:8px; height:8px; border-radius:50%; background:#666; }
+    .notch-dot.live { background:var(--mint); box-shadow:0 0 10px var(--mint); }
+    .notch-bar { width:64px; height:5px; border-radius:5px; background:#252525; }
+    .notch-arrow { font-size:14px; }
+
+    aside {
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      padding:28px 14px 18px;
+      background:rgba(0,0,0,.3);
+      border-right:1px solid rgba(255,255,255,.07);
+    }
+    .brand {
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-height:48px;
+      padding:0 8px 28px;
+    }
+    .brand-icon {
+      width:42px;
+      height:42px;
+      border-radius:13px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      color:#07120e;
+      background:linear-gradient(135deg,var(--mint),var(--blue));
+      font-size:20px;
+      font-weight:900;
+    }
+    .brand strong { display:block; font-size:18px; white-space:nowrap; }
+    .brand small {
+      display:block;
+      margin-top:3px;
+      color:rgba(61,238,179,.76);
+      font-size:14px;
+      font-weight:750;
+    }
+    nav { display:grid; gap:8px; }
+    .nav-btn {
+      position:relative;
+      min-height:52px;
+      padding:0 14px;
+      border-radius:14px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      color:var(--muted);
+      background:transparent;
+      text-align:left;
+      font-size:16px;
+      font-weight:700;
+    }
+    .nav-btn:hover { color:#fff; background:rgba(255,255,255,.055); }
+    .nav-btn.active { color:#fff; background:rgba(255,255,255,.1); }
+    .nav-icon { width:22px; text-align:center; font-size:18px; }
+    .nav-count {
+      margin-left:auto;
+      min-width:26px;
+      padding:3px 7px;
+      border-radius:14px;
+      color:#06110e;
+      background:var(--mint);
+      text-align:center;
+      font-size:14px;
+    }
+    .local-badge {
+      margin-top:auto;
+      padding:14px 9px 0;
+      color:var(--dim);
+      font-size:14px;
+      line-height:1.45;
+    }
+    .local-badge b { color:var(--muted); }
+    .local-dot {
+      display:inline-block;
+      width:8px;
+      height:8px;
+      margin-right:7px;
+      border-radius:50%;
+      background:var(--mint);
+      box-shadow:0 0 8px var(--mint);
+    }
+
+    main { min-width:0; min-height:0; display:grid; grid-template-rows:84px minmax(0,1fr); }
+    header {
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:16px 22px 0;
+    }
+    .heading { min-width:0; line-height:1.2; }
+    .heading h1 {
+      margin:0;
+      font-size:var(--fs-title);
+      font-weight:780;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .heading p {
+      margin:6px 0 0;
+      color:var(--dim);
+      font-size:14px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .live-tiny {
+      display:inline-block;
+      width:8px;
+      height:8px;
+      margin-right:7px;
+      border-radius:50%;
+      background:var(--mint);
+    }
+    .header-spacer { flex:1; }
+    .icon-btn {
+      width:46px;
+      min-width:46px;
+      height:46px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      color:var(--muted);
+      background:rgba(255,255,255,.07);
+      font-size:20px;
+    }
+    .icon-btn:hover { color:#fff; background:rgba(255,255,255,.12); }
+    .icon-btn.busy { color:var(--mint); animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    .viewport {
+      min-height:0;
+      overflow:auto;
+      padding:12px 22px 28px;
+      scrollbar-width:thin;
+      scrollbar-color:#34343b transparent;
+    }
+    .view { display:none; }
+    .view.active { display:block; }
+    .card {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:16px;
+    }
+    .warning {
+      display:none;
+      min-height:48px;
+      margin-bottom:14px;
+      padding:13px 16px;
+      border:1px solid rgba(251,146,60,.24);
+      border-radius:14px;
+      color:#e2a779;
+      background:rgba(251,146,60,.08);
+      font-size:14px;
+      line-height:1.5;
+    }
+    .warning.visible { display:block; }
+    .section-head {
+      display:flex;
+      align-items:flex-end;
+      gap:12px;
+      margin:20px 0 12px;
+    }
+    .section-head:first-child { margin-top:0; }
+    .section-head h2 {
+      margin:0;
+      font-size:var(--fs-section);
+      line-height:1.2;
+    }
+    .section-head p {
+      margin:0 0 2px;
+      color:var(--dim);
+      font-size:14px;
+    }
+    .section-spacer { flex:1; }
+
+    .summary-grid {
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+    .summary-card {
+      min-width:0;
+      min-height:116px;
+      padding:15px;
+      position:relative;
+      overflow:hidden;
+    }
+    .summary-card:after {
+      content:"";
+      position:absolute;
+      right:-18px;
+      bottom:-28px;
+      width:76px;
+      height:76px;
+      border-radius:50%;
+      background:var(--accent,#fff);
+      filter:blur(25px);
+      opacity:.15;
+    }
+    .summary-label {
+      min-height:34px;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:720;
+      line-height:1.2;
+    }
+    .summary-value {
+      margin-top:8px;
+      color:var(--value,#fff);
+      font-family:"SFMono-Regular",Menlo,monospace;
+      font-size:var(--fs-metric);
+      font-weight:820;
+      letter-spacing:-1.2px;
+      line-height:1;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      font-variant-numeric:tabular-nums;
+    }
+    .summary-value.range-value {
+      font-size:clamp(22px,2.05vw,30px);
+      letter-spacing:-.8px;
+    }
+    .summary-detail {
+      margin-top:8px;
+      color:var(--dim);
+      font-size:14px;
+      line-height:1.4;
+      white-space:normal;
+    }
+    .tool-grid {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+    .tool-card {
+      min-width:0;
+      min-height:150px;
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .tool-head { display:flex; align-items:center; gap:11px; min-width:0; }
+    .tool-icon {
+      width:42px;
+      height:42px;
+      border-radius:13px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      color:var(--tool-color,var(--mint));
+      background:color-mix(in srgb,var(--tool-color,var(--mint)) 13%,transparent);
+      font-size:20px;
+      font-weight:800;
+    }
+    .tool-title { min-width:0; flex:1; }
+    .tool-title b {
+      display:block;
+      font-size:18px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .tool-status {
+      display:flex;
+      align-items:center;
+      gap:7px;
+      margin-top:4px;
+      color:var(--status-color,var(--dim));
+      font-size:14px;
+    }
+    .status-dot {
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      flex:0 0 auto;
+      background:var(--status-color,var(--dim));
+      box-shadow:0 0 7px color-mix(in srgb,var(--status-color,var(--dim)) 70%,transparent);
+    }
+    .tool-metrics {
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+    .tool-metric { min-width:0; }
+    .tool-metric small {
+      display:block;
+      color:var(--dim);
+      font-size:14px;
+    }
+    .tool-metric b {
+      display:block;
+      margin-top:4px;
+      font-family:"SFMono-Regular",Menlo,monospace;
+      font-size:16px;
+      white-space:normal;
+      overflow-wrap:anywhere;
+    }
+    .component-list { display:flex; gap:6px; flex-wrap:wrap; margin-top:auto; }
+    .component-chip {
+      min-height:28px;
+      padding:5px 9px;
+      border-radius:14px;
+      color:var(--muted);
+      background:rgba(255,255,255,.06);
+      font-size:14px;
+      line-height:18px;
+    }
+    .empty-card {
+      min-height:126px;
+      padding:24px;
+      display:grid;
+      place-items:center;
+      color:var(--dim);
+      text-align:center;
+      font-size:16px;
+    }
+    .task-list { display:grid; gap:10px; }
+    .task-card {
+      min-width:0;
+      min-height:92px;
+      padding:16px;
+      display:grid;
+      grid-template-columns:minmax(230px,1.55fr) minmax(150px,.8fr) minmax(118px,.55fr) minmax(118px,.55fr);
+      gap:16px;
+      align-items:center;
+    }
+    .task-main { min-width:0; }
+    .task-title {
+      display:block;
+      overflow:hidden;
+      white-space:nowrap;
+      text-overflow:ellipsis;
+      font-size:18px;
+      font-weight:760;
+      line-height:1.35;
+      user-select:text;
+    }
+    .task-meta {
+      margin-top:6px;
+      color:var(--muted);
+      font-size:14px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .task-parent {
+      margin-top:5px;
+      color:var(--dim);
+      font-size:14px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .evidence-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:7px; }
+    .evidence-chip {
+      min-height:26px;
+      padding:4px 8px;
+      border-radius:13px;
+      color:var(--muted);
+      background:rgba(255,255,255,.055);
+      font-size:14px;
+      line-height:18px;
+    }
+    .evidence-chip.caution { color:#ffd17c; background:rgba(245,196,81,.1); }
+    .task-cell { min-width:0; }
+    .task-cell small { display:block; color:var(--dim); font-size:14px; }
+    .task-cell b {
+      display:block;
+      margin-top:5px;
+      font-family:"SFMono-Regular",Menlo,monospace;
+      font-size:16px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .live-label {
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      min-height:30px;
+      padding:5px 10px;
+      border-radius:15px;
+      color:var(--mint);
+      background:rgba(61,238,179,.1);
+      font-size:14px;
+    }
+    .monitor-pane { display:none; }
+    .monitor-pane.active { display:block; }
+    .monitor-mode { margin:0 0 16px; }
+    .history-panels {
+      display:grid;
+      grid-template-columns:minmax(0,1.4fr) minmax(260px,.6fr);
+      gap:12px;
+      margin-top:12px;
+    }
+    .history-breakdown,.history-tools { min-width:0; padding:16px; }
+    .history-card-title { margin:0; font-size:18px; }
+    .history-card-note { margin:6px 0 0; color:var(--dim); font-size:14px; line-height:1.45; }
+    .history-breakdown-grid {
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;
+      margin-top:15px;
+    }
+    .history-metric { min-width:0; }
+    .history-metric small { display:block; color:var(--dim); font-size:14px; }
+    .history-metric b {
+      display:block;
+      margin-top:5px;
+      font-family:"SFMono-Regular",Menlo,monospace;
+      font-size:18px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .history-tool-list { display:grid; gap:10px; margin-top:14px; }
+    .history-tool-row { display:grid; gap:6px; }
+    .history-tool-copy { display:flex; align-items:center; gap:8px; min-width:0; font-size:14px; }
+    .history-tool-copy b { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .history-tool-copy span { color:var(--muted); font-family:"SFMono-Regular",Menlo,monospace; }
+    .history-bar { height:6px; overflow:hidden; border-radius:3px; background:rgba(255,255,255,.07); }
+    .history-bar i { display:block; height:100%; border-radius:inherit; background:var(--bar-color,var(--mint)); }
+    .history-toolbar { margin:0 0 10px; }
+    .history-toolbar .select { width:min(220px,100%); }
+    .history-disclaimer { margin:0 0 12px; color:var(--dim); font-size:14px; line-height:1.45; }
+    .history-list { display:grid; gap:9px; }
+    .history-record {
+      min-width:0;
+      padding:14px 16px;
+      display:grid;
+      grid-template-columns:minmax(230px,1.35fr) minmax(130px,.55fr) minmax(360px,1.35fr);
+      gap:14px;
+      align-items:center;
+    }
+    .history-record-main { min-width:0; }
+    .history-record-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px; font-weight:760; }
+    .history-record-meta { margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--dim); font-size:14px; }
+    .history-tool-pill {
+      width:max-content;
+      max-width:100%;
+      min-height:30px;
+      padding:5px 10px;
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      border-radius:15px;
+      color:var(--tool-color,var(--mint));
+      background:color-mix(in srgb,var(--tool-color,var(--mint)) 11%,transparent);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      font-size:14px;
+    }
+    .history-values { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
+    .history-value { min-width:0; }
+    .history-value small { display:block; color:var(--dim); font-size:14px; }
+    .history-value b {
+      display:block;
+      margin-top:4px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      font-family:"SFMono-Regular",Menlo,monospace;
+      font-size:15px;
+    }
+    .history-more { display:block; margin:12px auto 0; }
+
+    .segmented {
+      display:flex;
+      gap:4px;
+      width:max-content;
+      max-width:100%;
+      margin-bottom:16px;
+      padding:4px;
+      border-radius:16px;
+      background:rgba(255,255,255,.065);
+    }
+    .segmented button {
+      min-height:44px;
+      padding:0 18px;
+      border-radius:13px;
+      color:var(--muted);
+      background:transparent;
+      font-size:16px;
+      font-weight:700;
+    }
+    .segmented button.active { color:#06110e; background:var(--mint); }
+    .workspace-pane { display:none; }
+    .workspace-pane.active { display:block; }
+    .toolbar {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:52px;
+      margin-bottom:14px;
+    }
+    .toolbar .input { flex:1; }
+    .input,.textarea,.select {
+      width:100%;
+      min-height:44px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      color:var(--text);
+      background:var(--surface);
+      padding:10px 13px;
+      font-size:16px;
+      outline:0;
+    }
+    .textarea {
+      min-height:116px;
+      resize:vertical;
+      line-height:1.55;
+    }
+    .input::placeholder,.textarea::placeholder { color:#696973; }
+    .primary-btn,.secondary-btn,.danger-btn,.ghost-btn {
+      min-height:44px;
+      padding:0 16px;
+      border-radius:12px;
+      font-size:16px;
+      font-weight:720;
+      white-space:nowrap;
+    }
+    .primary-btn { color:#06110e; background:var(--mint); }
+    .secondary-btn { color:#e7e7e9; background:#2a2b31; }
+    .ghost-btn { color:var(--muted); background:rgba(255,255,255,.055); }
+    .danger-btn {
+      color:#ff9a9a;
+      background:rgba(248,113,113,.1);
+      border:1px solid rgba(248,113,113,.2);
+    }
+    .small-btn { min-height:44px; padding:0 12px; font-size:14px; }
+    .inline-form {
+      margin-bottom:16px;
+      padding:16px;
+    }
+    .form-grid {
+      display:grid;
+      grid-template-columns:120px minmax(140px,.8fr) minmax(240px,1.4fr) auto;
+      gap:10px;
+      align-items:end;
+    }
+    .field { min-width:0; }
+    .field label {
+      display:block;
+      margin-bottom:7px;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:700;
+    }
+    .form-actions { display:flex; gap:8px; }
+    .form-message {
+      min-height:21px;
+      margin-top:9px;
+      color:var(--dim);
+      font-size:14px;
+    }
+    .form-message:empty { display:none; }
+    .form-message.error { color:var(--red); }
+    .form-message.success { color:var(--mint); }
+    .site-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
+      gap:14px;
+    }
+    .site-card {
+      min-width:0;
+      min-height:136px;
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      gap:14px;
+      transition:border-color .16s ease,background .16s ease,transform .16s ease;
+    }
+    .site-card:hover {
+      border-color:rgba(61,238,179,.24);
+      background:color-mix(in srgb,var(--card) 94%,var(--mint));
+      transform:translateY(-1px);
+    }
+    .site-main {
+      min-width:0;
+      display:grid;
+      grid-template-columns:52px minmax(0,1fr);
+      gap:12px;
+      align-items:center;
+    }
+    .site-icon {
+      width:52px;
+      height:52px;
+      border-radius:15px;
+      display:grid;
+      place-items:center;
+      color:#06110e;
+      background:linear-gradient(135deg,var(--mint),var(--blue));
+      font-size:22px;
+      font-weight:850;
+      overflow:hidden;
+      white-space:nowrap;
+    }
+    .site-copy { min-width:0; }
+    .site-copy b {
+      display:block;
+      font-size:18px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .site-copy small {
+      display:block;
+      margin-top:6px;
+      color:var(--muted);
+      font-size:14px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .card-actions { display:flex; gap:7px; margin-top:12px; flex-wrap:wrap; }
+    .site-card .card-actions {
+      width:100%;
+      margin-top:0;
+      display:grid;
+      grid-template-columns:minmax(92px,1.35fr) minmax(72px,1fr) minmax(72px,1fr);
+      gap:8px;
+    }
+    .site-card .small-btn {
+      width:100%;
+      min-width:0;
+      padding:0 10px;
+    }
+    .site-card [data-action="deleteSite"]:hover,
+    .site-card [data-action="deleteSite"]:focus-visible {
+      color:#ff9a9a;
+      background:rgba(248,113,113,.1);
+    }
+    .site-grid > .empty-card {
+      grid-column:1/-1;
+      width:min(100%,520px);
+      min-height:136px;
+    }
+    .note-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+      gap:12px;
+    }
+    .note-card { min-width:0; padding:14px; }
+    .note-head { display:flex; align-items:center; gap:8px; margin-bottom:9px; }
+    .note-title {
+      flex:1;
+      min-width:0;
+      border:0;
+      border-bottom:1px solid transparent;
+      color:var(--text);
+      background:transparent;
+      padding:6px 4px;
+      font-size:18px;
+      font-weight:760;
+      outline:0;
+    }
+    .note-title:focus { border-bottom-color:var(--mint); }
+    .note-body {
+      width:100%;
+      min-height:150px;
+      resize:vertical;
+      border:0;
+      border-radius:11px;
+      color:var(--text);
+      background:var(--surface);
+      padding:12px;
+      font-size:16px;
+      line-height:1.55;
+      outline:0;
+    }
+    .note-footer {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-top:9px;
+      color:var(--dim);
+      font-size:14px;
+    }
+    .note-footer span { margin-right:auto; }
+    .note-save-state { margin-left:auto; margin-right:0!important; font-weight:700; }
+    .note-save-state.saving { color:var(--yellow); }
+    .note-save-state.saved { color:var(--mint); }
+    .note-save-state.error { color:var(--red); }
+    .note-save-state.recovery { color:var(--orange); }
+
+    .translator-layout {
+      display:grid;
+      grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);
+      gap:14px;
+      align-items:start;
+    }
+    .translator-card { padding:18px; }
+    .translator-card h2 { margin:0 0 6px; font-size:22px; }
+    .translator-card > p { margin:0 0 16px; color:var(--dim); font-size:14px; line-height:1.5; }
+    .translation-input { min-height:180px; font-size:18px; }
+    .transfer-notice {
+      margin:12px 0 0;
+      padding:11px 12px;
+      border:1px solid rgba(106,169,255,.2);
+      border-radius:11px;
+      color:var(--muted);
+      background:rgba(106,169,255,.075);
+      font-size:14px;
+      line-height:1.5;
+    }
+    .consent-dialog {
+      width:min(620px,calc(100vw - 36px));
+      max-width:620px;
+      max-height:calc(100vh - 36px);
+      margin:auto;
+      border:1px solid rgba(255,255,255,.13);
+      border-radius:22px;
+      padding:0;
+      color:var(--text);
+      background:transparent;
+      box-shadow:0 30px 110px rgba(0,0,0,.7);
+    }
+    .consent-dialog::backdrop { background:rgba(0,0,0,.72); backdrop-filter:blur(8px); }
+    .consent-card {
+      max-height:calc(100vh - 36px);
+      overflow:auto;
+      margin:0;
+      padding:24px;
+      background:linear-gradient(155deg,rgba(27,31,37,.99),rgba(12,14,17,.99));
+    }
+    .consent-card h2 { margin:10px 0 12px; font-size:26px; line-height:1.15; }
+    .consent-copy { margin:0; color:var(--muted); font-size:16px; line-height:1.65; white-space:pre-line; }
+    .consent-links { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+    .consent-risk {
+      margin:16px 0 0;
+      border-left:3px solid var(--orange);
+      padding:2px 0 2px 12px;
+      color:var(--dim);
+      font-size:14px;
+      line-height:1.55;
+    }
+    .consent-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:22px; }
+    .translate-actions {
+      display:flex;
+      align-items:center;
+      gap:9px;
+      margin-top:12px;
+      flex-wrap:wrap;
+    }
+    .translation-result {
+      min-height:350px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .result-block {
+      padding:14px;
+      border-radius:13px;
+      background:var(--surface);
+      border:1px solid rgba(255,255,255,.045);
+    }
+    .result-block h3 {
+      margin:0 0 8px;
+      color:var(--muted);
+      font-size:14px;
+      text-transform:uppercase;
+      letter-spacing:.5px;
+    }
+    .result-block p,.result-block li {
+      margin:0;
+      font-size:16px;
+      line-height:1.6;
+      white-space:pre-wrap;
+      user-select:text;
+    }
+    .result-block ul { margin:0; padding-left:21px; display:grid; gap:6px; }
+    .result-placeholder {
+      min-height:250px;
+      display:grid;
+      place-items:center;
+      color:var(--dim);
+      text-align:center;
+      font-size:16px;
+      line-height:1.55;
+    }
+    .result-message { color:var(--dim); font-size:14px; }
+    .result-message.error { color:var(--red); }
+    .result-usage {
+      color:var(--dim);
+      font-family:"SFMono-Regular",Menlo,monospace;
+      font-size:14px;
+    }
+    .study-wrap { margin-top:18px; }
+    .study-toolbar {
+      display:grid;
+      grid-template-columns:minmax(240px,1fr) minmax(160px,220px) auto;
+      gap:10px;
+      align-items:center;
+      margin-bottom:12px;
+    }
+    .study-result-count {
+      min-height:44px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 13px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      color:var(--muted);
+      background:var(--surface);
+      font-size:14px;
+      font-weight:700;
+      white-space:nowrap;
+    }
+    .study-list { display:grid; gap:10px; }
+    .study-card {
+      min-width:0;
+      padding:15px;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:12px;
+    }
+    .study-card.mastered { opacity:.62; }
+    .study-card h3 { margin:0; font-size:18px; line-height:1.4; user-select:text; }
+    .study-card p { margin:7px 0 0; color:var(--muted); font-size:16px; line-height:1.5; user-select:text; }
+    .study-card small { display:block; margin-top:7px; color:var(--dim); font-size:14px; }
+    .study-details { margin-top:10px; border-radius:11px; background:var(--surface); }
+    .study-details summary { min-height:44px; padding:0 12px; font-size:14px; }
+    .study-details[open] summary { border-bottom:1px solid rgba(255,255,255,.06); }
+    .study-details-body { padding:11px 12px; color:var(--muted); font-size:14px; line-height:1.55; }
+    .study-details-body b { display:block; margin:8px 0 4px; color:var(--text); font-size:14px; }
+    .study-details-body b:first-child { margin-top:0; }
+    .study-details-body ul { margin:0; padding-left:19px; display:grid; gap:4px; }
+
+    .settings-grid { display:grid; gap:14px; }
+    .settings-card { padding:18px; }
+    .settings-card h2 { margin:0; font-size:22px; }
+    .settings-card > p { margin:6px 0 16px; color:var(--dim); font-size:14px; line-height:1.5; }
+    .setting-row {
+      display:flex;
+      align-items:center;
+      gap:14px;
+      min-height:58px;
+    }
+    .setting-copy { min-width:0; }
+    .setting-copy b { display:block; font-size:18px; }
+    .setting-copy small { display:block; margin-top:5px; color:var(--dim); font-size:14px; line-height:1.45; }
+    .setting-spacer { flex:1; }
+    .cloud-data-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px; margin:12px 0 14px; }
+    .cloud-data-item { padding:13px 14px; border:1px solid var(--line); border-radius:14px; background:var(--surface); }
+    .cloud-data-item b { display:block; margin-bottom:5px; font-size:16px; }
+    .cloud-data-item small { color:var(--dim); font-size:14px; line-height:1.5; }
+    .cloud-account-note { padding:12px 14px; border-radius:12px; background:rgba(96,165,250,.08); color:var(--muted); font-size:14px; line-height:1.5; }
+    .cloud-actions,.release-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:12px; }
+    .cloud-status { min-height:22px; margin-top:12px; color:var(--dim); font-size:14px; line-height:1.45; }
+    .cloud-status.success { color:var(--mint); }
+    .cloud-status.error { color:var(--red); }
+    .language-picker { display:flex; gap:4px; padding:4px; border-radius:14px; background:rgba(255,255,255,.065); }
+    .language-picker button {
+      min-width:50px;
+      min-height:44px;
+      border-radius:11px;
+      color:var(--muted);
+      background:transparent;
+      font-size:16px;
+      font-weight:760;
+    }
+    .language-picker button.active { color:#06110e; background:var(--mint); }
+    .switch {
+      width:54px;
+      min-width:54px;
+      height:30px;
+      padding:4px;
+      border-radius:17px;
+      background:#3b3c42;
+      transition:.2s;
+    }
+    .switch:before {
+      content:"";
+      display:block;
+      width:22px;
+      height:22px;
+      border-radius:50%;
+      background:#b7b7bd;
+      transition:.2s;
+    }
+    .switch.on { background:var(--mint); }
+    .switch.on:before { transform:translateX(24px); background:#06110e; }
+    .config-grid {
+      display:grid;
+      grid-template-columns:minmax(180px,1.2fr) minmax(140px,.8fr) minmax(160px,.8fr) auto;
+      gap:10px;
+      align-items:end;
+    }
+    .config-actions { display:flex; gap:8px; align-items:center; }
+    details {
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:var(--card);
+      overflow:hidden;
+    }
+    summary {
+      min-height:58px;
+      display:flex;
+      align-items:center;
+      padding:0 18px;
+      cursor:pointer;
+      font-size:18px;
+      font-weight:740;
+    }
+    details[open] summary { border-bottom:1px solid var(--line); }
+    .details-body { padding:18px; }
+    .connection-row { display:flex; gap:9px; align-items:center; }
+    .connection-row .input { flex:1; }
+    .custom-list { display:grid; gap:8px; margin-top:12px; }
+    .custom-row {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:52px;
+      padding:9px 12px;
+      border-radius:11px;
+      background:var(--surface);
+    }
+    .custom-row span { min-width:0; flex:1; }
+    .custom-row b { display:block; font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .custom-row small { display:block; margin-top:3px; color:var(--dim); font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    @media(max-width:940px) {
+      #dashboard { grid-template-columns:84px minmax(0,1fr); }
+      aside { padding:28px 10px 16px; }
+      .brand { justify-content:center; padding-left:0; padding-right:0; }
+      .brand > span:last-child,.nav-label,.local-badge { display:none; }
+      .nav-btn { justify-content:center; padding:0; }
+      .nav-icon { width:auto; }
+      .nav-count { position:absolute; margin:-30px 0 0 30px; }
+      .summary-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .tool-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .task-card { grid-template-columns:minmax(220px,1.4fr) minmax(140px,.8fr) minmax(110px,.55fr); }
+      .task-card .task-cell:last-child { display:none; }
+      .history-panels { grid-template-columns:1fr; }
+      .history-record { grid-template-columns:minmax(220px,1.4fr) minmax(130px,.6fr); }
+      .history-values { grid-column:1/-1; }
+      .translator-layout { grid-template-columns:1fr; }
+      .form-grid,.config-grid { grid-template-columns:1fr 1fr; }
+    }
+    @media(max-width:700px) {
+      #dashboard { grid-template-columns:1fr; grid-template-rows:68px minmax(0,1fr); }
+      aside {
+        padding:8px 10px;
+        border-right:0;
+        border-bottom:1px solid rgba(255,255,255,.07);
+      }
+      .brand,.local-badge { display:none; }
+      nav { height:52px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+      .nav-btn { min-height:52px; gap:6px; padding:0 6px; font-size:14px; }
+      .nav-label { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .nav-icon { font-size:16px; }
+      .nav-count { display:none; }
+      main { grid-template-rows:74px minmax(0,1fr); }
+      header { padding:10px 16px 0; }
+      .heading h1 { font-size:26px; }
+      .heading p { font-size:14px; }
+      .viewport { padding:10px 16px 24px; }
+      .summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .tool-grid,.note-grid { grid-template-columns:1fr; }
+      .site-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .task-card { grid-template-columns:1fr 1fr; gap:13px; }
+      .task-main { grid-column:1/-1; }
+      .task-card .task-cell:last-child { display:block; }
+      .history-breakdown-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .history-record { grid-template-columns:1fr; }
+      .history-values { grid-column:auto; }
+      .form-grid,.config-grid { grid-template-columns:1fr; }
+      .connection-row { align-items:stretch; flex-wrap:wrap; }
+      .connection-row .input { flex-basis:100%; }
+      .toolbar { align-items:stretch; flex-wrap:wrap; }
+      .toolbar .input { flex-basis:100%; }
+      .study-toolbar { grid-template-columns:minmax(0,1fr) minmax(150px,210px); }
+      .study-result-count { grid-column:1/-1; justify-content:flex-start; }
+    }
+    @media(max-width:620px) {
+      .site-grid { grid-template-columns:1fr; }
+    }
+    @media(max-width:480px) {
+      :root { --fs-title:26px; --fs-metric:32px; }
+      .notch-handle { width:116px; }
+      nav { gap:2px; }
+      .nav-btn { padding:0 3px; }
+      .nav-icon { display:none; }
+      .summary-grid { grid-template-columns:1fr; }
+      .summary-card { min-height:104px; }
+      .history-breakdown-grid,.history-values { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .tool-grid { grid-template-columns:1fr; }
+      .task-card { grid-template-columns:1fr; }
+      .task-main { grid-column:auto; }
+      .section-head { align-items:flex-start; flex-direction:column; }
+      .section-head p { line-height:1.45; }
+      .segmented { width:100%; }
+      .segmented button { flex:1; padding:0 8px; }
+      .study-toolbar { grid-template-columns:1fr; }
+      .study-result-count { grid-column:auto; }
+      .study-card { grid-template-columns:1fr; }
+      .setting-row { align-items:flex-start; flex-wrap:wrap; }
+      .setting-row .setting-spacer { display:none; }
+      .language-picker,.switch { margin-left:auto; }
+      .site-grid { gap:10px; }
+      .site-card { min-height:128px; padding:14px; }
+      .site-card .card-actions {
+        grid-template-columns:minmax(84px,1.25fr) repeat(2,minmax(64px,1fr));
+        gap:7px;
+      }
+    }
+    @media(max-width:360px) {
+      #compact { padding:0 10px; }
+      .compact-status { max-width:196px; }
+    }
+    @media(prefers-reduced-motion:reduce) {
+      *,*:before,*:after {
+        animation-duration:.01ms!important;
+        animation-iteration-count:1!important;
+        transition-duration:.01ms!important;
+      }
+    }
+  </style>
+</head>
+<body class="collapsed">
+  <button id="compact" aria-label="展开 Aivulet" aria-controls="dashboard" aria-expanded="false" aria-hidden="false">
+    <span class="compact-status" id="compactStatus" aria-live="polite">正在检查 Agent…</span>
+  </button>
+
+  <section id="dashboard" aria-hidden="true" inert>
+    <button class="notch-handle" data-action="collapse" aria-label="收回 Aivulet" title="收回">
+      <span class="notch-dot" id="notchDot"></span><span class="notch-bar"></span><span class="notch-arrow">⌃</span>
+    </button>
+    <aside>
+      <div class="brand">
+        <span class="brand-icon">⌁</span>
+        <span><strong>Aivulet</strong><small>LOCAL AGENT OBSERVATORY</small></span>
+      </div>
+      <nav aria-label="主导航">
+        <button class="nav-btn active" data-tab="monitor"><span class="nav-icon">●</span><span class="nav-label" data-i18n="monitor">监控</span><span class="nav-count" id="navActive" hidden>0</span></button>
+        <button class="nav-btn" data-tab="workspace"><span class="nav-icon">⌂</span><span class="nav-label" data-i18n="workspace">工作台</span></button>
+        <button class="nav-btn" data-tab="translator"><span class="nav-icon">文</span><span class="nav-label" data-i18n="translateLearn">翻译学习</span></button>
+        <button class="nav-btn" data-tab="settings"><span class="nav-icon">⚙</span><span class="nav-label" data-i18n="settings">设置</span></button>
+      </nav>
+      <div class="local-badge"><span class="local-dot"></span><b data-i18n="localOnly">本地工作台</b></div>
+    </aside>
+
+    <main>
+      <header>
+        <div class="heading">
+          <h1 id="pageTitle" tabindex="-1">监控</h1>
+          <p><span class="live-tiny"></span><span id="scanTime" aria-live="polite">正在连接本地数据</span></p>
+        </div>
+        <div class="header-spacer"></div>
+        <button class="icon-btn" data-action="collapse" aria-label="收回 Aivulet" title="收回">↗</button>
+      </header>
+
+      <div class="viewport">
+        <section class="view active" id="view-monitor">
+          <div class="warning" id="warning" role="status" aria-live="polite"></div>
+          <div class="segmented monitor-mode" role="tablist" aria-label="监控视图">
+            <button class="active" data-monitor-mode="live" role="tab" aria-selected="true" data-i18n="liveView">实时</button>
+            <button data-monitor-mode="history" role="tab" aria-selected="false" data-i18n="usageHistory">用量历史</button>
+          </div>
+
+          <section class="monitor-pane active" id="monitor-live">
+            <div class="summary-grid" id="monitorStats"></div>
+
+            <div class="section-head">
+              <h2 data-i18n="workingNow">现在正在做</h2>
+              <p id="activeSummary"></p>
+            </div>
+            <div class="task-list" id="activeTasks"></div>
+
+            <div class="section-head">
+              <h2 data-i18n="detectedTools">检测到的工具</h2>
+              <p id="toolsSummary"></p>
+            </div>
+            <div class="tool-grid" id="toolGrid"></div>
+          </section>
+
+          <section class="monitor-pane" id="monitor-history">
+            <div class="summary-grid" id="historyStats"></div>
+            <div class="history-panels">
+              <article class="card history-breakdown">
+                <h2 class="history-card-title" data-i18n="historyBreakdown">Token 构成</h2>
+                <p class="history-card-note" data-i18n="cachedSubset">缓存输入已包含在输入中，不会重复计入总量。</p>
+                <div class="history-breakdown-grid" id="historyBreakdown"></div>
+                <div id="historyEvidence"></div>
+              </article>
+              <article class="card history-tools">
+                <h2 class="history-card-title" data-i18n="historyByTool">按工具累计</h2>
+                <p class="history-card-note" data-i18n="sessionLifetimeCount">按会话生命周期累计</p>
+                <div class="history-tool-list" id="historyToolTotals"></div>
+              </article>
+            </div>
+
+            <div class="section-head">
+              <h2 data-i18n="historyRecords">历史对话记录</h2>
+              <p id="historyRecordSummary"></p>
+            </div>
+            <div class="toolbar history-toolbar">
+              <input class="input" id="historySearch" type="search" data-i18n-placeholder="searchHistory" placeholder="搜索对话、工具或项目" />
+              <select class="select" id="historyToolFilter" aria-label="历史工具筛选"></select>
+            </div>
+            <p class="history-disclaimer" data-i18n="localHistoryDisclaimer">仅统计本机仍可读取的日志，并非账号账单；部分旧记录只能提供总量。</p>
+            <div class="history-list" id="historyRecords"></div>
+            <button class="secondary-btn history-more" id="historyMore" data-action="moreHistory" data-i18n="showMore" hidden>查看更多</button>
+          </section>
+        </section>
+
+        <section class="view" id="view-workspace">
+          <div class="segmented" role="tablist" aria-label="工作台功能">
+            <button class="active" data-workspace-tab="sites" role="tab" aria-selected="true" data-i18n="favoriteSites">常用网站</button>
+            <button data-workspace-tab="notes" role="tab" aria-selected="false" data-i18n="notes">备忘录</button>
+          </div>
+          <div class="form-message" id="workspaceMessage" aria-live="polite"></div>
+
+          <section class="workspace-pane active" id="workspace-sites">
+            <div class="toolbar">
+              <div>
+                <h2 style="margin:0;font-size:22px" data-i18n="siteShortcuts">网站快捷入口</h2>
+                <p style="margin:5px 0 0;color:var(--dim);font-size:14px" data-i18n="sitesHint">点击“打开”按钮后使用默认浏览器打开</p>
+              </div>
+              <div class="section-spacer"></div>
+              <button class="primary-btn" data-action="addSite" data-i18n="addSite">添加网站</button>
+            </div>
+            <article class="card inline-form" id="siteEditor" hidden>
+              <div class="form-grid">
+                <div class="field"><label for="siteIcon" data-i18n="icon">图标</label><input class="input" id="siteIcon" maxlength="4" placeholder="⌁" /></div>
+                <div class="field"><label for="siteTitle" data-i18n="name">名称</label><input class="input" id="siteTitle" maxlength="60" /></div>
+                <div class="field"><label for="siteURL">URL</label><input class="input" id="siteURL" inputmode="url" maxlength="1000" placeholder="https://example.com" /></div>
+                <div class="form-actions"><button class="primary-btn" data-action="saveSite" data-i18n="save">保存</button><button class="secondary-btn" data-action="cancelSite" data-i18n="cancel">取消</button></div>
+              </div>
+              <div class="form-message" id="siteMessage" aria-live="polite"></div>
+            </article>
+            <div class="form-message" id="siteOpenMessage" aria-live="polite"></div>
+            <div class="site-grid" id="sitesGrid"></div>
+          </section>
+
+          <section class="workspace-pane" id="workspace-notes">
+            <div class="toolbar">
+              <input class="input" id="noteSearch" type="search" data-i18n-placeholder="searchNotes" placeholder="搜索备忘录" />
+              <button class="primary-btn" data-action="addNote" data-i18n="newNote">新建备忘</button>
+            </div>
+            <div class="note-grid" id="notesGrid"></div>
+          </section>
+        </section>
+
+        <section class="view" id="view-translator">
+          <div class="translator-layout">
+            <article class="card translator-card">
+              <h2 data-i18n="quickTranslator">快速翻译与解析</h2>
+              <p data-i18n="translatorHint">输入中文或英文；按 ⌘ Enter 快速执行。</p>
+              <div class="segmented" id="sourceLanguage" role="group" aria-label="源语言">
+                <button class="active" data-source-language="auto" aria-pressed="true" data-i18n="autoDetect">自动识别</button>
+                <button data-source-language="zh" aria-pressed="false">中文</button>
+                <button data-source-language="en" aria-pressed="false">English</button>
+              </div>
+              <textarea class="textarea translation-input" id="translationInput" maxlength="8000" data-i18n-placeholder="translationPlaceholder" placeholder="输入要翻译或学习的中文 / English"></textarea>
+              <div class="transfer-notice" id="translationTransferNotice" role="note"></div>
+              <div class="translate-actions">
+                <button class="secondary-btn" data-action="translateOnly" data-i18n="translateOnly">仅翻译</button>
+                <button class="primary-btn" data-action="translateLearn" data-i18n="analyzeForLearning">学习解析</button>
+                <span class="result-message" id="translationMessage" aria-live="polite"></span>
+              </div>
+            </article>
+
+            <article class="card translator-card translation-result">
+              <div class="section-head" style="margin:0">
+                <h2 data-i18n="result">结果</h2>
+                <span class="section-spacer"></span>
+                <button class="ghost-btn small-btn" data-action="copyTranslation" id="copyTranslationButton" disabled data-i18n="copy">复制</button>
+                <button class="ghost-btn small-btn" data-action="saveStudy" id="saveStudyButton" disabled data-i18n="saveToStudy">存入学习本</button>
+              </div>
+              <div id="translationResult"><div class="result-placeholder" data-i18n="resultPlaceholder">翻译和一句话定义会显示在这里</div></div>
+              <div class="result-usage" id="translationUsage"></div>
+            </article>
+          </div>
+
+          <div class="study-wrap">
+            <div class="section-head">
+              <h2 data-i18n="studyBook">学习本</h2>
+              <p id="studySummary"></p>
+            </div>
+            <div class="study-toolbar" role="search" data-i18n-aria-label="studySearchRegion" aria-label="搜索和筛选学习本">
+              <input class="input" id="studySearch" type="search" maxlength="240" autocomplete="off" spellcheck="false" data-i18n-placeholder="searchStudy" data-i18n-aria-label="searchStudy" placeholder="搜索原文、译文、定义、关键词或拆解内容" aria-describedby="studyResultCount" aria-controls="studyList" />
+              <select class="select" id="studyStatusFilter" data-i18n-aria-label="studyStatusFilter" aria-label="学习状态筛选" aria-controls="studyList">
+                <option value="all" data-i18n="studyFilterAll">全部</option>
+                <option value="learning" data-i18n="studyFilterLearning">学习中</option>
+                <option value="mastered" data-i18n="mastered">已掌握</option>
+              </select>
+              <output class="study-result-count" id="studyResultCount" for="studySearch studyStatusFilter" aria-live="polite"></output>
+            </div>
+            <div class="study-list" id="studyList" aria-describedby="studyResultCount"></div>
+          </div>
+        </section>
+
+        <section class="view" id="view-settings">
+          <div class="settings-grid">
+            <article class="card settings-card">
+              <div class="setting-row">
+                <div class="setting-copy"><b data-i18n="interfaceLanguage">界面语言</b><small data-i18n="languageHint">切换后立即应用到整个灵动岛</small></div>
+                <div class="setting-spacer"></div>
+                <div class="language-picker" role="group" aria-label="界面语言">
+                  <button data-language="zh" aria-pressed="true">中</button>
+                  <button data-language="en" aria-pressed="false">EN</button>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-copy"><b data-i18n="privacyMask">隐私遮罩</b><small data-i18n="privacyHint">隐藏任务名、Agent 名和项目名称，适合录屏</small></div>
+                <div class="setting-spacer"></div>
+                <button class="switch" id="privacySwitch" role="switch" aria-checked="false" aria-label="切换隐私遮罩"></button>
+              </div>
+            </article>
+
+            <article class="card settings-card" id="dataAccessCard">
+              <h2 data-i18n="dataAccessTitle">本机数据访问</h2>
+              <p data-i18n="dataAccessIntro">只读扫描受支持的 Codex、Claude 和 IDE Agent 日志；只提取状态、时长、Token 和来源明确提供的标题。</p>
+              <div class="cloud-data-grid">
+                <div class="cloud-data-item"><b data-i18n="readOnlyMonitoring">只读监测</b><small data-i18n="readOnlyMonitoringDetail">不修改或删除第三方日志；停止后不再周期扫描。</small></div>
+                <div class="cloud-data-item"><b data-i18n="contentExcluded">Prompt / 响应正文排除</b><small data-i18n="contentExcludedDetail">不提取、展示或保存正文，也不用于 iPhone/iCloud 同步。</small></div>
+                <div class="cloud-data-item"><b data-i18n="noSensitivePermissions">无敏感系统权限</b><small data-i18n="noSensitivePermissionsDetail">不请求摄像头、麦克风、屏幕录制或辅助功能权限。</small></div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-copy"><b data-i18n="monitoringControl">本机监测</b><small data-i18n="monitoringControlHint">只有确认说明并开启后才周期刷新。自定义数据源可在下方高级设置中移除。</small></div>
+                <div class="setting-spacer"></div>
+                <button class="switch" id="monitoringSwitch" data-action="toggleMonitoring" role="switch" aria-checked="false" data-i18n-aria-label="toggleMonitoringLabel"></button>
+              </div>
+              <div class="release-actions">
+                <button class="secondary-btn" id="reviewDataAccessButton" data-action="reviewDataAccess" data-i18n="reviewDataAccess">重新查看数据访问说明</button>
+              </div>
+              <div class="cloud-status" id="dataAccessStatus" aria-live="polite"></div>
+            </article>
+
+            <article class="card settings-card" id="cloudSyncCard">
+              <h2 data-i18n="cloudSyncTitle">iPhone · iCloud 私有同步</h2>
+              <p data-i18n="cloudSyncIntro">默认关闭。开启后，精简快照会离开这台 Mac，写入你 Apple ID 的 CloudKit 私有数据库。</p>
+              <div class="cloud-data-grid">
+                <div class="cloud-data-item"><b data-i18n="staysOnMac">仅保留在本机</b><small data-i18n="staysOnMacDetail">Prompt、任务摘要、项目与文件路径、模型、API Key、备忘录、翻译正文。</small></div>
+                <div class="cloud-data-item"><b data-i18n="sentToPrivateCloud">发送到私有 iCloud</b><small data-i18n="sentToPrivateCloudDetail">Agent/工具类别、运行状态、时长和 Token。对话标题默认不发送。</small></div>
+              </div>
+              <div class="cloud-account-note" data-i18n="cloudAccountBindingDetail">首次开启会用不可逆 SHA-256 键绑定当前 iCloud 账户，不保存或展示原始账户记录 ID。切换 iCloud 账户前，请先在这里关闭同步并确认旧账户数据已删除。</div>
+              <div class="setting-row">
+                <div class="setting-copy"><b data-i18n="enableCloudSync">开启私有同步</b><small data-i18n="enableCloudSyncHint">只要你主动开启，刷新后才会节流上传。关闭时同时删除云端 latest 记录。</small></div>
+                <div class="setting-spacer"></div>
+                <button class="switch" id="cloudSyncSwitch" data-action="toggleCloudSync" role="switch" aria-checked="false" aria-label="切换 iCloud 私有同步"></button>
+              </div>
+              <div class="setting-row">
+                <div class="setting-copy"><b data-i18n="includeConversationTitles">包含对话标题</b><small data-i18n="includeConversationTitlesHint">标题可能暴露工作内容；必须单独确认，默认关闭。</small></div>
+                <div class="setting-spacer"></div>
+                <button class="switch" id="cloudTitlesSwitch" data-action="toggleCloudTitles" role="switch" aria-checked="false" aria-label="切换对话标题同步"></button>
+              </div>
+              <div class="cloud-actions">
+                <button class="secondary-btn" id="syncCloudNowButton" data-action="syncCloudNow" data-i18n="syncCloudNow">立即同步</button>
+              </div>
+              <div class="cloud-status" id="cloudSyncStatus" aria-live="polite"></div>
+            </article>
+
+            <article class="card settings-card">
+              <h2 data-i18n="translatorService">翻译与释义服务</h2>
+              <p data-i18n="translatorServiceHint">密钥仅交给本机原生层保存，前端不会持久化。</p>
+              <div class="config-grid">
+                <div class="field"><label for="translatorBaseURL">Base URL</label><input class="input" id="translatorBaseURL" maxlength="1000" placeholder="http://127.0.0.1:11434/v1" /></div>
+                <div class="field"><label for="translatorModel" data-i18n="model">模型</label><input class="input" id="translatorModel" maxlength="120" placeholder="model" /></div>
+                <div class="field"><label for="translatorAPIKey">API Key</label><input class="input" id="translatorAPIKey" type="password" maxlength="2000" autocomplete="new-password" spellcheck="false" placeholder="••••••••" /></div>
+                <div class="config-actions">
+                  <button class="primary-btn" id="saveTranslatorConfigButton" data-action="saveTranslatorConfig" data-i18n="saveConfig">保存配置</button>
+                  <button class="ghost-btn" id="clearTranslatorKeyButton" data-action="clearTranslatorKey" data-i18n="clearAPIKey">清除密钥</button>
+                </div>
+              </div>
+              <div class="form-message" id="translatorConfigMessage" aria-live="polite"></div>
+            </article>
+
+            <details>
+              <summary data-i18n="advancedSources">高级 · 自定义数据源</summary>
+              <div class="details-body">
+                <p style="margin:0 0 13px;color:var(--dim);font-size:14px;line-height:1.5" data-i18n="advancedSourcesHint">仅在需要接入自定义 Agent JSONL 时使用。</p>
+                <div class="connection-row">
+                  <input class="input" id="connectionInput" maxlength="2000" placeholder="/Users/me/agent-telemetry.jsonl" />
+                  <button class="secondary-btn" data-action="chooseSource" data-i18n="choose">选择…</button>
+                  <button class="primary-btn" data-action="connect" data-i18n="connect">连接</button>
+                </div>
+                <div class="form-message" id="connectionMessage" aria-live="polite"></div>
+                <div class="custom-list" id="customSources"></div>
+              </div>
+            </details>
+
+            <article class="card settings-card">
+              <h2 data-i18n="privacyAndSupport">隐私与支持</h2>
+              <p data-i18n="privacyAndSupportHint">正式发布版使用已配置的 HTTPS 页面；开发版不会打开占位地址。</p>
+              <div class="release-actions">
+                <button class="secondary-btn" id="privacyPolicyButton" data-action="openReleaseLink" data-kind="privacyPolicy" data-i18n="privacyPolicy">隐私政策</button>
+                <button class="secondary-btn" id="supportButton" data-action="openReleaseLink" data-kind="support" data-i18n="support">支持与帮助</button>
+                <button class="secondary-btn" id="checkUpdatesButton" data-action="openReleaseLink" data-kind="update" data-i18n="checkUpdates">检查更新</button>
+              </div>
+              <p class="cloud-account-note" data-i18n="safeUpdateHint">“检查更新”只会用默认浏览器打开发布方配置的 HTTPS 支持/下载页；不会在后台下载或安装软件。</p>
+              <div class="cloud-status" id="releaseLinksStatus" aria-live="polite"></div>
+            </article>
+
+            <article class="card settings-card">
+              <div class="setting-row">
+                <div class="setting-copy"><b data-i18n="appControls">应用控制</b><small data-i18n="appControlsHint">立即刷新监测数据，或完全退出常驻应用。</small></div>
+                <div class="setting-spacer"></div>
+                <button class="secondary-btn" id="refreshButton" data-action="refresh" data-i18n="refresh">立即刷新</button>
+                <button class="danger-btn" data-action="quit" data-i18n="quit">退出</button>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </section>
+
+  <dialog class="consent-dialog" id="translationConsentDialog" aria-labelledby="translationConsentTitle">
+    <form class="consent-card" method="dialog">
+      <p class="eyebrow" data-i18n="translationConsentEyebrow">离机传输确认</p>
+      <h2 id="translationConsentTitle" data-i18n="translationConsentTitle">翻译文本将离开这台 Mac</h2>
+      <p class="consent-copy" id="translationConsentBody"></p>
+      <div class="consent-links" id="deepSeekPolicyLinks" hidden>
+        <button class="ghost-btn" id="deepSeekPrivacyButton" type="button" data-action="openExternalPolicy" data-i18n="deepSeekPrivacyPolicy">DeepSeek 隐私政策</button>
+        <button class="ghost-btn" id="deepSeekTermsButton" type="button" data-action="openExternalPolicy" data-i18n="deepSeekOpenPlatformTerms">DeepSeek 开放平台协议</button>
+      </div>
+      <div class="consent-links">
+        <button class="ghost-btn" id="translationAppPrivacyButton" type="button" data-action="openReleaseLink" data-kind="privacyPolicy" data-i18n="agentIslandPrivacyPolicy">Aivulet 隐私政策</button>
+      </div>
+      <p class="consent-risk" data-i18n="translationConsentAuthority">继续即确认你有权发送当前内容；请勿提交敏感、受监管或无权披露的信息。</p>
+      <div class="consent-actions">
+        <button class="secondary-btn" value="cancel" data-i18n="translationConsentCancel">暂不发送</button>
+        <button class="primary-btn" value="confirm" data-i18n="translationConsentContinue">同意并发送</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    (function(){
+      "use strict";
+
+      var messages={
+        zh:{
+          monitor:"监控",workspace:"工作台",translateLearn:"翻译学习",settings:"设置",localOnly:"本地工作台",
+          connecting:"正在连接本地数据",updatedAt:"更新于 {time}",reading:"正在读取本机 Agent",
+          compactWorking:"{agents} 个 Agent 工作中",compactIdle:"暂无 Agent 工作",compactReading:"正在检查 Agent…",compactMonitoringOff:"监测已关闭",compactExpandLabel:"{status}；悬浮或点击展开",
+          activeTokens:"活跃 Token",agentsAndConversations:"{agents} 个 Agent · {conversations} 个对话",
+          toolsAndComponents:"{tools} 个工具 · {components} 个 Agent 组件",clickToExpand:"点击展开",
+          agentComponents:"Agent 组件",tools:"本机工具",runningTools:"运行工具",executingAgents:"执行中 Agent",
+          activeConversations:"活跃对话",activeTokenUsage:"活跃 Token",installedEntries:"本机检测到的入口",
+          appProcesses:"正在运行的工具进程",liveSessions:"含子 Agent",topLevelSessions:"顶层工作对话",
+          liveView:"实时",usageHistory:"用量历史",readableHistoryTotal:"本机可读历史累计",
+          recordedConversations:"有 Token 记录的对话",recordedPeriod:"记录时间范围",localLogsScope:"来自本机仍可读取的会话日志",
+          sessionLifetimeCount:"按会话生命周期累计",historyBreakdown:"Token 构成",historyByTool:"按工具累计",
+          inputTokens:"输入",cachedTokens:"缓存输入",outputTokens:"输出",otherTokens:"仅总量 / 未分类",reasoningTokens:"推理",
+          cachedSubset:"缓存输入已包含在输入中，不会重复计入总量。",historyRecords:"历史对话记录",
+          historyRecordsHint:"按最后更新时间倒序；Token 为该对话生命周期累计",searchHistory:"搜索对话、工具或项目",
+          allTools:"全部工具",historyRecordSummary:"显示 {shown} / {total} 条",showMore:"查看更多",
+          noHistory:"未发现本机可读 Token 历史",historyUpdated:"最近更新 {date}",
+          localHistoryDisclaimer:"仅统计本机仍可读取的日志，并非账号账单；部分 Codex 旧记录只能提供总量。",
+          historicalToken:"历史 Token",
+          currentSessionsTotal:"当前执行会话累计",tokensExact:"精确计数",tokensCurrentCounter:"当前计数器",tokensTotalOnly:"仅总量",tokensEstimated:"估算",tokensReported:"来源报告",tokensQualityUnknown:"精度未提供",tokensPartial:"覆盖不完整",tokensTruncated:"数据已截断",tokensMixed:"含不同精度数据",tokensShared:"多会话共享归因",tokenCoverage:"覆盖 {value}",tokenWindow:"窗口 {value}",
+          activityBasisProcess:"应用进程",activityBasisTurn:"对话正在执行",activityBasisEvents:"会话事件",activityBasisFile:"文件更新",activityBasisHeartbeat:"心跳信号",activityBasisReported:"来源上报状态",activityBasisHeuristic:"根据近期活动推断",activityBasisUnknown:"活动依据未提供",activityConfidence:"活动置信度 {value}",confidenceHigh:"高",confidenceMedium:"中",confidenceLow:"低",confidenceUnknown:"未提供",detectedTools:"检测到的工具",toolsSummary:"{running} / {total} 个工具运行中",
+          workingNow:"现在正在做",workingSummary:"{agents} 个 Agent 正在执行 · {conversations} 个顶层对话",
+          noTools:"未检测到支持的 Agent 工具",noActiveTasks:"当前没有检测到正在执行的 Agent",
+          running:"运行中",agentActive:"Agent 执行中",installedNotRunning:"已安装 · 未运行",historicalOnly:"仅检测到历史数据",
+          runtime:"已运行",active:"活跃",token:"Token",unavailable:"—",components:"Agent 组件",
+          mainConversation:"顶层对话",subagent:"子 Agent",cumulativeActive:"累计活跃",lastUpdate:"最后更新",
+          parentConversation:"所属对话 · {task}",
+          hiddenTask:"任务已隐藏",hiddenAgent:"Agent 已隐藏",unknownTask:"任务信息未提供",unknownTool:"未知工具",
+          favoriteSites:"常用网站",siteShortcuts:"网站快捷入口",notes:"备忘录",sitesHint:"点击“打开”按钮后使用默认浏览器打开",
+          addSite:"添加网站",icon:"图标",name:"名称",save:"保存",cancel:"取消",open:"打开",edit:"编辑",delete:"删除",
+          invalidURL:"只允许 HTTPS，或 localhost / 127.0.0.0–127.255.255.255 / ::1 的本机 HTTP；地址不能包含账号、密码或 # 片段",siteRequired:"请填写网站名称和地址",noSites:"还没有常用网站，点击“添加网站”开始。",openingSite:"正在交给默认浏览器…",siteOpened:"已交给默认浏览器",openSiteFailed:"无法打开网站",
+          searchNotes:"搜索备忘录",newNote:"新建备忘",noteTitle:"无标题备忘",notePlaceholder:"写点什么…",
+          pinned:"已置顶",pin:"置顶",unpin:"取消置顶",savedLocally:"已保存",workspaceSaving:"正在保存…",workspaceSaved:"已保存",workspaceRecovery:"本地内容待恢复",noNotes:"还没有备忘录。",
+          noMatchingNotes:"没有匹配的备忘录",confirmDeleteNote:"确定删除这条备忘录吗？",confirmDeleteSite:"确定删除这个网站吗？",workspaceSaveFailed:"工作台保存失败，已保留当前内容",workspaceTooLarge:"工作台内容超出安全保存限制，请删减后重试",workspaceLocalSaveFailed:"无法写入本地恢复副本，请先复制保留内容",workspaceLoadFailed:"本机工作台读取失败，未覆盖现有内容",
+          quickTranslator:"快速翻译与解析",translatorHint:"输入中文或英文；按 ⌘ Enter 快速执行。",
+          translationTransferNotice:"提交后，当前文本、语言/模式、模型名和结构化指令会发送至 {destination}。首次向该目的地发送前会显示离机传输确认；请勿提交敏感或无权披露的内容。",translationTransferNoticeDeepSeek:"提交后，当前文本、语言/模式、模型名和结构化指令会发送至 {destination}。默认 DeepSeek 端点的数据可能在中国处理/存储并可能用于训练或服务优化；首次发送前请查看完整说明。",translationServiceNotConfigured:"尚未配置的翻译服务",
+          translationConsentEyebrow:"离机传输确认",translationConsentTitle:"翻译文本将离开这台 Mac",
+          translationConsentDeepSeek:"是否允许将当前输入发送至 {destination}？\n\nDeepSeek 的公开政策称，其所覆盖的个人信息在中华人民共和国境内处理/存储，输入可能用于模型训练和服务优化；但该政策明确不说明下游应用终端用户的具体处理规则，公开资料也没有给出固定的 API 请求保留期或不训练承诺。请先查看政策，再决定是否发送。",
+          translationConsentCustom:"是否允许将当前输入发送至 {destination} 进行翻译或解析？该服务可能接收提交文本、IP 地址与请求元数据，并按其自己的条款保留或处理。请先核对该服务的隐私政策。",
+          deepSeekPrivacyPolicy:"DeepSeek 隐私政策",deepSeekOpenPlatformTerms:"DeepSeek 开放平台协议",agentIslandPrivacyPolicy:"Aivulet 隐私政策",
+          translationConsentAuthority:"继续即确认你有权发送当前内容；请勿提交敏感、受监管或无权披露的信息。",translationConsentCancel:"暂不发送",translationConsentContinue:"同意并发送",
+          autoDetect:"自动识别",translationPlaceholder:"输入要翻译或学习的中文 / English",
+          translateOnly:"仅翻译",analyzeForLearning:"学习解析",result:"结果",copy:"复制",saveToStudy:"存入学习本",
+          resultPlaceholder:"翻译和一句话定义会显示在这里",translating:"正在处理…",translation:"直接翻译",resultOutdated:"输入已改变，请重新翻译后再存入学习本",
+          definition:"一句话定义",breakdown:"拆解学习",keywords:"关键词",examples:"示例",translationFailed:"处理失败",
+          copied:"已复制",copyFailed:"复制失败",savedToStudy:"已存入学习本",studyBook:"学习本",
+          studySummary:"{total} 条 · {mastered} 条已掌握",noStudyItems:"学习本还是空的。",studyDetails:"查看拆解与例句",mastered:"已掌握",
+          studySearchRegion:"搜索和筛选学习本",searchStudy:"搜索原文、译文、定义、关键词或拆解内容",studyStatusFilter:"学习状态筛选",
+          studyFilterAll:"全部",studyFilterLearning:"学习中",studyResultSummary:"显示 {shown} / {total} 条",noMatchingStudy:"没有匹配当前搜索与状态筛选的学习内容。",
+          markMastered:"标记掌握",markLearning:"继续学习",confirmDeleteStudy:"确定从学习本删除这条内容吗？",
+          interfaceLanguage:"界面语言",languageHint:"切换后立即应用到整个灵动岛",privacyMask:"隐私遮罩",
+          privacyHint:"隐藏任务名、Agent 名和项目名称，适合录屏",translatorService:"翻译与释义服务",
+          dataAccessTitle:"本机数据访问",dataAccessIntro:"只读扫描受支持的 Codex、Claude 和 IDE Agent 日志；只提取状态、时长、Token 和来源明确提供的标题。",
+          readOnlyMonitoring:"只读监测",readOnlyMonitoringDetail:"不修改或删除第三方日志；停止后不再周期扫描。",
+          contentExcluded:"Prompt / 响应正文排除",contentExcludedDetail:"不提取、展示或保存正文，也不用于 iPhone/iCloud 同步。",
+          noSensitivePermissions:"无敏感系统权限",noSensitivePermissionsDetail:"不请求摄像头、麦克风、屏幕录制或辅助功能权限。",
+          monitoringControl:"本机监测",monitoringControlHint:"只有确认说明并开启后才周期刷新。自定义数据源可在下方高级设置中移除。",
+          toggleMonitoringLabel:"切换本机只读监测",reviewDataAccess:"重新查看数据访问说明",monitoringOn:"本机只读监测已开启。",monitoringOff:"本机监测已停止，不会周期读取 Agent 日志。",monitoringConsentRequired:"请先查看并确认数据访问说明；确认前不扫描 Agent 日志。",confirmStopMonitoring:"停止本机监测？停止后不再周期读取 Agent 日志，当前监测结果会从界面清除。",
+          cloudSyncTitle:"iPhone · iCloud 私有同步",cloudSyncIntro:"默认关闭。开启后，精简快照会离开这台 Mac，写入你 Apple ID 的 CloudKit 私有数据库。",
+          staysOnMac:"仅保留在本机",staysOnMacDetail:"Prompt、任务摘要、项目与文件路径、模型、API Key、备忘录、翻译正文。",
+          sentToPrivateCloud:"发送到私有 iCloud",sentToPrivateCloudDetail:"Agent/工具类别、运行状态、时长和 Token。对话标题默认不发送。",
+          enableCloudSync:"开启私有同步",enableCloudSyncHint:"只要你主动开启，刷新后才会节流上传。关闭时同时删除云端 latest 记录。",
+          includeConversationTitles:"包含对话标题",includeConversationTitlesHint:"标题可能暴露工作内容；必须单独确认，默认关闭。",
+          syncCloudNow:"立即同步",cloudBuildUnavailable:"当前开发构建未配置 iCloud 权限；正式签名后可用。",cloudStatusOff:"未开启，不会向 iCloud 发送数据。",
+          confirmEnableCloud:"开启后，Agent/工具类别、状态、时长和 Token 会离开这台 Mac，保存到你 Apple ID 的 CloudKit 私有数据库。Prompt、任务摘要、项目/文件路径、模型、API Key、备忘录和翻译正文不会上传。确定开启吗？",
+          confirmDisableCloud:"关闭私有同步，并立即删除 iCloud 中的 latest 快照吗？",confirmIncludeTitles:"对话标题可能包含敏感工作信息。确定也将标题发送到你的 iCloud 私有数据库吗？",
+          cloudAccountBindingDetail:"首次开启会用不可逆 SHA-256 键绑定当前 iCloud 账户，不保存或展示原始账户记录 ID。切换 iCloud 账户前，请先在这里关闭同步并确认旧账户数据已删除。",
+          confirmRebindCloud:"检测到 iCloud 账户已变化。旧账户中的 latest 数据无法从当前账户删除；如需删除，请先切回旧账户。确定重新绑定当前账户并开始上传吗？",
+          privacyAndSupport:"隐私与支持",privacyAndSupportHint:"正式发布版使用已配置的 HTTPS 页面；开发版不会打开占位地址。",privacyPolicy:"隐私政策",support:"支持与帮助",checkUpdates:"检查更新",safeUpdateHint:"“检查更新”只会用默认浏览器打开发布方配置的 HTTPS 支持/下载页；不会在后台下载或安装软件。",releaseLinksPending:"发布前配置公开 HTTPS 隐私政策和支持/下载页面。",
+          translatorServiceHint:"密钥仅交给本机原生层保存，前端不会持久化。",model:"模型",saveConfig:"保存配置",
+          configSaving:"正在保存配置…",configSaved:"翻译服务配置已保存",keyStored:"密钥已由本机安全保存",clearAPIKey:"清除密钥",confirmClearAPIKey:"确定清除本机已保存的 API Key 吗？",keyCleared:"已清除本机密钥",
+          advancedSources:"高级 · 自定义数据源",advancedSourcesHint:"仅在需要接入自定义 Agent JSONL 时使用。",
+          choose:"选择…",connect:"连接",appControls:"应用控制",appControlsHint:"立即刷新监测数据，或完全退出常驻应用。",
+          refresh:"立即刷新",quit:"退出",remove:"移除",connectionComplete:"连接操作已完成",unknownError:"发生未知错误"
+        },
+        en:{
+          monitor:"Monitor",workspace:"Workspace",translateLearn:"Translate & Learn",settings:"Settings",localOnly:"Local workspace",
+          connecting:"Connecting to local data",updatedAt:"Updated {time}",reading:"Reading local Agents",
+          compactWorking:"{agents} Agents active",compactIdle:"No Agents active",compactReading:"Checking Agents…",compactMonitoringOff:"Monitoring off",compactExpandLabel:"{status}; hover or click to expand",
+          activeTokens:"Active Tokens",agentsAndConversations:"{agents} Agents · {conversations} conversations",
+          toolsAndComponents:"{tools} tools · {components} Agent components",clickToExpand:"Click to expand",
+          agentComponents:"Agent components",tools:"Local tools",runningTools:"Running tools",executingAgents:"Executing Agents",
+          activeConversations:"Active conversations",activeTokenUsage:"Active Tokens",installedEntries:"Agent entry points detected",
+          appProcesses:"Running tool processes",liveSessions:"Includes subagents",topLevelSessions:"Top-level conversations",
+          liveView:"Live",usageHistory:"Usage history",readableHistoryTotal:"Locally readable history",
+          recordedConversations:"Conversations with Token records",recordedPeriod:"Recorded period",localLogsScope:"From conversation logs still readable on this Mac",
+          sessionLifetimeCount:"Cumulative over each conversation lifetime",historyBreakdown:"Token breakdown",historyByTool:"Totals by tool",
+          inputTokens:"Input",cachedTokens:"Cached input",outputTokens:"Output",otherTokens:"Total-only / unclassified",reasoningTokens:"Reasoning",
+          cachedSubset:"Cached input is already included in input and is not counted twice.",historyRecords:"Conversation history",
+          historyRecordsHint:"Newest updates first; Tokens are lifetime totals for each conversation",searchHistory:"Search conversations, tools, or projects",
+          allTools:"All tools",historyRecordSummary:"Showing {shown} of {total}",showMore:"Show more",
+          noHistory:"No locally readable Token history was found",historyUpdated:"Last updated {date}",
+          localHistoryDisclaimer:"Counts only logs still readable on this Mac, not account billing. Some older Codex records provide totals only.",
+          historicalToken:"Historical Tokens",
+          currentSessionsTotal:"Cumulative for executing sessions",tokensExact:"Exact count",tokensCurrentCounter:"Current counter",tokensTotalOnly:"Total only",tokensEstimated:"Estimated",tokensReported:"Source reported",tokensQualityUnknown:"Quality unavailable",tokensPartial:"Partial coverage",tokensTruncated:"Data truncated",tokensMixed:"Mixed data quality",tokensShared:"Shared across conversations",tokenCoverage:"Coverage {value}",tokenWindow:"Window {value}",
+          activityBasisProcess:"Application process",activityBasisTurn:"Conversation in progress",activityBasisEvents:"Session events",activityBasisFile:"File update",activityBasisHeartbeat:"Heartbeat",activityBasisReported:"Source-reported status",activityBasisHeuristic:"Inferred from recent activity",activityBasisUnknown:"Activity basis unavailable",activityConfidence:"Activity confidence {value}",confidenceHigh:"high",confidenceMedium:"medium",confidenceLow:"low",confidenceUnknown:"unavailable",detectedTools:"Detected tools",toolsSummary:"{running} of {total} tools running",
+          workingNow:"Working now",workingSummary:"{agents} Agents executing · {conversations} top-level conversations",
+          noTools:"No supported Agent tools detected",noActiveTasks:"No executing Agents detected",
+          running:"Running",agentActive:"Agent executing",installedNotRunning:"Installed · not running",historicalOnly:"Historical data only",
+          runtime:"Runtime",active:"Active",token:"Tokens",unavailable:"—",components:"Agent components",
+          mainConversation:"Top-level conversation",subagent:"Subagent",cumulativeActive:"Cumulative active",lastUpdate:"Last update",
+          parentConversation:"Conversation · {task}",
+          hiddenTask:"Task hidden",hiddenAgent:"Agent hidden",unknownTask:"Task details unavailable",unknownTool:"Unknown tool",
+          favoriteSites:"Favorite sites",siteShortcuts:"Website shortcuts",notes:"Notes",sitesHint:"Choose Open to launch a site in your default browser",
+          addSite:"Add site",icon:"Icon",name:"Name",save:"Save",cancel:"Cancel",open:"Open",edit:"Edit",delete:"Delete",
+          invalidURL:"Use HTTPS, or local HTTP on localhost / 127.0.0.0–127.255.255.255 / ::1. Credentials and URL fragments are not allowed.",siteRequired:"Enter a site name and address",noSites:"No favorite sites yet. Choose Add site to begin.",openingSite:"Handing off to your default browser…",siteOpened:"Sent to your default browser",openSiteFailed:"Unable to open the site",
+          searchNotes:"Search notes",newNote:"New note",noteTitle:"Untitled note",notePlaceholder:"Write something…",
+          pinned:"Pinned",pin:"Pin",unpin:"Unpin",savedLocally:"Saved",workspaceSaving:"Saving…",workspaceSaved:"Saved",workspaceRecovery:"Local changes awaiting recovery",noNotes:"No notes yet.",
+          noMatchingNotes:"No matching notes",confirmDeleteNote:"Delete this note?",confirmDeleteSite:"Delete this site?",workspaceSaveFailed:"Workspace save failed; current content was preserved",workspaceTooLarge:"Workspace content exceeds the safe save limit. Remove some content and try again.",workspaceLocalSaveFailed:"Could not write the local recovery copy. Copy important content before continuing.",workspaceLoadFailed:"The native workspace could not be read; existing content was not overwritten.",
+          quickTranslator:"Quick translate and explain",translatorHint:"Enter Chinese or English, then press ⌘ Enter.",
+          translationTransferNotice:"After submission, the current text, language/mode, model name, and structured instructions are sent to {destination}. An off-device transfer confirmation appears before the first send to that destination. Do not submit sensitive or unauthorized content.",translationTransferNoticeDeepSeek:"After submission, the current text, language/mode, model name, and structured instructions are sent to {destination}. Data sent to the default DeepSeek endpoint may be processed/stored in China and may be used for training or service improvement; review the full notice before the first send.",translationServiceNotConfigured:"an unconfigured translation service",
+          translationConsentEyebrow:"Off-device transfer",translationConsentTitle:"Translation text will leave this Mac",
+          translationConsentDeepSeek:"Allow the current input to be sent to {destination}?\n\nDeepSeek's public policy says the personal data it covers is processed/stored in the People's Republic of China and inputs may be used for model training and service improvement. That policy expressly does not describe the specific processing rules for end users of downstream apps, and the public materials provide no fixed API-request retention period or no-training commitment. Review the policies before deciding whether to send.",
+          translationConsentCustom:"Allow the current input to be sent to {destination} for translation or analysis? That service may receive the submitted text, IP address, and request metadata and may retain or process them under its own terms. Review the provider's privacy policy first.",
+          deepSeekPrivacyPolicy:"DeepSeek privacy policy",deepSeekOpenPlatformTerms:"DeepSeek Open Platform terms",agentIslandPrivacyPolicy:"Aivulet privacy policy",
+          translationConsentAuthority:"By continuing, you confirm that you are authorized to send this content. Do not submit sensitive, regulated, or unauthorized information.",translationConsentCancel:"Do not send",translationConsentContinue:"Agree and send",
+          autoDetect:"Auto detect",translationPlaceholder:"Enter Chinese or English to translate or learn",
+          translateOnly:"Translate only",analyzeForLearning:"Learning analysis",result:"Result",copy:"Copy",saveToStudy:"Save to study book",
+          resultPlaceholder:"Translation and a one-sentence definition will appear here",translating:"Working…",translation:"Direct translation",resultOutdated:"The input changed. Translate again before saving this result to the study book.",
+          definition:"One-sentence definition",breakdown:"Learning breakdown",keywords:"Keywords",examples:"Examples",translationFailed:"Request failed",
+          copied:"Copied",copyFailed:"Copy failed",savedToStudy:"Saved to study book",studyBook:"Study book",
+          studySummary:"{total} items · {mastered} mastered",noStudyItems:"Your study book is empty.",studyDetails:"View breakdown and examples",mastered:"Mastered",
+          studySearchRegion:"Search and filter the study book",searchStudy:"Search original, translation, definition, keywords, or breakdown",studyStatusFilter:"Filter by learning status",
+          studyFilterAll:"All",studyFilterLearning:"In progress",studyResultSummary:"Showing {shown} / {total}",noMatchingStudy:"No study items match the current search and status filter.",
+          markMastered:"Mark mastered",markLearning:"Keep learning",confirmDeleteStudy:"Remove this item from the study book?",
+          interfaceLanguage:"Interface language",languageHint:"Applies immediately across the island",privacyMask:"Privacy mask",
+          privacyHint:"Hide task, Agent, and project names while recording",translatorService:"Translation and explanation service",
+          dataAccessTitle:"Local data access",dataAccessIntro:"Read-only scans of supported Codex, Claude, and IDE Agent logs; only state, duration, Token counts, and titles explicitly supplied by a source are extracted.",
+          readOnlyMonitoring:"Read-only monitoring",readOnlyMonitoringDetail:"Third-party logs are never modified or deleted; periodic scans stop when monitoring is off.",
+          contentExcluded:"Prompt / response bodies excluded",contentExcludedDetail:"Bodies are not extracted, displayed, or stored and are never used for iPhone/iCloud sync.",
+          noSensitivePermissions:"No sensitive system permissions",noSensitivePermissionsDetail:"Camera, Microphone, Screen Recording, and Accessibility access are never requested.",
+          monitoringControl:"Local monitoring",monitoringControlHint:"Periodic refresh starts only after you review and accept this notice. Remove custom sources in Advanced settings below.",
+          toggleMonitoringLabel:"Toggle read-only local monitoring",reviewDataAccess:"Review data access notice",monitoringOn:"Read-only local monitoring is on.",monitoringOff:"Local monitoring is stopped; Agent logs are not read periodically.",monitoringConsentRequired:"Review and accept the data access notice first; Agent logs are not scanned before consent.",confirmStopMonitoring:"Stop local monitoring? Periodic Agent-log reads will stop and the current monitoring results will be cleared from the interface.",
+          cloudSyncTitle:"iPhone · Private iCloud sync",cloudSyncIntro:"Off by default. When enabled, a reduced snapshot leaves this Mac and is written to your Apple ID's private CloudKit database.",
+          staysOnMac:"Stays on this Mac",staysOnMacDetail:"Prompts, task summaries, project and file paths, models, API keys, notes, and translation content.",
+          sentToPrivateCloud:"Sent to private iCloud",sentToPrivateCloudDetail:"Agent/tool category, running state, duration, and Tokens. Conversation titles are off by default.",
+          enableCloudSync:"Enable private sync",enableCloudSyncHint:"Uploads start only after you opt in and are throttled after refreshes. Turning sync off also deletes the cloud latest record.",
+          includeConversationTitles:"Include conversation titles",includeConversationTitlesHint:"Titles may reveal work context; they require separate confirmation and are off by default.",
+          syncCloudNow:"Sync now",cloudBuildUnavailable:"This development build has no iCloud entitlement; it becomes available in the properly signed release build.",cloudStatusOff:"Off. No monitoring data is sent to iCloud.",
+          confirmEnableCloud:"Enable sync? Agent/tool category, state, duration, and Token counts will leave this Mac and be stored in your Apple ID's private CloudKit database. Prompts, task summaries, project/file paths, models, API keys, notes, and translation content are never uploaded.",
+          confirmDisableCloud:"Turn off private sync and immediately delete the latest snapshot from iCloud?",confirmIncludeTitles:"Conversation titles can contain sensitive work context. Also send titles to your private iCloud database?",
+          cloudAccountBindingDetail:"On first enable, a one-way SHA-256 key binds sync to the current iCloud account; the original account record ID is never stored or shown. Before changing iCloud accounts, turn sync off here and confirm the old account data was deleted.",
+          confirmRebindCloud:"The iCloud account changed. The old account's latest data cannot be deleted from the current account; switch back first if it must be removed. Rebind to this account and begin uploading?",
+          privacyAndSupport:"Privacy and support",privacyAndSupportHint:"Release builds use configured HTTPS pages. Development builds never open placeholder addresses.",privacyPolicy:"Privacy policy",support:"Support and help",checkUpdates:"Check for updates",safeUpdateHint:"Check for updates only opens the publisher-configured HTTPS support/download page in your default browser; the app never downloads or installs software in the background.",releaseLinksPending:"Configure public HTTPS privacy and support/download pages before release.",
+          translatorServiceHint:"The key is handed to the native layer only and is never persisted by the web UI.",model:"Model",saveConfig:"Save config",
+          configSaving:"Saving configuration…",configSaved:"Translator configuration saved",keyStored:"Key stored securely by the native app",clearAPIKey:"Clear key",confirmClearAPIKey:"Clear the API key stored by the native app?",keyCleared:"The stored key was cleared",
+          advancedSources:"Advanced · Custom sources",advancedSourcesHint:"Only needed for a custom Agent JSONL source.",
+          choose:"Choose…",connect:"Connect",appControls:"App controls",appControlsHint:"Refresh monitoring data or quit the resident app.",
+          refresh:"Refresh now",quit:"Quit",remove:"Remove",connectionComplete:"Connection completed",unknownError:"An unknown error occurred"
+        }
+      };
+
+      function $(selector){ return document.querySelector(selector); }
+      function $$(selector){ return Array.prototype.slice.call(document.querySelectorAll(selector)); }
+      function normalizeLanguage(value){ return value==="en"||value==="zh"?value:null; }
+      function storedJSON(key,fallback){
+        try {
+          var value=JSON.parse(localStorage.getItem(key)||"null");
+          return value&&typeof value==="object"?value:fallback;
+        } catch(error){ return fallback; }
+      }
+      var initialLanguage=normalizeLanguage(localStorage.getItem("agentIsland.language"))||
+        (String(navigator.language||"").toLowerCase().indexOf("zh")===0?"zh":"en");
+      var WORKSPACE_STORAGE_KEY="agentIsland.workspace.v1";
+      var WORKSPACE_SCHEMA_VERSION=2;
+      var fallbackWorkspaceEnvelope=normalizeWorkspaceEnvelope(storedJSON(WORKSPACE_STORAGE_KEY,{sites:[],notes:[],study:[]}));
+      var state={
+        snapshot:{sessions:[],tools:[],warnings:[],customSources:[],scannedAt:0,workspace:{},usageHistory:{}},
+        expanded:false,
+        tab:"monitor",
+        monitorMode:"live",
+        historyQuery:"",
+        historyTool:"all",
+        historyLimit:12,
+        workspaceTab:"sites",
+        language:initialLanguage,
+        privacy:localStorage.getItem("agentIsland.privacy")==="true",
+        refreshing:false,
+        scroll:{monitor:0,workspace:0,translator:0,settings:0},
+        workspace:fallbackWorkspaceEnvelope.workspace,
+        workspaceHydrated:false,
+        workspaceRecoveryDirty:fallbackWorkspaceEnvelope.recoveryDirty,
+        workspaceRevision:fallbackWorkspaceEnvelope.revision,
+        workspaceUpdatedAt:fallbackWorkspaceEnvelope.updatedAt,
+        workspaceNativeRevision:0,
+        workspaceNativeUpdatedAt:0,
+        workspaceSaveStatus:fallbackWorkspaceEnvelope.recoveryDirty?"recovery":"saved",
+        workspaceSaveError:"",
+        workspacePendingRequestId:"",
+        workspacePendingRevision:0,
+        workspacePendingRequests:{},
+        noteQuery:"",
+        studyQuery:"",
+        studyStatus:"all",
+        editingSiteId:null,
+        sourceLanguage:"auto",
+        translationMode:"learn",
+        translationPending:false,
+        translation:null,
+        translationRequest:null,
+        translatorConfig:{baseURL:"",model:"",hasAPIKey:false},
+        translatorConfigPending:null,
+        dataAccess:{consented:false,monitoringEnabled:false,consentVersion:0,requiredConsentVersion:1,message:""},
+        cloudSync:{enabled:false,includeTitles:false,capabilityConfigured:false,status:"off",message:""},
+        cloudSyncPending:false,
+        releaseLinks:{privacyPolicyConfigured:false,supportConfigured:false,updateConfigured:false}
+      };
+      var workspaceSaveTimer=null;
+      var workspaceAckTimer=null;
+
+      function t(key,values){
+        var text=(messages[state.language]&&messages[state.language][key])||messages.zh[key]||key;
+        Object.keys(values||{}).forEach(function(name){
+          text=text.split("{"+name+"}").join(String(values[name]));
+        });
+        return text;
+      }
+      function esc(value){
+        return String(value==null?"":value)
+          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+          .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+      }
+      function bridge(action,payload){
+        var message=Object.assign({action:action},payload||{});
+        if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.agentIsland){
+          window.webkit.messageHandlers.agentIsland.postMessage(message);
+        }
+      }
+      function locale(){ return state.language==="zh"?"zh-CN":"en-US"; }
+      function number(value){ var result=Number(value); return Number.isFinite(result)&&result>0?result:0; }
+      function fmt(value){
+        var n=number(value),options={maximumFractionDigits:1};
+        if(n>=1e9)return (n/1e9).toLocaleString(locale(),options)+"B";
+        if(n>=1e6)return (n/1e6).toLocaleString(locale(),options)+"M";
+        if(n>=1e3)return (n/1e3).toLocaleString(locale(),options)+"K";
+        return Math.round(n).toLocaleString(locale());
+      }
+      function duration(value){
+        var seconds=Math.floor(number(value)/1000);
+        if(!seconds)return "0"+(state.language==="zh"?"秒":"s");
+        var days=Math.floor(seconds/86400),hours=Math.floor(seconds%86400/3600),minutes=Math.floor(seconds%3600/60);
+        if(state.language==="zh"){
+          if(days)return days+"天 "+hours+"小时";
+          if(hours)return hours+"小时 "+minutes+"分钟";
+          if(minutes)return minutes+"分钟";
+          return seconds+"秒";
+        }
+        if(days)return days+"d "+hours+"h";
+        if(hours)return hours+"h "+minutes+"m";
+        if(minutes)return minutes+"m";
+        return seconds+"s";
+      }
+      function relative(value){
+        var delta=Date.now()-number(value);
+        if(delta<60000)return state.language==="zh"?"刚刚":"just now";
+        if(delta<3600000)return Math.floor(delta/60000)+(state.language==="zh"?" 分钟前":"m ago");
+        if(delta<86400000)return Math.floor(delta/3600000)+(state.language==="zh"?" 小时前":"h ago");
+        return Math.floor(delta/86400000)+(state.language==="zh"?" 天前":"d ago");
+      }
+      function calendarDate(value,includeTime){
+        var timestamp=number(value);
+        if(!timestamp)return "—";
+        var options={year:"numeric",month:"short",day:"numeric"};
+        if(includeTime){ options.hour="2-digit"; options.minute="2-digit"; options.hour12=false; }
+        return new Date(timestamp).toLocaleString(locale(),options);
+      }
+      function historyDateRange(firstValue,lastValue){
+        var first=number(firstValue),last=number(lastValue);
+        if(!first||!last)return t("noHistory");
+        var start=new Date(first),end=new Date(last),sameYear=start.getFullYear()===end.getFullYear();
+        var sameDay=sameYear&&start.getMonth()===end.getMonth()&&start.getDate()===end.getDate();
+        if(sameDay)return start.toLocaleDateString(locale(),{year:"numeric",month:"short",day:"numeric"});
+        if(state.language==="zh"){
+          var shortDate=function(date){return (date.getMonth()+1)+"月"+date.getDate()+"日";};
+          if(sameYear)return shortDate(start)+" — "+shortDate(end);
+          return start.getFullYear()+"/"+(start.getMonth()+1)+"/"+start.getDate()+" — "+
+            end.getFullYear()+"/"+(end.getMonth()+1)+"/"+end.getDate();
+        }
+        var shortOptions={month:"short",day:"numeric"};
+        return sameYear?start.toLocaleDateString(locale(),shortOptions)+" — "+
+          end.toLocaleDateString(locale(),shortOptions)+", "+end.getFullYear():
+          start.toLocaleDateString(locale(),{year:"numeric",month:"short",day:"numeric"})+" — "+
+          end.toLocaleDateString(locale(),{year:"numeric",month:"short",day:"numeric"});
+      }
+      function basename(value){
+        var parts=String(value||"").split(/[\\/]/).filter(Boolean);
+        return parts.length?parts[parts.length-1]:"";
+      }
+      function id(prefix){ return prefix+"-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,8); }
+      function providerColor(key){
+        var colors={codex:"#3deeb3",claude:"#fb7b52",vscode:"#64a7ff",cursor:"#f5c451",windsurf:"#75dcc8",zed:"#9f8cff"};
+        return colors[String(key||"").toLowerCase()]||"#a78bfa";
+      }
+      function sessionTotal(session){
+        if(Number.isFinite(Number(session&&session.total)))return Math.max(0,Number(session.total));
+        return number(session&&session.input)+number(session&&session.output)+number(session&&session.unknown);
+      }
+      function workingSessions(){ return (state.snapshot.sessions||[]).filter(function(session){ return session&&session.status==="working"; }); }
+      function topConversations(list){ return (list||workingSessions()).filter(function(session){ return !session.isSubagent; }); }
+      function tools(){ return Array.isArray(state.snapshot.tools)?state.snapshot.tools.filter(Boolean):[]; }
+      function agentComponentCount(items){
+        var unique=new Set();
+        (items||tools()).forEach(function(tool){
+          if(tool.kind==="agent")unique.add(String(tool.providerKey||tool.id||tool.name||"unknown").toLowerCase());
+          (Array.isArray(tool.agentExtensions)?tool.agentExtensions:[]).forEach(function(extension){
+            unique.add(String(extension.providerKey||extension.id||extension.name||"unknown").toLowerCase());
+          });
+        });
+        return unique.size;
+      }
+      function masked(value,fallback){ return state.privacy?fallback:String(value||fallback); }
+      function sessionConversationTitle(session){
+        var item=session||{};
+        return String(item.conversationTitle||item.taskSummary||item.currentTask||item.name||t("unknownTask"));
+      }
+      function sanitizeText(value,max){
+        return String(value==null?"":value).replace(/\u0000/g,"").slice(0,max);
+      }
+      function normalizeWorkspace(value){
+        var source=value&&typeof value==="object"?value:{};
+        var sites=Array.isArray(source.sites)?source.sites.slice(0,60).map(function(site){
+          return {id:sanitizeText(site.id||id("site"),100),title:sanitizeText(site.title,60),url:sanitizeText(site.url,1000),icon:sanitizeText(site.icon,4)};
+        }):[];
+        var notes=Array.isArray(source.notes)?source.notes.slice(0,150).map(function(note){
+          return {id:sanitizeText(note.id||id("note"),100),title:sanitizeText(note.title,120),content:sanitizeText(note.content,50000),pinned:!!note.pinned,updatedAt:number(note.updatedAt)||Date.now()};
+        }):[];
+        var study=Array.isArray(source.study)?source.study.slice(0,600).map(function(item){
+          return {
+            id:sanitizeText(item.id||id("study"),100),original:sanitizeText(item.original,8000),
+            translation:sanitizeText(item.translation,16000),definition:sanitizeText(item.definition,16000),
+            breakdown:normalizedBreakdown(item.breakdown).slice(0,40).map(function(entry){return sanitizeText(entry,2000);}),
+            keywords:normalizedList(item.keywords).slice(0,40).map(function(entry){return sanitizeText(entry,1000);}),
+            examples:normalizedList(item.examples).slice(0,30).map(function(entry){return sanitizeText(entry,2000);}),
+            mastered:!!item.mastered,createdAt:number(item.createdAt)||Date.now()
+          };
+        }):[];
+        return {sites:sites,notes:notes,study:study};
+      }
+      function timestamp(value){
+        var numeric=Number(value);
+        if(Number.isFinite(numeric)&&numeric>0)return numeric;
+        var parsed=Date.parse(String(value||""));
+        return Number.isFinite(parsed)&&parsed>0?parsed:0;
+      }
+      function workspaceHasContent(workspace){
+        return !!(workspace&&(workspace.sites.length||workspace.notes.length||workspace.study.length));
+      }
+      function normalizeWorkspaceEnvelope(value){
+        var source=value&&typeof value==="object"?value:{};
+        var wrapped=source.workspace&&typeof source.workspace==="object";
+        var workspace=normalizeWorkspace(wrapped?source.workspace:source);
+        var legacyHasContent=!wrapped&&workspaceHasContent(workspace);
+        return {
+          schemaVersion:WORKSPACE_SCHEMA_VERSION,
+          revision:Math.floor(number(wrapped?source.revision:0)),
+          updatedAt:timestamp(wrapped?source.updatedAt:0),
+          recoveryDirty:wrapped?!!source.recoveryDirty:legacyHasContent,
+          workspace:workspace
+        };
+      }
+      function workspaceCopy(){
+        return JSON.parse(JSON.stringify(state.workspace));
+      }
+      function workspaceEnvelope(){
+        return {
+          schemaVersion:WORKSPACE_SCHEMA_VERSION,
+          revision:state.workspaceRevision,
+          updatedAt:state.workspaceUpdatedAt,
+          recoveryDirty:state.workspaceRecoveryDirty,
+          workspace:workspaceCopy()
+        };
+      }
+      function persistWorkspaceEnvelope(){
+        try {
+          localStorage.setItem(WORKSPACE_STORAGE_KEY,JSON.stringify(workspaceEnvelope()));
+          return true;
+        } catch(error){
+          state.workspaceSaveStatus="error";
+          state.workspaceSaveError=t("workspaceLocalSaveFailed");
+          updateWorkspaceSaveState();
+          return false;
+        }
+      }
+      function validateWorkspacePayload(workspace){
+        var limits={depth:12,nodes:10000,string:65536,chars:524288,array:1000,object:1000,key:128,bytes:2*1024*1024};
+        var nodes=0,totalChars=0,problem="";
+        function visit(value,depth){
+          if(problem)return;
+          nodes+=1;
+          if(nodes>limits.nodes){ problem="nodes"; return; }
+          if(depth>limits.depth){ problem="depth"; return; }
+          if(typeof value==="string"){
+            if(value.length>limits.string){ problem="string"; return; }
+            totalChars+=value.length;
+          } else if(Array.isArray(value)){
+            if(value.length>limits.array){ problem="array"; return; }
+            value.forEach(function(item){ visit(item,depth+1); });
+          } else if(value&&typeof value==="object"){
+            var keys=Object.keys(value);
+            if(keys.length>limits.object){ problem="object"; return; }
+            keys.forEach(function(key){
+              if(problem)return;
+              if(key.length>limits.key){ problem="key"; return; }
+              totalChars+=key.length;
+              visit(value[key],depth+1);
+            });
+          }
+          if(totalChars>limits.chars)problem="chars";
+        }
+        visit(workspace,1);
+        var json="";
+        if(!problem){
+          try { json=JSON.stringify(workspace); }
+          catch(error){ problem="json"; }
+        }
+        if(!problem){
+          var bytes=typeof TextEncoder!=="undefined"?new TextEncoder().encode(json).length:new Blob([json]).size;
+          if(bytes>limits.bytes)problem="bytes";
+        }
+        return {ok:!problem,reason:problem,message:problem?t("workspaceTooLarge"):""};
+      }
+      function workspaceStatusLabel(){
+        if(state.workspaceSaveStatus==="saving")return t("workspaceSaving");
+        if(state.workspaceSaveStatus==="error")return state.workspaceSaveError||t("workspaceSaveFailed");
+        if(state.workspaceSaveStatus==="recovery")return t("workspaceRecovery");
+        return t("workspaceSaved");
+      }
+      function tabTitleKey(tab){
+        return tab==="translator"?"translateLearn":tab;
+      }
+      function updateWorkspaceSaveState(){
+        var status=state.workspaceSaveStatus||"saved";
+        var label=workspaceStatusLabel();
+        $$(".note-save-state").forEach(function(node){
+          node.textContent=label;
+          node.className="note-save-state "+status;
+        });
+        var message=$("#workspaceMessage");
+        if(!message)return;
+        if(status==="error"){
+          message.textContent=label;
+          message.className="form-message error";
+        } else if(status==="recovery"){
+          message.textContent=label;
+          message.className="form-message";
+        } else {
+          message.textContent="";
+          message.className="form-message";
+        }
+      }
+      function queueWorkspaceFlush(delay){
+        clearTimeout(workspaceSaveTimer);
+        workspaceSaveTimer=setTimeout(flushWorkspaceSave,typeof delay==="number"?delay:300);
+      }
+      function scheduleWorkspaceSave(delay){
+        state.workspaceRecoveryDirty=true;
+        state.workspaceRevision=Math.max(state.workspaceRevision,state.workspaceNativeRevision)+1;
+        state.workspaceUpdatedAt=Date.now();
+        var validation=validateWorkspacePayload(state.workspace);
+        if(!validation.ok){
+          state.workspaceSaveStatus="error";
+          state.workspaceSaveError=validation.message;
+          persistWorkspaceEnvelope();
+          updateWorkspaceSaveState();
+          return;
+        }
+        state.workspaceSaveStatus="saving";
+        state.workspaceSaveError="";
+        persistWorkspaceEnvelope();
+        updateWorkspaceSaveState();
+        queueWorkspaceFlush(delay);
+      }
+      function flushWorkspaceSave(){
+        if(workspaceSaveTimer){ clearTimeout(workspaceSaveTimer); workspaceSaveTimer=null; }
+        if(!state.workspaceRecoveryDirty)return;
+        if(!state.workspaceHydrated){
+          state.workspaceSaveStatus="recovery";
+          persistWorkspaceEnvelope();
+          updateWorkspaceSaveState();
+          return;
+        }
+        var workspace=workspaceCopy();
+        var validation=validateWorkspacePayload(workspace);
+        if(!validation.ok){
+          state.workspaceSaveStatus="error";
+          state.workspaceSaveError=validation.message;
+          persistWorkspaceEnvelope();
+          updateWorkspaceSaveState();
+          return;
+        }
+        var requestId=id("workspace");
+        state.workspacePendingRequestId=requestId;
+        state.workspacePendingRevision=state.workspaceRevision;
+        state.workspacePendingRequests[requestId]=state.workspaceRevision;
+        state.workspaceSaveStatus="saving";
+        state.workspaceSaveError="";
+        persistWorkspaceEnvelope();
+        updateWorkspaceSaveState();
+        bridge("workspaceSave",{workspace:workspace,requestId:requestId,revision:state.workspaceRevision});
+        clearTimeout(workspaceAckTimer);
+        workspaceAckTimer=setTimeout(function(){
+          if(state.workspacePendingRequestId!==requestId||!state.workspaceRecoveryDirty)return;
+          state.workspaceSaveStatus="error";
+          state.workspaceSaveError=t("workspaceSaveFailed");
+          persistWorkspaceEnvelope();
+          updateWorkspaceSaveState();
+        },8000);
+      }
+      function hydrateWorkspace(snapshot){
+        if(state.workspaceHydrated||!snapshot||typeof snapshot!=="object")return;
+        var hasWorkspace=Object.prototype.hasOwnProperty.call(snapshot,"workspace");
+        var hasMetadata=["workspaceRevision","workspaceUpdatedAt","workspaceLoadStatus"].some(function(key){
+          return Object.prototype.hasOwnProperty.call(snapshot,key);
+        });
+        if(!hasWorkspace&&!hasMetadata)return;
+        var rawNative=snapshot.workspace&&typeof snapshot.workspace==="object"?snapshot.workspace:{};
+        var nativeEnvelope=normalizeWorkspaceEnvelope(
+          rawNative.workspace&&typeof rawNative.workspace==="object"?rawNative:{
+            workspace:rawNative,
+            revision:snapshot.workspaceRevision,
+            updatedAt:snapshot.workspaceUpdatedAt,
+            recoveryDirty:false
+          }
+        );
+        var nativeRevision=Math.floor(number(snapshot.workspaceRevision||nativeEnvelope.revision));
+        var nativeUpdatedAt=timestamp(snapshot.workspaceUpdatedAt||nativeEnvelope.updatedAt);
+        var loadStatus=String(snapshot.workspaceLoadStatus||"ok").toLowerCase();
+        var nativeFailed=["corrupt","io_error","io-error","decode_error","decode-error","invalid","error"].indexOf(loadStatus)>=0;
+        var localHasContent=workspaceHasContent(state.workspace);
+        var localWins=state.workspaceRecoveryDirty||nativeFailed&&localHasContent||
+          state.workspaceRevision>nativeRevision||
+          state.workspaceRevision===nativeRevision&&state.workspaceUpdatedAt>nativeUpdatedAt;
+        state.workspaceNativeRevision=nativeRevision;
+        state.workspaceNativeUpdatedAt=nativeUpdatedAt;
+        state.workspaceHydrated=true;
+        if(!hasWorkspace&&!state.workspaceRecoveryDirty){
+          if(nativeRevision>state.workspaceRevision&&localHasContent){
+            state.workspaceSaveStatus="error";
+            state.workspaceSaveError=t("workspaceLoadFailed");
+          } else {
+            state.workspaceRevision=Math.max(state.workspaceRevision,nativeRevision);
+            state.workspaceUpdatedAt=Math.max(state.workspaceUpdatedAt,nativeUpdatedAt);
+            state.workspaceSaveStatus="saved";
+            state.workspaceSaveError="";
+          }
+          persistWorkspaceEnvelope();
+          updateWorkspaceSaveState();
+          return;
+        }
+        if(nativeFailed&&!localHasContent){
+          state.workspaceSaveStatus="error";
+          state.workspaceSaveError=t("workspaceLoadFailed");
+          updateWorkspaceSaveState();
+          return;
+        }
+        if(localWins){
+          state.workspaceRevision=Math.max(state.workspaceRevision,nativeRevision)+1;
+          state.workspaceUpdatedAt=Math.max(Date.now(),state.workspaceUpdatedAt+1,nativeUpdatedAt+1);
+          state.workspaceRecoveryDirty=true;
+          state.workspaceSaveStatus="recovery";
+          state.workspaceSaveError="";
+          persistWorkspaceEnvelope();
+          updateWorkspaceSaveState();
+          queueWorkspaceFlush(0);
+          return;
+        }
+        state.workspace=nativeEnvelope.workspace;
+        state.workspaceRevision=nativeRevision;
+        state.workspaceUpdatedAt=nativeUpdatedAt;
+        state.workspaceRecoveryDirty=false;
+        state.workspaceSaveStatus="saved";
+        state.workspaceSaveError="";
+        persistWorkspaceEnvelope();
+        updateWorkspaceSaveState();
+      }
+
+      function applyStaticTranslations(){
+        document.documentElement.lang=state.language==="zh"?"zh-CN":"en";
+        $$("[data-i18n]").forEach(function(node){ node.textContent=t(node.dataset.i18n); });
+        $$("[data-i18n-placeholder]").forEach(function(node){ node.placeholder=t(node.dataset.i18nPlaceholder); });
+        $$("[data-i18n-aria-label]").forEach(function(node){ node.setAttribute("aria-label",t(node.dataset.i18nAriaLabel)); });
+        $$(".language-picker button").forEach(function(button){
+          var active=button.dataset.language===state.language;
+          button.classList.toggle("active",active);
+          button.setAttribute("aria-pressed",String(active));
+        });
+        $("#pageTitle").textContent=t(tabTitleKey(state.tab));
+      }
+      function changeLanguage(language,options){
+        var next=normalizeLanguage(language);
+        if(!next)return;
+        state.language=next;
+        if(!options||options.persist!==false)localStorage.setItem("agentIsland.language",next);
+        applyStaticTranslations();
+        render();
+        if(options&&options.notify)bridge("setLanguage",{language:next});
+      }
+
+      function renderCompact(){
+        var active=workingSessions();
+        var live=state.dataAccess.monitoringEnabled&&!!state.snapshot.scannedAt&&active.length>0;
+        var status;
+        $("#compact").classList.toggle("live",live);
+        $("#notchDot").classList.toggle("live",live);
+        if(!state.dataAccess.monitoringEnabled){
+          status=t("compactMonitoringOff");
+        } else if(!state.snapshot.scannedAt){
+          status=t("compactReading");
+        } else if(live){
+          status=t("compactWorking",{agents:active.length});
+        } else {
+          status=t("compactIdle");
+        }
+        $("#compactStatus").textContent=status;
+        $("#compact").setAttribute("aria-label",t("compactExpandLabel",{status:status}));
+        $("#navActive").hidden=!active.length;
+        $("#navActive").textContent=active.length;
+      }
+
+      function qualityKey(value){
+        var raw=String(value||"").replace(/[\s_-]/g,"").toLowerCase();
+        var map={exact:"tokensExact",currentcounter:"tokensCurrentCounter",totalonly:"tokensTotalOnly",estimated:"tokensEstimated",estimate:"tokensEstimated",reported:"tokensReported",sourcereported:"tokensReported",mixed:"tokensMixed"};
+        return map[raw]||"";
+      }
+      function percentage(value){
+        var numeric=Number(value);
+        if(!Number.isFinite(numeric))return sanitizeText(value,40);
+        if(numeric>=0&&numeric<=1)numeric*=100;
+        return Math.max(0,Math.min(100,numeric)).toLocaleString(locale(),{maximumFractionDigits:1})+"%";
+      }
+      function localizedEvidenceValue(value,kind){
+        var raw=String(value==null?"":value),key=raw.replace(/[\s_-]/g,"").toLowerCase();
+        var coverage={sessionevents:["会话事件","session events"],sessioncounter:["会话计数器","session counter"],sessiontotalonly:["仅会话总量","session total only"],scannedsessionlogs:["已扫描会话日志","scanned session logs"],reportedevents:["来源上报事件","source-reported events"],applicationaggregate:["应用累计","application aggregate"],mixed:["混合范围","mixed scope"],none:["未提供","unavailable"],unspecified:["未提供","unavailable"]};
+        var windows={sessionlifetime:["会话周期","session lifetime"],availablelocalhistory:["可用本地历史","available local history"],latestfileswithinbudget:["最近文件（扫描预算内）","recent files within scan budget"],availablesourcehistory:["可用来源历史","available source history"],applicationlifetime:["应用生命周期","application lifetime"],mixed:["混合窗口","mixed window"],none:["未提供","unavailable"],unspecified:["未提供","unavailable"]};
+        var pair=(kind==="coverage"?coverage:windows)[key];
+        return pair?pair[state.language==="zh"?0:1]:sanitizeText(raw,80);
+      }
+      function evidenceWindow(value){
+        if(value==null||value==="")return "";
+        if(typeof value==="number")return duration(value);
+        if(typeof value==="string")return localizedEvidenceValue(value,"window");
+        if(typeof value==="object"){
+          if(value.label||value.name)return sanitizeText(value.label||value.name,80);
+          var start=timestamp(value.start||value.from),end=timestamp(value.end||value.to);
+          if(start&&end)return new Date(start).toLocaleTimeString(locale(),{hour12:false})+"–"+new Date(end).toLocaleTimeString(locale(),{hour12:false});
+          if(value.durationMs)return duration(value.durationMs);
+        }
+        return "";
+      }
+      function evidenceHTML(items){
+        if(!items.length)return "";
+        return '<div class="evidence-row">'+items.map(function(item){
+          return '<span class="evidence-chip '+(item.caution?"caution":"")+'">'+esc(item.label)+'</span>';
+        }).join("")+'</div>';
+      }
+      function tokenEvidence(item,hasTokens){
+        var result=[];
+        var rawQuality=item&&(item.tokenQuality||item.quality||item.usageQuality);
+        var rawCoverage=item&&(item.tokenCoverage!=null?item.tokenCoverage:item.coverage);
+        var rawWindow=item&&(item.tokenWindow||item.usageWindow||item.window);
+        var qualityUnavailable=!rawQuality||String(rawQuality).toLowerCase()==="unavailable";
+        var coverageUnavailable=rawCoverage==null||["","none","unspecified"].indexOf(String(rawCoverage).toLowerCase())>=0;
+        var windowUnavailable=rawWindow==null||["","none","unspecified"].indexOf(String(rawWindow).toLowerCase())>=0;
+        if(!hasTokens&&qualityUnavailable&&coverageUnavailable&&windowUnavailable&&!(item&&(item.tokenTruncated===true||item.truncated===true||item.telemetry==="shared")))return result;
+        var key=qualityKey(rawQuality);
+        if(key)result.push({label:t(key),caution:["tokensCurrentCounter","tokensTotalOnly","tokensEstimated","tokensMixed"].indexOf(key)>=0});
+        else if(hasTokens)result.push({label:t("tokensQualityUnknown"),caution:true});
+        if(rawCoverage&&typeof rawCoverage==="object")rawCoverage=rawCoverage.percent!=null?rawCoverage.percent:rawCoverage.value;
+        if(rawCoverage!=null&&rawCoverage!==""){
+          var coverageText=Number.isFinite(Number(rawCoverage))?percentage(rawCoverage):localizedEvidenceValue(rawCoverage,"coverage");
+          var coverageNumber=Number(rawCoverage);
+          if(Number.isFinite(coverageNumber)&&coverageNumber<=1)coverageNumber*=100;
+          var coverageKey=String(rawCoverage).replace(/[\s_-]/g,"").toLowerCase();
+          var partialKeys=["sessioncounter","sessiontotalonly","mixed","none","unspecified"];
+          result.push({label:t("tokenCoverage",{value:coverageText}),caution:Number.isFinite(coverageNumber)?coverageNumber<100:partialKeys.indexOf(coverageKey)>=0});
+        }
+        var windowText=evidenceWindow(rawWindow);
+        if(windowText)result.push({label:t("tokenWindow",{value:windowText}),caution:false});
+        if(item&&(item.tokenTruncated===true||item.truncated===true))result.push({label:t("tokensTruncated"),caution:true});
+        if(item&&item.telemetry==="shared")result.push({label:t("tokensShared"),caution:true});
+        return result;
+      }
+      function activityEvidence(item){
+        var result=[];
+        var raw=String(item&&item.activityBasis||"").toLowerCase();
+        var key="";
+        if(/threadturninprogress|turninprogress/.test(raw))key="activityBasisTurn";
+        else if(/process/.test(raw))key="activityBasisProcess";
+        else if(/event|log/.test(raw))key="activityBasisEvents";
+        else if(/file|mtime/.test(raw))key="activityBasisFile";
+        else if(/heart|ping/.test(raw))key="activityBasisHeartbeat";
+        else if(/report|provider|source|sessionstatus|sessiontelemetry/.test(raw))key="activityBasisReported";
+        else if(raw)key="activityBasisHeuristic";
+        result.push({label:t(key||"activityBasisUnknown"),caution:!key||key==="activityBasisHeuristic"});
+        var confidence=item&&(item.activityConfidence!=null?item.activityConfidence:item.confidence);
+        if(confidence!=null&&confidence!==""){
+          var confidenceRaw=String(confidence).toLowerCase();
+          var confidenceMap={high:"confidenceHigh",medium:"confidenceMedium",low:"confidenceLow",unknown:"confidenceUnknown",unavailable:"confidenceUnknown"};
+          var confidenceText=confidenceMap[confidenceRaw]?t(confidenceMap[confidenceRaw]):percentage(confidence),confidenceNumber=Number(confidence);
+          if(Number.isFinite(confidenceNumber)&&confidenceNumber<=1)confidenceNumber*=100;
+          var confidenceCaution=Number.isFinite(confidenceNumber)?confidenceNumber<75:["low","unknown","unavailable"].indexOf(confidenceRaw)>=0;
+          result.push({label:t("activityConfidence",{value:confidenceText}),caution:confidenceCaution});
+        }
+        return result;
+      }
+      function activeTokenDetail(sessions){
+        if(!sessions.length)return t("currentSessionsTotal");
+        if(sessions.some(function(item){return item.tokenTruncated===true||item.truncated===true;}))return t("currentSessionsTotal")+" · "+t("tokensTruncated");
+        var partial=sessions.some(function(item){
+          var coverage=item.tokenCoverage!=null?item.tokenCoverage:item.coverage;
+          if(coverage&&typeof coverage==="object")coverage=coverage.percent!=null?coverage.percent:coverage.value;
+          var numeric=Number(coverage);
+          if(Number.isFinite(numeric))return (numeric<=1?numeric*100:numeric)<100;
+          return ["sessioncounter","sessiontotalonly","mixed","none","unspecified"].indexOf(String(coverage).replace(/[\s_-]/g,"").toLowerCase())>=0;
+        });
+        if(partial)return t("currentSessionsTotal")+" · "+t("tokensPartial");
+        var keys=sessions.map(function(item){return qualityKey(item.tokenQuality||item.quality||item.usageQuality);}).filter(Boolean);
+        if(keys.indexOf("tokensEstimated")>=0)return t("currentSessionsTotal")+" · "+t("tokensEstimated");
+        if(new Set(keys).size>1)return t("currentSessionsTotal")+" · "+t("tokensMixed");
+        return t("currentSessionsTotal")+" · "+t(keys[0]||"tokensQualityUnknown");
+      }
+
+      function usageHistoryModel(){
+        var sessions=(state.snapshot.sessions||[]).filter(function(session){ return sessionTotal(session)>0; });
+        var nativeHistory=state.snapshot.usageHistory&&typeof state.snapshot.usageHistory==="object"?state.snapshot.usageHistory:{};
+        var nativeTotals=nativeHistory.totals&&typeof nativeHistory.totals==="object"?nativeHistory.totals:null;
+        if(nativeTotals&&Number.isFinite(Number(nativeTotals.total))){
+          return Object.assign({byTool:[],sessionCount:sessions.length,earliestAvailableAt:0,lastRecordedAt:0,
+            tokenQuality:"unavailable",tokenCoverage:"none",tokenWindow:"none",tokenTruncated:false},nativeHistory);
+        }
+        var totals={total:0,input:0,cached:0,output:0,unknown:0,reasoning:0};
+        var first=0,last=0,toolMap={};
+        sessions.forEach(function(session){
+          Object.keys(totals).forEach(function(key){ totals[key]+=number(key==="total"?sessionTotal(session):session[key]); });
+          var started=number(session.startedAt)||number(session.updatedAt),updated=number(session.updatedAt);
+          if(started&&(!first||started<first))first=started;
+          if(updated>last)last=updated;
+          var toolKey=String(session.toolKey||"unknown"),tool=toolMap[toolKey];
+          if(!tool)tool=toolMap[toolKey]={toolKey:toolKey,toolName:String(session.toolName||toolKey),sessionCount:0,total:0};
+          tool.sessionCount+=1; tool.total+=sessionTotal(session);
+        });
+        return {schemaVersion:1,totals:totals,sessionCount:sessions.length,earliestAvailableAt:first,lastRecordedAt:last,
+          byTool:Object.keys(toolMap).map(function(key){return toolMap[key];}).sort(function(a,b){return b.total-a.total;}),
+          tokenQuality:"mixed",tokenCoverage:"mixed",tokenWindow:"mixed",tokenTruncated:false,
+          scope:"availableLocalHistory",attribution:"sessionLifetime",dailyAvailable:false};
+      }
+      function historicalSessions(){
+        return (state.snapshot.sessions||[]).filter(function(session){ return sessionTotal(session)>0; })
+          .sort(function(a,b){ return number(b.updatedAt)-number(a.updatedAt); });
+      }
+      function applyMonitorMode(){
+        $$('[data-monitor-mode]').forEach(function(button){
+          var active=button.dataset.monitorMode===state.monitorMode;
+          button.classList.toggle("active",active);
+          button.setAttribute("aria-selected",String(active));
+        });
+        $$(".monitor-pane").forEach(function(pane){ pane.classList.toggle("active",pane.id==="monitor-"+state.monitorMode); });
+      }
+      function setMonitorMode(mode){
+        if(["live","history"].indexOf(mode)<0)return;
+        state.monitorMode=mode;
+        state.historyLimit=12;
+        applyMonitorMode();
+        if(mode==="history")renderUsageHistory();
+      }
+      function renderUsageHistory(){
+        var history=usageHistoryModel(),totals=history.totals||{},all=historicalSessions();
+        var first=number(history.earliestAvailableAt||history.firstRecordedAt),last=number(history.lastRecordedAt);
+        var period=historyDateRange(first,last),fullPeriod=first&&last?calendarDate(first,false)+" — "+calendarDate(last,false):period;
+        var stats=[
+          ["readableHistoryTotal",fmt(totals.total),t("localLogsScope"),"#fb923c","#ffae72"],
+          ["recordedConversations",Number(history.sessionCount)||0,t("sessionLifetimeCount"),"#a78bfa","#d5c8ff"],
+          ["recordedPeriod",period,last?t("historyUpdated",{date:calendarDate(last,true)}):t("noHistory"),"#6aa9ff","#8fc0ff","range-value",fullPeriod]
+        ];
+        $("#historyStats").innerHTML=stats.map(function(metric){
+          return '<article class="card summary-card" style="--accent:'+metric[3]+';--value:'+metric[4]+'">'+
+            '<div class="summary-label">'+esc(t(metric[0]))+'</div><div class="summary-value '+esc(metric[5]||"")+'" title="'+esc(metric[6]||metric[1])+'">'+esc(metric[1])+'</div>'+
+            '<div class="summary-detail">'+esc(metric[2])+'</div></article>';
+        }).join("");
+
+        var breakdown=[["inputTokens",totals.input],["cachedTokens",totals.cached],["outputTokens",totals.output],
+          ["otherTokens",totals.unknown],["reasoningTokens",totals.reasoning]];
+        $("#historyBreakdown").innerHTML=breakdown.map(function(item){
+          return '<span class="history-metric"><small>'+esc(t(item[0]))+'</small><b title="'+esc(String(number(item[1])))+'">'+esc(fmt(item[1]))+'</b></span>';
+        }).join("");
+        $("#historyEvidence").innerHTML=evidenceHTML(tokenEvidence(history,number(totals.total)>0));
+
+        var byTool=Array.isArray(history.byTool)?history.byTool.filter(Boolean):[];
+        var maxTool=byTool.length?Math.max.apply(null,byTool.map(function(tool){return number(tool.total);})) : 0;
+        $("#historyToolTotals").innerHTML=byTool.length?byTool.slice(0,6).map(function(tool){
+          var width=maxTool?Math.max(2,number(tool.total)/maxTool*100):0;
+          return '<div class="history-tool-row"><div class="history-tool-copy"><b title="'+esc(tool.toolName||tool.toolKey)+'">'+esc(tool.toolName||tool.toolKey)+'</b>'+
+            '<span>'+esc(fmt(tool.total))+'</span></div><div class="history-bar"><i style="width:'+width.toFixed(1)+'%;--bar-color:'+providerColor(tool.toolKey)+'"></i></div></div>';
+        }).join(""):'<div class="empty-card">'+esc(t("noHistory"))+'</div>';
+
+        var toolOptions={},currentTool=state.historyTool;
+        all.forEach(function(session){
+          var key=String(session.toolKey||"unknown");
+          if(!toolOptions[key])toolOptions[key]=String(session.toolName||key);
+        });
+        var optionKeys=Object.keys(toolOptions).sort(function(a,b){return toolOptions[a].localeCompare(toolOptions[b],locale());});
+        if(currentTool!=="all"&&!toolOptions[currentTool])currentTool=state.historyTool="all";
+        $("#historyToolFilter").innerHTML='<option value="all">'+esc(t("allTools"))+'</option>'+optionKeys.map(function(key){
+          return '<option value="'+esc(key)+'"'+(key===currentTool?' selected':'')+'>'+esc(toolOptions[key])+'</option>';
+        }).join("");
+
+        var query=state.historyQuery.trim().toLocaleLowerCase(),filtered=all.filter(function(session){
+          if(currentTool!=="all"&&String(session.toolKey||"unknown")!==currentTool)return false;
+          if(!query)return true;
+          return [sessionConversationTitle(session),session.name,session.toolName,session.project].join(" ").toLocaleLowerCase().indexOf(query)>=0;
+        });
+        var shown=filtered.slice(0,state.historyLimit);
+        $("#historyRecordSummary").textContent=t("historyRecordSummary",{shown:shown.length,total:filtered.length});
+        $("#historyRecords").innerHTML=shown.length?shown.map(function(session){
+          var rawTitle=sessionConversationTitle(session),title=masked(rawTitle,t("hiddenTask"));
+          var project=state.privacy?"":basename(session.project);
+          var quality=qualityKey(session.tokenQuality||session.quality)||"tokensQualityUnknown";
+          var meta=[calendarDate(session.updatedAt,true),project,t(quality)].filter(Boolean).join(" · ");
+          var tool=String(session.toolName||session.toolKey||t("unknownTool"));
+          var values=[["inputTokens",session.input],["outputTokens",session.output],["otherTokens",session.unknown],["token",sessionTotal(session)]];
+          return '<article class="card history-record"><div class="history-record-main"><div class="history-record-title" title="'+esc(title)+'">'+esc(title)+'</div>'+
+            '<div class="history-record-meta" title="'+esc(meta)+'">'+esc(meta)+'</div></div>'+
+            '<span class="history-tool-pill" style="--tool-color:'+providerColor(session.toolKey)+'">◆ '+esc(tool)+'</span>'+
+            '<div class="history-values">'+values.map(function(value){return '<span class="history-value"><small>'+esc(t(value[0]))+'</small><b>'+esc(fmt(value[1]))+'</b></span>';}).join("")+'</div></article>';
+        }).join(""):'<div class="card empty-card">'+esc(t("noHistory"))+'</div>';
+        $("#historyMore").hidden=shown.length>=filtered.length;
+      }
+
+      function renderMonitor(){
+        var sessions=workingSessions(),conversations=topConversations(sessions),allTools=tools();
+        var running=allTools.filter(function(tool){ return !!tool.running; }).length;
+        var activeTokens=sessions.reduce(function(total,session){ return total+sessionTotal(session); },0);
+        var components=agentComponentCount(allTools);
+        var metrics=[
+          ["agentComponents",components,t("installedEntries"),"#a78bfa","#d5c8ff"],
+          ["tools",allTools.length,t("installedEntries"),"#6aa9ff","#8fc0ff"],
+          ["runningTools",running,t("appProcesses"),"#3deeb3","#3deeb3"],
+          ["executingAgents",sessions.length,t("liveSessions"),"#3deeb3","#3deeb3"],
+          ["activeConversations",conversations.length,t("topLevelSessions"),"#f5c451","#ffd86b"],
+          ["activeTokenUsage",sessions.length?fmt(activeTokens):"—",activeTokenDetail(sessions),"#fb923c","#ffae72"]
+        ];
+        $("#monitorStats").innerHTML=metrics.map(function(metric){
+          return '<article class="card summary-card" style="--accent:'+metric[3]+';--value:'+metric[4]+'">'+
+            '<div class="summary-label">'+esc(t(metric[0]))+'</div>'+
+            '<div class="summary-value">'+esc(metric[1])+'</div>'+
+            '<div class="summary-detail">'+esc(metric[2])+'</div></article>';
+        }).join("");
+        $("#toolsSummary").textContent=t("toolsSummary",{running:running,total:allTools.length});
+        renderTools(allTools,sessions);
+        $("#activeSummary").textContent=t("workingSummary",{agents:sessions.length,conversations:conversations.length});
+        renderActiveTasks(sessions);
+        applyMonitorMode();
+        if(state.monitorMode==="history")renderUsageHistory();
+      }
+      function renderTools(allTools,activeSessions){
+        var sorted=allTools.slice().sort(function(a,b){
+          return Number(!!b.running)-Number(!!a.running)||
+            number(b.activeSessionCount)-number(a.activeSessionCount)||
+            String(a.name||"").localeCompare(String(b.name||""),locale());
+        });
+        if(!sorted.length){
+          $("#toolGrid").innerHTML='<div class="card empty-card">'+esc(t("noTools"))+'</div>';
+          return;
+        }
+        $("#toolGrid").innerHTML=sorted.map(function(tool){
+          var telemetry=["available","shared"].indexOf(tool.telemetry)>=0;
+          var extensions=Array.isArray(tool.agentExtensions)?tool.agentExtensions.filter(Boolean):[];
+          var activeForTool=(activeSessions||[]).filter(function(session){ return session.toolKey===tool.id||session.toolKey===tool.toolKey; });
+          var activeCount=Number.isFinite(Number(tool.activeSessionCount))?Math.max(0,Number(tool.activeSessionCount)):activeForTool.length;
+          var conversations=activeForTool.filter(function(session){ return !session.isSubagent; }).length;
+          var tokenValue=telemetry?(Number.isFinite(Number(tool.totalTokens))?fmt(tool.totalTokens):fmt(activeForTool.reduce(function(sum,session){return sum+sessionTotal(session);},0))):t("unavailable");
+          var statusKey=tool.running?"running":activeCount>0?"agentActive":tool.installed?"installedNotRunning":"historicalOnly";
+          var statusColor=tool.running?"#3deeb3":activeCount>0?"#f5c451":"#7d7d87";
+          var runtime=tool.running&&number(tool.runtimeMs)>0?duration(tool.runtimeMs):t("unavailable");
+          var components=extensions.map(function(extension){ return String(extension.name||extension.id||""); }).filter(Boolean);
+          if(tool.kind==="agent")components.unshift(String(tool.name||tool.id||"Agent"));
+          var componentHTML=components.length?'<div class="component-list">'+components.map(function(name){
+            return '<span class="component-chip">'+esc(name)+'</span>';
+          }).join("")+'</div>':'';
+          var toolHasTokens=telemetry&&(Number.isFinite(Number(tool.totalTokens))||activeForTool.some(function(session){return Number.isFinite(Number(session.total));}));
+          var evidenceItems=(tool.running||activeCount>0)?activityEvidence(tool):[];
+          var evidence=evidenceHTML(evidenceItems.concat(tokenEvidence(tool,toolHasTokens)));
+          return '<article class="card tool-card">'+
+            '<div class="tool-head"><span class="tool-icon" style="--tool-color:'+providerColor(tool.providerKey||tool.id)+'">'+(tool.kind==="host"?"⌘":"◆")+'</span>'+
+            '<div class="tool-title"><b title="'+esc(tool.name||tool.id||t("unknownTool"))+'">'+esc(tool.name||tool.id||t("unknownTool"))+'</b>'+
+            '<span class="tool-status" style="--status-color:'+statusColor+'"><i class="status-dot"></i>'+esc(t(statusKey))+'</span></div></div>'+
+            '<div class="tool-metrics">'+
+            '<span class="tool-metric"><small>'+esc(t("runtime"))+'</small><b>'+esc(runtime)+'</b></span>'+
+            '<span class="tool-metric"><small>'+esc(t("active"))+'</small><b>'+(telemetry?activeCount+"/"+conversations:t("unavailable"))+'</b></span>'+
+            '<span class="tool-metric"><small>'+esc(t("historicalToken"))+'</small><b>'+esc(tokenValue)+'</b></span></div>'+
+            evidence+componentHTML+'</article>';
+        }).join("");
+      }
+      function renderActiveTasks(sessions){
+        var list=sessions.slice().sort(function(a,b){
+          return Number(!!a.isSubagent)-Number(!!b.isSubagent)||number(b.updatedAt)-number(a.updatedAt);
+        });
+        if(!list.length){
+          $("#activeTasks").innerHTML='<div class="card empty-card">'+esc(t("noActiveTasks"))+'</div>';
+          return;
+        }
+        $("#activeTasks").innerHTML=list.map(function(session,index){
+          var rawTitle=sessionConversationTitle(session);
+          var title=masked(rawTitle,t("hiddenTask"));
+          var rawAgentName=session.agentName||session.name||("Agent "+(index+1));
+          var agentName=String(rawAgentName)===String(rawTitle)?"":masked(rawAgentName,t("hiddenAgent"));
+          var project=state.privacy?"":basename(session.project);
+          var meta=[agentName,session.isSubagent?t("subagent"):t("mainConversation"),project].filter(Boolean).join(" · ");
+          var parent=(state.snapshot.sessions||[]).find(function(candidate){
+            return session.parentThreadId&&candidate.id===session.parentThreadId;
+          });
+          var parentTask=parent?masked(sessionConversationTitle(parent),t("hiddenTask")):"";
+          var tool=String(session.toolName||session.toolKey||t("unknownTool"));
+          var hasTokens=Number.isFinite(Number(session.total))||Number.isFinite(Number(session.input))||Number.isFinite(Number(session.output))||Number.isFinite(Number(session.unknown));
+          var tokens=hasTokens?fmt(sessionTotal(session)):"—";
+          var evidence=evidenceHTML(activityEvidence(session).concat(tokenEvidence(session,hasTokens)));
+          return '<article class="card task-card">'+
+            '<div class="task-main"><div class="task-title" title="'+esc(title)+'">'+esc(title)+'</div>'+
+            '<div class="task-meta">'+esc(meta)+'</div>'+
+            (parentTask?'<div class="task-parent" title="'+esc(parentTask)+'">'+esc(t("parentConversation",{task:parentTask}))+'</div>':'')+evidence+'</div>'+
+            '<div class="task-cell"><span class="live-label"><i class="status-dot" style="--status-color:var(--mint)"></i>'+esc(tool)+'</span></div>'+
+            '<div class="task-cell"><small>'+esc(t("cumulativeActive"))+'</small><b>'+esc(duration(session.durationMs))+'</b></div>'+
+            '<div class="task-cell"><small>'+esc(t("token"))+'</small><b>'+esc(tokens)+'</b><small style="margin-top:4px">'+esc(t("lastUpdate"))+' · '+esc(relative(session.updatedAt))+'</small></div>'+
+            '</article>';
+        }).join("");
+      }
+
+      function renderSites(){
+        var list=state.workspace.sites;
+        if(!list.length){
+          $("#sitesGrid").innerHTML='<div class="card empty-card">'+esc(t("noSites"))+'</div>';
+          return;
+        }
+        $("#sitesGrid").innerHTML=list.map(function(site){
+          var host="";
+          try { host=new URL(site.url).hostname; } catch(error){ host=site.url; }
+          var icon=site.icon||String(site.title||host||"↗").trim().slice(0,1).toUpperCase();
+          return '<article class="card site-card"><div class="site-main"><span class="site-icon">'+esc(icon)+'</span>'+
+            '<div class="site-copy"><b title="'+esc(site.title)+'">'+esc(site.title||host)+'</b><small title="'+esc(site.url)+'">'+esc(host)+'</small></div></div>'+
+            '<div class="card-actions"><button class="primary-btn small-btn" data-action="openSite" data-id="'+esc(site.id)+'">'+esc(t("open"))+'</button>'+
+            '<button class="ghost-btn small-btn" data-action="editSite" data-id="'+esc(site.id)+'">'+esc(t("edit"))+'</button>'+
+            '<button class="ghost-btn small-btn" data-action="deleteSite" data-id="'+esc(site.id)+'">'+esc(t("delete"))+'</button></div></article>';
+        }).join("");
+      }
+      function openSiteEditor(site){
+        state.editingSiteId=site?site.id:null;
+        $("#siteIcon").value=site?site.icon||"":"";
+        $("#siteTitle").value=site?site.title||"":"";
+        $("#siteURL").value=site?site.url||"":"";
+        $("#siteMessage").textContent="";
+        $("#siteMessage").className="form-message";
+        $("#siteEditor").hidden=false;
+        setTimeout(function(){ $("#siteTitle").focus(); },0);
+      }
+      function closeSiteEditor(){
+        state.editingSiteId=null;
+        $("#siteEditor").hidden=true;
+        $("#siteMessage").textContent="";
+      }
+      function validWebURL(value){
+        try {
+          var raw=String(value||"").trim();
+          var authorityMatch=raw.match(/^https?:\/\/([^\/?#]+)/i);
+          if(!authorityMatch)return null;
+          var authority=authorityMatch[1];
+          var rawHost="";
+          if(authority.charAt(0)==="["){
+            var bracketEnd=authority.indexOf("]");
+            if(bracketEnd<0)return null;
+            rawHost=authority.slice(0,bracketEnd+1).toLowerCase();
+            if(authority.slice(bracketEnd+1)&&!/^:\d+$/.test(authority.slice(bracketEnd+1)))return null;
+          } else {
+            if((authority.match(/:/g)||[]).length>1)return null;
+            rawHost=authority.replace(/:\d+$/,"").toLowerCase();
+          }
+          var parsed=new URL(raw);
+          var ipv4Parts=rawHost.split(".");
+          var strictLoopbackIPv4=ipv4Parts.length===4&&ipv4Parts.every(function(part,index){
+            return /^\d{1,3}$/.test(part)&&String(Number(part))===part&&Number(part)>=0&&Number(part)<=255&&(index>0||Number(part)===127);
+          });
+          var localHost=rawHost==="localhost"||rawHost==="[::1]"||strictLoopbackIPv4;
+          var allowed=parsed.protocol==="https:"||(parsed.protocol==="http:"&&localHost);
+          if(!allowed||parsed.username||parsed.password||parsed.hash)return null;
+          return parsed;
+        } catch(error){ return null; }
+      }
+      function setSiteOpenMessage(message,error){
+        $("#siteOpenMessage").textContent=String(message||"");
+        $("#siteOpenMessage").className="form-message "+(error?"error":message?"success":"");
+      }
+      function saveSite(){
+        var title=sanitizeText($("#siteTitle").value.trim(),60);
+        var icon=sanitizeText($("#siteIcon").value.trim(),4);
+        var parsed=validWebURL($("#siteURL").value);
+        if(!title||!$("#siteURL").value.trim()){
+          $("#siteMessage").textContent=t("siteRequired");
+          $("#siteMessage").className="form-message error";
+          return;
+        }
+        if(!parsed){
+          $("#siteMessage").textContent=t("invalidURL");
+          $("#siteMessage").className="form-message error";
+          return;
+        }
+        var existing=state.workspace.sites.find(function(site){ return site.id===state.editingSiteId; });
+        if(existing){
+          existing.title=title; existing.icon=icon; existing.url=parsed.href;
+        } else {
+          state.workspace.sites.push({id:id("site"),title:title,icon:icon,url:parsed.href});
+        }
+        scheduleWorkspaceSave(0);
+        closeSiteEditor();
+        renderSites();
+      }
+      function renderNotes(){
+        var query=state.noteQuery.trim().toLowerCase();
+        var all=state.workspace.notes.slice().sort(function(a,b){
+          return Number(!!b.pinned)-Number(!!a.pinned)||number(b.updatedAt)-number(a.updatedAt);
+        });
+        var list=query?all.filter(function(note){
+          return (note.title+" "+note.content).toLowerCase().indexOf(query)>=0;
+        }):all;
+        if(!list.length){
+          $("#notesGrid").innerHTML='<div class="card empty-card">'+esc(query?t("noMatchingNotes"):t("noNotes"))+'</div>';
+          updateWorkspaceSaveState();
+          return;
+        }
+        $("#notesGrid").innerHTML=list.map(function(note){
+          return '<article class="card note-card" data-note-id="'+esc(note.id)+'">'+
+            '<div class="note-head"><input class="note-title" data-note-field="title" maxlength="120" value="'+esc(note.title)+'" aria-label="'+esc(t("name"))+'" />'+
+            '<button class="ghost-btn small-btn" data-action="togglePinNote" data-id="'+esc(note.id)+'">'+esc(t(note.pinned?"unpin":"pin"))+'</button></div>'+
+            '<textarea class="note-body" data-note-field="content" maxlength="50000" placeholder="'+esc(t("notePlaceholder"))+'">'+esc(note.content)+'</textarea>'+
+            '<div class="note-footer"><span>'+esc(note.pinned?t("pinned"):"")+'</span>'+
+            '<span class="note-save-state '+esc(state.workspaceSaveStatus)+'">'+esc(workspaceStatusLabel())+'</span>'+
+            '<button class="ghost-btn small-btn" data-action="deleteNote" data-id="'+esc(note.id)+'">'+esc(t("delete"))+'</button></div></article>';
+        }).join("");
+        updateWorkspaceSaveState();
+      }
+      function addNote(){
+        var note={id:id("note"),title:t("noteTitle"),content:"",pinned:false,updatedAt:Date.now()};
+        state.workspace.notes.unshift(note);
+        scheduleWorkspaceSave(0);
+        renderNotes();
+        setTimeout(function(){
+          var input=document.querySelector('[data-note-id="'+CSS.escape(note.id)+'"] .note-title');
+          if(input){ input.focus(); input.select(); }
+        },0);
+      }
+
+      function normalizedBreakdown(value){
+        if(Array.isArray(value))return value.map(function(item){
+          if(item&&typeof item==="object"){
+            var label=item.label||item.title||item.term||item.source||item.text||item.segment||item.role||"";
+            var detail=item.value||item.explanation||item.meaning||item.translation||item.grammar||item.note||"";
+            if(Array.isArray(detail))detail=detail.join("; ");
+            return [label,detail].filter(Boolean).join(": ");
+          }
+          return String(item||"");
+        }).filter(Boolean);
+        if(value&&typeof value==="object")return Object.keys(value).map(function(key){ return key+": "+String(value[key]||""); });
+        return value?[String(value)]:[];
+      }
+      function normalizedList(value){
+        if(!Array.isArray(value))return value?[String(value)]:[];
+        return value.map(function(item){
+          if(item&&typeof item==="object"){
+            var label=item.word||item.term||item.source||item.label||item.title||"";
+            var detail=item.meaning||item.meanings||item.translation||item.value||item.explanation||item.target||"";
+            if(Array.isArray(detail))detail=detail.map(function(entry){
+              return entry&&typeof entry==="object"?entry.meaning||entry.definition||entry.text||JSON.stringify(entry):String(entry||"");
+            }).filter(Boolean).join("; ");
+            return [label,detail].filter(Boolean).join(": ");
+          }
+          return String(item||"");
+        }).filter(Boolean);
+      }
+      function firstContent(){
+        for(var index=0;index<arguments.length;index+=1){
+          var value=arguments[index];
+          if(Array.isArray(value)&&value.length)return value;
+          if(value&&typeof value==="object"&&Object.keys(value).length)return value;
+          if(typeof value==="string"&&value.trim())return value;
+        }
+        return [];
+      }
+      function definitionsSummary(definitions){
+        return normalizedList(definitions).slice(0,4).join(state.language==="zh"?"；":"; ");
+      }
+      function renderTranslation(){
+        var box=$("#translationResult"),result=state.translation;
+        var transferDestination=translatorDestination();
+        var transferKey=isDefaultDeepSeekDestination(transferDestination)?"translationTransferNoticeDeepSeek":"translationTransferNotice";
+        $("#translationTransferNotice").textContent=t(transferKey,{destination:transferDestination});
+        var currentInput=$("#translationInput").value.trim();
+        var currentResult=!!(result&&result.requestId&&result.submittedText===currentInput);
+        $("#copyTranslationButton").disabled=!result||!result.translation;
+        $("#saveStudyButton").disabled=!result||!result.translation||!currentResult;
+        if(state.translationPending){
+          box.innerHTML='<div class="result-placeholder">'+esc(t("translating"))+'</div>';
+          return;
+        }
+        if(!result){
+          box.innerHTML='<div class="result-placeholder">'+esc(t("resultPlaceholder"))+'</div>';
+          $("#translationUsage").textContent="";
+          return;
+        }
+        if(result.error){
+          box.innerHTML='<div class="result-placeholder" style="color:var(--red)">'+esc(result.error)+'</div>';
+          $("#translationUsage").textContent="";
+          return;
+        }
+        if(!currentResult){
+          $("#translationMessage").textContent=t("resultOutdated");
+          $("#translationMessage").className="result-message error";
+        }
+        var html="";
+        if(result.translation)html+='<section class="result-block"><h3>'+esc(t("translation"))+'</h3><p>'+esc(result.translation)+'</p></section>';
+        if(result.definition)html+='<section class="result-block"><h3>'+esc(t("definition"))+'</h3><p>'+esc(result.definition)+'</p></section>';
+        var breakdown=normalizedBreakdown(result.breakdown);
+        if(breakdown.length)html+='<section class="result-block"><h3>'+esc(t("breakdown"))+'</h3><ul>'+breakdown.map(function(item){return "<li>"+esc(item)+"</li>";}).join("")+'</ul></section>';
+        var keywords=normalizedList(result.keywords);
+        if(keywords.length)html+='<section class="result-block"><h3>'+esc(t("keywords"))+'</h3><ul>'+keywords.map(function(item){return "<li>"+esc(item)+"</li>";}).join("")+'</ul></section>';
+        var examples=normalizedList(result.examples);
+        if(examples.length)html+='<section class="result-block"><h3>'+esc(t("examples"))+'</h3><ul>'+examples.map(function(item){return "<li>"+esc(item)+"</li>";}).join("")+'</ul></section>';
+        box.innerHTML=html||'<div class="result-placeholder">'+esc(t("resultPlaceholder"))+'</div>';
+        var usage=result.usage||{};
+        var total=number(usage.totalTokens||usage.total_tokens||usage.total);
+        if(!total)total=number(usage.inputTokens||usage.input_tokens)+number(usage.outputTokens||usage.output_tokens);
+        $("#translationUsage").textContent=total?t("token")+": "+fmt(total):"";
+      }
+      function translatorDestination(){
+        var value=String(state.translatorConfig.baseURL||"").trim();
+        if(!value)return t("translationServiceNotConfigured");
+        try { return new URL(value).origin; }
+        catch(error){ return value.slice(0,160); }
+      }
+      function isDefaultDeepSeekDestination(destination){
+        return String(destination||"").toLowerCase()==="https://api.deepseek.com";
+      }
+      var translationConsentPromise=null;
+      var translationRequestStarting=false;
+      function showTranslationConsent(destination){
+        var dialog=$("#translationConsentDialog");
+        var deepSeek=isDefaultDeepSeekDestination(destination);
+        var body=t(deepSeek?"translationConsentDeepSeek":"translationConsentCustom",{destination:destination});
+        $("#translationConsentBody").textContent=body;
+        $("#deepSeekPolicyLinks").hidden=!deepSeek;
+        $("#deepSeekPrivacyButton").dataset.url=state.language==="zh"?
+          "https://cdn.deepseek.com/policies/zh-CN/deepseek-privacy-policy.html":
+          "https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html";
+        $("#deepSeekTermsButton").dataset.url=state.language==="zh"?
+          "https://cdn.deepseek.com/policies/zh-CN/deepseek-open-platform-terms-of-service.html":
+          "https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html";
+        $("#translationAppPrivacyButton").disabled=!state.releaseLinks.privacyPolicyConfigured;
+        if(!dialog||typeof dialog.showModal!=="function")return Promise.resolve(window.confirm(body));
+        return new Promise(function(resolve){
+          dialog.returnValue="cancel";
+          dialog.addEventListener("close",function(){ resolve(dialog.returnValue==="confirm"); },{once:true});
+          dialog.showModal();
+        });
+      }
+      async function confirmTranslationTransfer(){
+        var destination=translatorDestination();
+        if(destination===t("translationServiceNotConfigured"))return true;
+        var consentKey="agentIsland.translationConsentDestination.v2";
+        if(localStorage.getItem(consentKey)===destination)return true;
+        if(!translationConsentPromise)translationConsentPromise=showTranslationConsent(destination);
+        var accepted=false;
+        try { accepted=await translationConsentPromise; }
+        finally { translationConsentPromise=null; }
+        if(accepted)localStorage.setItem(consentKey,destination);
+        return accepted;
+      }
+      async function requestTranslation(mode){
+        if(translationRequestStarting||state.translationPending)return;
+        var text=$("#translationInput").value.trim();
+        if(!text)return;
+        translationRequestStarting=true;
+        try {
+          if(!await confirmTranslationTransfer())return;
+        } finally {
+          translationRequestStarting=false;
+        }
+        var requestId=id("translation");
+        state.translationMode=mode;
+        state.translationPending=true;
+        state.translation=null;
+        state.translationRequest={requestId:requestId,submittedText:text,mode:mode};
+        $("#translationMessage").textContent=t("translating");
+        $("#translationMessage").className="result-message";
+        renderTranslation();
+        bridge("translate",{requestId:requestId,text:text,mode:mode,sourceLanguage:state.sourceLanguage});
+      }
+      function translationText(){
+        var result=state.translation;
+        if(!result)return "";
+        return [result.translation,result.definition].concat(normalizedBreakdown(result.breakdown)).filter(Boolean).join("\n\n");
+      }
+      function copyText(value){
+        if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(value);
+        return new Promise(function(resolve,reject){
+          try {
+            var area=document.createElement("textarea");
+            area.value=value; area.style.position="fixed"; area.style.opacity="0";
+            document.body.appendChild(area); area.select();
+            var ok=document.execCommand("copy"); area.remove();
+            ok?resolve():reject(new Error("copy"));
+          } catch(error){ reject(error); }
+        });
+      }
+      function saveCurrentStudy(){
+        if(!state.translation||!state.translation.translation||!state.translation.requestId||state.translation.submittedText!==$("#translationInput").value.trim()){
+          $("#translationMessage").textContent=t("resultOutdated");
+          $("#translationMessage").className="result-message error";
+          return;
+        }
+        var original=sanitizeText(state.translation.submittedText,8000);
+        var structured={
+          translation:sanitizeText(state.translation.translation,16000),
+          definition:sanitizeText(state.translation.definition||"",16000),
+          breakdown:normalizedBreakdown(state.translation.breakdown).slice(0,40).map(function(entry){return sanitizeText(entry,2000);}),
+          keywords:normalizedList(state.translation.keywords).slice(0,40).map(function(entry){return sanitizeText(entry,1000);}),
+          examples:normalizedList(state.translation.examples).slice(0,30).map(function(entry){return sanitizeText(entry,2000);})
+        };
+        var duplicate=state.workspace.study.find(function(item){
+          return item.original===original&&item.translation===state.translation.translation;
+        });
+        if(duplicate){
+          duplicate.definition=structured.definition;
+          duplicate.breakdown=structured.breakdown;
+          duplicate.keywords=structured.keywords;
+          duplicate.examples=structured.examples;
+        } else {
+          state.workspace.study.unshift({
+            id:id("study"),original:original,translation:structured.translation,definition:structured.definition,
+            breakdown:structured.breakdown,keywords:structured.keywords,examples:structured.examples,
+            mastered:false,createdAt:Date.now()
+          });
+        }
+        scheduleWorkspaceSave(0);
+        $("#translationMessage").textContent=t("savedToStudy");
+        $("#translationMessage").className="result-message";
+        renderStudy();
+      }
+      function normalizedStudySearchText(value){
+        var text=String(value==null?"":value);
+        try { text=text.normalize("NFKC"); } catch(error) {}
+        return text.toLocaleLowerCase();
+      }
+      function studyMatchesQuery(item,query){
+        var terms=normalizedStudySearchText(query).trim().split(/\s+/).filter(Boolean);
+        if(!terms.length)return true;
+        var searchable=[item.original,item.translation,item.definition]
+          .concat(normalizedList(item.keywords),normalizedBreakdown(item.breakdown))
+          .map(normalizedStudySearchText).join("\n");
+        return terms.every(function(term){return searchable.indexOf(term)>=0;});
+      }
+      function studyMatchesStatus(item,status){
+        if(status==="mastered")return !!item.mastered;
+        if(status==="learning")return !item.mastered;
+        return true;
+      }
+      function renderStudy(){
+        var allItems=state.workspace.study.slice().sort(function(a,b){
+          return Number(!!a.mastered)-Number(!!b.mastered)||number(b.createdAt)-number(a.createdAt);
+        });
+        var mastered=allItems.filter(function(item){return item.mastered;}).length;
+        var list=allItems.filter(function(item){
+          return studyMatchesStatus(item,state.studyStatus)&&studyMatchesQuery(item,state.studyQuery);
+        });
+        $("#studySummary").textContent=t("studySummary",{total:allItems.length,mastered:mastered});
+        $("#studyResultCount").textContent=t("studyResultSummary",{shown:list.length,total:allItems.length});
+        if(!allItems.length){
+          $("#studyList").innerHTML='<div class="card empty-card">'+esc(t("noStudyItems"))+'</div>';
+          return;
+        }
+        if(!list.length){
+          $("#studyList").innerHTML='<div class="card empty-card">'+esc(t("noMatchingStudy"))+'</div>';
+          return;
+        }
+        $("#studyList").innerHTML=list.map(function(item){
+          var breakdown=normalizedBreakdown(item.breakdown),keywords=normalizedList(item.keywords),examples=normalizedList(item.examples);
+          var detailHTML="";
+          if(breakdown.length)detailHTML+='<b>'+esc(t("breakdown"))+'</b><ul>'+breakdown.map(function(value){return "<li>"+esc(value)+"</li>";}).join("")+'</ul>';
+          if(keywords.length)detailHTML+='<b>'+esc(t("keywords"))+'</b><ul>'+keywords.map(function(value){return "<li>"+esc(value)+"</li>";}).join("")+'</ul>';
+          if(examples.length)detailHTML+='<b>'+esc(t("examples"))+'</b><ul>'+examples.map(function(value){return "<li>"+esc(value)+"</li>";}).join("")+'</ul>';
+          var details=detailHTML?'<details class="study-details"><summary>'+esc(t("studyDetails"))+'</summary><div class="study-details-body">'+detailHTML+'</div></details>':'';
+          return '<article class="card study-card '+(item.mastered?"mastered":"")+'"><div>'+
+            '<h3>'+esc(item.original)+'</h3><p>'+esc(item.translation)+'</p>'+
+            (item.definition?'<small>'+esc(item.definition)+'</small>':'')+details+'</div>'+
+            '<div class="card-actions"><button class="ghost-btn small-btn" data-action="toggleStudy" data-id="'+esc(item.id)+'">'+esc(t(item.mastered?"markLearning":"markMastered"))+'</button>'+
+            '<button class="ghost-btn small-btn" data-action="deleteStudy" data-id="'+esc(item.id)+'">'+esc(t("delete"))+'</button></div></article>';
+        }).join("");
+      }
+
+      function renderSettings(){
+        $("#privacySwitch").classList.toggle("on",state.privacy);
+        $("#privacySwitch").setAttribute("aria-checked",String(state.privacy));
+        var access=state.dataAccess&&typeof state.dataAccess==="object"?state.dataAccess:{};
+        var monitoringEnabled=!!access.monitoringEnabled;
+        $("#monitoringSwitch").classList.toggle("on",monitoringEnabled);
+        $("#monitoringSwitch").setAttribute("aria-checked",String(monitoringEnabled));
+        $("#dataAccessStatus").textContent=access.message||t(monitoringEnabled?"monitoringOn":(access.consented?"monitoringOff":"monitoringConsentRequired"));
+        $("#dataAccessStatus").className="cloud-status "+(monitoringEnabled?"success":"");
+        $("#refreshButton").disabled=state.refreshing||!monitoringEnabled;
+        var cloud=state.cloudSync&&typeof state.cloudSync==="object"?state.cloudSync:{};
+        var cloudEnabled=!!cloud.enabled,cloudCapable=!!cloud.capabilityConfigured;
+        $("#cloudSyncSwitch").classList.toggle("on",cloudEnabled);
+        $("#cloudSyncSwitch").setAttribute("aria-checked",String(cloudEnabled));
+        $("#cloudSyncSwitch").disabled=state.cloudSyncPending||(!cloudCapable&&!cloudEnabled);
+        $("#cloudTitlesSwitch").classList.toggle("on",cloudEnabled&&!!cloud.includeTitles);
+        $("#cloudTitlesSwitch").setAttribute("aria-checked",String(cloudEnabled&&!!cloud.includeTitles));
+        $("#cloudTitlesSwitch").disabled=state.cloudSyncPending||!cloudCapable||!cloudEnabled;
+        $("#syncCloudNowButton").disabled=state.cloudSyncPending||!cloudCapable||!cloudEnabled||!monitoringEnabled;
+        var cloudStatus=$("#cloudSyncStatus"),cloudState=String(cloud.status||"off");
+        cloudStatus.textContent=!cloudCapable?t("cloudBuildUnavailable"):(cloud.message||(!cloudEnabled?t("cloudStatusOff"):cloudState));
+        cloudStatus.className="cloud-status "+(["error","delete-error","account-changed"].indexOf(cloudState)>=0?"error":(["synced","deleted"].indexOf(cloudState)>=0?"success":""));
+        if(document.activeElement!==$("#translatorBaseURL"))$("#translatorBaseURL").value=state.translatorConfig.baseURL||"";
+        if(document.activeElement!==$("#translatorModel"))$("#translatorModel").value=state.translatorConfig.model||"";
+        $("#translatorAPIKey").placeholder=state.translatorConfig.hasAPIKey?t("keyStored"):"••••••••";
+        $("#saveTranslatorConfigButton").disabled=!!state.translatorConfigPending;
+        $("#clearTranslatorKeyButton").disabled=!!state.translatorConfigPending||!state.translatorConfig.hasAPIKey;
+        var links=state.releaseLinks&&typeof state.releaseLinks==="object"?state.releaseLinks:{};
+        $("#privacyPolicyButton").disabled=!links.privacyPolicyConfigured;
+        $("#translationAppPrivacyButton").disabled=!links.privacyPolicyConfigured;
+        $("#supportButton").disabled=!links.supportConfigured;
+        $("#checkUpdatesButton").disabled=false;
+        $("#releaseLinksStatus").textContent=links.privacyPolicyConfigured&&links.supportConfigured?"":t("releaseLinksPending");
+        var custom=Array.isArray(state.snapshot.customSources)?state.snapshot.customSources:[];
+        $("#customSources").innerHTML=custom.map(function(source,index){
+          var name=state.privacy?t("hiddenAgent"):String(source.name||("Source "+(index+1)));
+          return '<div class="custom-row"><span><b>'+esc(name)+'</b><small>'+esc(state.privacy?"••••••":source.path||"")+'</small></span>'+
+            '<button class="ghost-btn small-btn" data-action="removeConnection" data-id="'+esc(source.id||"")+'">'+esc(t("remove"))+'</button></div>';
+        }).join("");
+      }
+
+      function render(){
+        applyStaticTranslations();
+        renderCompact();
+        if(!state.expanded)return;
+        var loading=!state.snapshot.scannedAt;
+        $("#scanTime").textContent=!state.dataAccess.monitoringEnabled?
+          t(state.dataAccess.consented?"monitoringOff":"monitoringConsentRequired"):
+          (loading?t("connecting"):t("updatedAt",{time:new Date(state.snapshot.scannedAt).toLocaleTimeString(locale(),{hour12:false})}));
+        var warnings=Array.isArray(state.snapshot.warnings)?state.snapshot.warnings.filter(Boolean):[];
+        $("#warning").textContent=warnings.join(" · ");
+        $("#warning").classList.toggle("visible",state.tab==="monitor"&&tools().length===0&&warnings.length>0);
+        if(state.tab==="monitor")renderMonitor();
+        if(state.tab==="workspace"){ renderSites(); renderNotes(); }
+        if(state.tab==="translator"){ renderTranslation(); renderStudy(); }
+        if(state.tab==="settings")renderSettings();
+      }
+      function setTab(tab){
+        if(["monitor","workspace","translator","settings"].indexOf(tab)<0)return;
+        var viewport=$(".viewport");
+        state.scroll[state.tab]=viewport.scrollTop;
+        state.tab=tab;
+        $$(".nav-btn").forEach(function(button){
+          var active=button.dataset.tab===tab;
+          button.classList.toggle("active",active);
+          button.setAttribute("aria-current",active?"page":"false");
+        });
+        $$(".view").forEach(function(view){ view.classList.toggle("active",view.id==="view-"+tab); });
+        $("#pageTitle").textContent=t(tabTitleKey(tab));
+        render();
+        requestAnimationFrame(function(){
+          viewport.scrollTop=state.scroll[tab]||0;
+          $("#pageTitle").focus({preventScroll:true});
+        });
+      }
+      function setWorkspaceTab(tab){
+        if(["sites","notes"].indexOf(tab)<0)return;
+        state.workspaceTab=tab;
+        $$("[data-workspace-tab]").forEach(function(button){
+          var active=button.dataset.workspaceTab===tab;
+          button.classList.toggle("active",active);
+          button.setAttribute("aria-selected",String(active));
+        });
+        $$(".workspace-pane").forEach(function(pane){ pane.classList.toggle("active",pane.id==="workspace-"+tab); });
+        tab==="sites"?renderSites():renderNotes();
+      }
+      function setRefreshing(value){
+        state.refreshing=!!value;
+        var button=$("#refreshButton");
+        if(button){
+          button.classList.toggle("busy",state.refreshing);
+          button.disabled=state.refreshing||!state.dataAccess.monitoringEnabled;
+        }
+      }
+
+      window.AgentIsland={
+        receive:function(snapshot){
+          state.snapshot=snapshot&&typeof snapshot==="object"?snapshot:state.snapshot;
+          if(!Array.isArray(state.snapshot.sessions))state.snapshot.sessions=[];
+          if(!Array.isArray(state.snapshot.tools))state.snapshot.tools=[];
+          if(!state.snapshot.usageHistory||typeof state.snapshot.usageHistory!=="object")state.snapshot.usageHistory={};
+          if(snapshot&&snapshot.cloudSync&&typeof snapshot.cloudSync==="object")state.cloudSync=snapshot.cloudSync;
+          if(snapshot&&snapshot.releaseLinks&&typeof snapshot.releaseLinks==="object")state.releaseLinks=snapshot.releaseLinks;
+          hydrateWorkspace(snapshot);
+          var translator=snapshot&&(snapshot.translator||snapshot.translatorConfig);
+          if(translator&&typeof translator==="object"){
+            state.translatorConfig={
+              baseURL:typeof translator.baseURL==="string"?translator.baseURL:state.translatorConfig.baseURL,
+              model:typeof translator.model==="string"?translator.model:state.translatorConfig.model,
+              hasAPIKey:typeof translator.hasAPIKey==="boolean"?translator.hasAPIKey:state.translatorConfig.hasAPIKey
+            };
+          }
+          var nativeLanguage=normalizeLanguage(snapshot&& (snapshot.resolvedLanguage||snapshot.language));
+          if(nativeLanguage)state.language=nativeLanguage;
+          setRefreshing(false);
+          render();
+        },
+        setExpanded:function(value,shouldFocus){
+          state.expanded=!!value;
+          if(!state.expanded&&workspaceSaveTimer)flushWorkspaceSave();
+          document.body.className=state.expanded?"expanded":"collapsed";
+          $("#dashboard").toggleAttribute("inert",!state.expanded);
+          $("#dashboard").setAttribute("aria-hidden",String(!state.expanded));
+          $("#compact").toggleAttribute("inert",state.expanded);
+          $("#compact").setAttribute("aria-hidden",String(state.expanded));
+          $("#compact").setAttribute("aria-expanded",String(state.expanded));
+          if(state.expanded){
+            render();
+            if(shouldFocus!==false)requestAnimationFrame(function(){ $("#pageTitle").focus({preventScroll:true}); });
+          }
+          else renderCompact();
+        },
+        setRefreshing:setRefreshing,
+        setLanguage:function(language){ changeLanguage(language,{persist:true,notify:false}); },
+        connectionResult:function(result){
+          var ok=!!(result&&(result.success||result.ok));
+          $("#connectionMessage").textContent=String(result&&result.message|| (ok?t("connectionComplete"):t("unknownError")));
+          $("#connectionMessage").className="form-message "+(ok?"success":"error");
+          if(ok)$("#connectionInput").value="";
+        },
+        sourceChosen:function(path){ $("#connectionInput").value=String(path||""); },
+        openURLResult:function(result){
+          result=result&&typeof result==="object"?result:{};
+          var ok=result.ok;
+          if(typeof ok!=="boolean")ok=typeof result.success==="boolean"?result.success:!result.error;
+          setSiteOpenMessage(result.message||result.error||(ok?t("siteOpened"):t("openSiteFailed")),!ok);
+        },
+        releaseLinkResult:function(result){
+          result=result&&typeof result==="object"?result:{};
+          var ok=result.ok===true||result.success===true;
+          $("#releaseLinksStatus").textContent=String(result.message||(!ok?t("releaseLinksPending"):""));
+          $("#releaseLinksStatus").className="cloud-status "+(ok?"success":"error");
+        },
+        dataAccessResult:function(result){
+          result=result&&typeof result==="object"?result:{};
+          state.dataAccess={
+            consented:result.consented===true,
+            monitoringEnabled:result.monitoringEnabled===true,
+            consentVersion:Math.max(0,Math.floor(number(result.consentVersion))),
+            requiredConsentVersion:Math.max(1,Math.floor(number(result.requiredConsentVersion)||1)),
+            message:String(result.message||"")
+          };
+          if(result.releaseLinks&&typeof result.releaseLinks==="object")state.releaseLinks=result.releaseLinks;
+          if(Array.isArray(result.customSources))state.snapshot.customSources=result.customSources;
+          if(result.clearSnapshot===true){
+            state.snapshot.sessions=[];
+            state.snapshot.tools=[];
+            state.snapshot.warnings=[];
+            state.snapshot.usageHistory={};
+            state.snapshot.scannedAt=0;
+          }
+          setRefreshing(false);
+          render();
+        },
+        cloudSyncResult:function(result){
+          result=result&&typeof result==="object"?result:{};
+          if(result.cloudSync&&typeof result.cloudSync==="object"){
+            state.cloudSync=result.cloudSync;
+            state.snapshot.cloudSync=result.cloudSync;
+          }
+          state.cloudSyncPending=false;
+          renderSettings();
+        },
+        workspaceResult:function(result){
+          result=result&&typeof result==="object"?result:{};
+          var nested=result.workspace&&typeof result.workspace==="object";
+          var topLevel=["sites","notes","study"].some(function(key){return Object.prototype.hasOwnProperty.call(result,key);});
+          var failed=result.ok===false||result.success===false||!!result.error;
+          if(!state.workspaceHydrated&&!failed&&(nested||topLevel)){
+            var source=nested?result.workspace:result;
+            hydrateWorkspace({workspace:source,workspaceRevision:result.revision,workspaceUpdatedAt:result.updatedAt,workspaceLoadStatus:"ok"});
+            render();
+          }
+          var requestId=String(result.requestId||"");
+          var pendingRevision=requestId?number(state.workspacePendingRequests[requestId]):state.workspacePendingRevision;
+          if(requestId&&!pendingRevision)return;
+          if(requestId)delete state.workspacePendingRequests[requestId];
+          var isLatest=!requestId||requestId===state.workspacePendingRequestId;
+          if(isLatest){ clearTimeout(workspaceAckTimer); workspaceAckTimer=null; }
+          var responseRevision=Math.floor(number(result.revision||pendingRevision));
+          var responseUpdatedAt=timestamp(result.updatedAt);
+          var saveStatus=String(result.saveStatus||"").toLowerCase();
+          var currentRevision=Math.floor(number(result.currentRevision||(["stale","conflict"].indexOf(saveStatus)>=0?responseRevision:0)));
+          var conflict=!!(result.stale||result.conflict||["stale","conflict"].indexOf(saveStatus)>=0||currentRevision>responseRevision);
+          if(conflict)failed=true;
+          state.workspaceNativeRevision=Math.max(state.workspaceNativeRevision,responseRevision,currentRevision);
+          state.workspaceNativeUpdatedAt=Math.max(state.workspaceNativeUpdatedAt,responseUpdatedAt);
+          if(failed){
+            if(!isLatest)return;
+            state.workspaceRecoveryDirty=true;
+            state.workspaceSaveStatus="error";
+            state.workspaceSaveError=String(result.message||result.error||t("workspaceSaveFailed"));
+            if(conflict){
+              state.workspaceRevision=Math.max(state.workspaceRevision,currentRevision,responseRevision)+1;
+              state.workspaceUpdatedAt=Math.max(Date.now(),state.workspaceUpdatedAt+1,responseUpdatedAt+1);
+              queueWorkspaceFlush(650);
+            }
+            persistWorkspaceEnvelope();
+            updateWorkspaceSaveState();
+            console.warn("Aivulet workspace save failed");
+          } else {
+            if(responseRevision>=state.workspaceRevision&&pendingRevision===state.workspaceRevision){
+              state.workspaceRevision=responseRevision||state.workspaceRevision;
+              state.workspaceUpdatedAt=responseUpdatedAt||state.workspaceUpdatedAt;
+              state.workspaceRecoveryDirty=false;
+              state.workspaceSaveStatus="saved";
+              state.workspaceSaveError="";
+            } else if(state.workspaceRecoveryDirty&&!workspaceSaveTimer){
+              state.workspaceSaveStatus="saving";
+              queueWorkspaceFlush(0);
+            }
+            persistWorkspaceEnvelope();
+            updateWorkspaceSaveState();
+          }
+        },
+        translationResult:function(payload){
+          payload=payload&&typeof payload==="object"?payload:{};
+          var nested=payload.result&&typeof payload.result==="object"?payload.result:{};
+          var data=Object.assign({},payload,nested);
+          var responseRequestId=String(payload.requestId||data.requestId||"");
+          if(!state.translationRequest||!responseRequestId||responseRequestId!==state.translationRequest.requestId)return;
+          var submittedText=state.translationRequest.submittedText;
+          var ok=payload.ok;
+          if(typeof ok!=="boolean")ok=typeof payload.success==="boolean"?payload.success:!data.error;
+          state.translationPending=false;
+          if(!ok){
+            state.translation={requestId:responseRequestId,submittedText:submittedText,error:String(payload.error||data.error||t("translationFailed"))};
+            $("#translationMessage").textContent=state.translation.error;
+            $("#translationMessage").className="result-message error";
+          } else {
+            var definitions=Array.isArray(data.definitions)?data.definitions:[];
+            var structure=data.structure&&typeof data.structure==="object"?data.structure:{};
+            var breakdown=firstContent(data.breakdown,data.analysis,structure.segments,definitions);
+            var notes=normalizedList(data.notes);
+            if(notes.length)breakdown=normalizedBreakdown(breakdown).concat(notes);
+            state.translation={
+              requestId:responseRequestId,
+              submittedText:submittedText,
+              translation:sanitizeText(data.translation||data.text||"",16000),
+              definition:sanitizeText(data.definition||structure.summary||data.explanation||definitionsSummary(definitions)||"",16000),
+              breakdown:breakdown,
+              keywords:firstContent(data.keywords,definitions),
+              examples:firstContent(data.examples,data.alternatives),
+              usage:payload.usage||data.usage||{}
+            };
+            $("#translationMessage").textContent="";
+            $("#translationMessage").className="result-message";
+          }
+          renderTranslation();
+        },
+        translatorConfigResult:function(result){
+          result=result&&typeof result==="object"?result:{};
+          var pending=state.translatorConfigPending;
+          var responseRequestId=String(result.requestId||"");
+          if(pending&&responseRequestId&&responseRequestId!==pending.requestId)return;
+          if(typeof result.baseURL==="string")state.translatorConfig.baseURL=result.baseURL;
+          if(typeof result.model==="string")state.translatorConfig.model=result.model;
+          if(typeof result.hasAPIKey==="boolean")state.translatorConfig.hasAPIKey=result.hasAPIKey;
+          var ok=result.ok;
+          if(typeof ok!=="boolean")ok=typeof result.success==="boolean"?result.success:!result.error;
+          if(ok)$("#translatorAPIKey").value="";
+          state.translatorConfigPending=null;
+          var configMessage=ok&&pending&&pending.clearKey?t("keyCleared"):
+            result.message||(ok?t("configSaved"):result.error||t("unknownError"));
+          $("#translatorConfigMessage").textContent=String(configMessage);
+          $("#translatorConfigMessage").className="form-message "+(ok?"success":"error");
+          renderSettings();
+        }
+      };
+      window.setTab=function(tab){
+        var aliases={overview:"monitor",agents:"monitor",sources:"settings"};
+        setTab(aliases[tab]||tab);
+      };
+      window.setMonitorMode=function(mode){ setMonitorMode(mode); };
+
+      $("#compact").addEventListener("click",function(){ bridge("expand"); });
+      document.addEventListener("click",function(event){
+        var languageButton=event.target.closest("[data-language]");
+        if(languageButton){ changeLanguage(languageButton.dataset.language,{persist:true,notify:true}); return; }
+        var monitorMode=event.target.closest("[data-monitor-mode]");
+        if(monitorMode){ setMonitorMode(monitorMode.dataset.monitorMode); return; }
+        var tab=event.target.closest("[data-tab]");
+        if(tab){ setTab(tab.dataset.tab); return; }
+        var workspaceTab=event.target.closest("[data-workspace-tab]");
+        if(workspaceTab){ setWorkspaceTab(workspaceTab.dataset.workspaceTab); return; }
+        var sourceLanguage=event.target.closest("[data-source-language]");
+        if(sourceLanguage){
+          state.sourceLanguage=sourceLanguage.dataset.sourceLanguage;
+          $$("[data-source-language]").forEach(function(button){
+            var active=button===sourceLanguage;
+            button.classList.toggle("active",active);
+            button.setAttribute("aria-pressed",String(active));
+          });
+          return;
+        }
+        var actionButton=event.target.closest("[data-action]");
+        if(!actionButton)return;
+        var action=actionButton.dataset.action,idValue=actionButton.dataset.id;
+        if(action==="collapse"||action==="quit"||action==="chooseSource"){ bridge(action); return; }
+        if(action==="reviewDataAccess"){ bridge("reviewDataAccess"); return; }
+        if(action==="toggleMonitoring"){
+          var enableMonitoring=!state.dataAccess.monitoringEnabled;
+          if(!enableMonitoring&&!window.confirm(t("confirmStopMonitoring")))return;
+          bridge("setMonitoringEnabled",{enabled:enableMonitoring});
+          return;
+        }
+        if(action==="refresh"){ setRefreshing(true); bridge("refresh"); return; }
+        if(action==="moreHistory"){ state.historyLimit+=20; renderUsageHistory(); return; }
+        if(action==="connect"){ bridge("connect",{code:$("#connectionInput").value}); return; }
+        if(action==="removeConnection"){ bridge("removeConnection",{id:idValue}); return; }
+        if(action==="addSite"){ openSiteEditor(null); return; }
+        if(action==="cancelSite"){ closeSiteEditor(); return; }
+        if(action==="saveSite"){ saveSite(); return; }
+        if(action==="editSite"){
+          openSiteEditor(state.workspace.sites.find(function(site){return site.id===idValue;})); return;
+        }
+        if(action==="deleteSite"){
+          if(window.confirm(t("confirmDeleteSite"))){
+            state.workspace.sites=state.workspace.sites.filter(function(site){return site.id!==idValue;});
+            scheduleWorkspaceSave(0); renderSites();
+          }
+          return;
+        }
+        if(action==="openSite"){
+          var site=state.workspace.sites.find(function(item){return item.id===idValue;});
+          var parsedSite=site&&validWebURL(site.url);
+          if(!parsedSite){ setSiteOpenMessage(t("invalidURL"),true); return; }
+          setSiteOpenMessage(t("openingSite"),false);
+          bridge("openURL",{url:parsedSite.href});
+          return;
+        }
+        if(action==="addNote"){ addNote(); return; }
+        if(action==="togglePinNote"){
+          var pinNote=state.workspace.notes.find(function(note){return note.id===idValue;});
+          if(pinNote){ pinNote.pinned=!pinNote.pinned; pinNote.updatedAt=Date.now(); scheduleWorkspaceSave(0); renderNotes(); }
+          return;
+        }
+        if(action==="deleteNote"){
+          if(window.confirm(t("confirmDeleteNote"))){
+            state.workspace.notes=state.workspace.notes.filter(function(note){return note.id!==idValue;});
+            scheduleWorkspaceSave(0); renderNotes();
+          }
+          return;
+        }
+        if(action==="translateOnly"){ requestTranslation("translate"); return; }
+        if(action==="translateLearn"){ requestTranslation("learn"); return; }
+        if(action==="copyTranslation"){
+          copyText(translationText()).then(function(){
+            $("#translationMessage").textContent=t("copied");
+            $("#translationMessage").className="result-message";
+          }).catch(function(){
+            $("#translationMessage").textContent=t("copyFailed");
+            $("#translationMessage").className="result-message error";
+          });
+          return;
+        }
+        if(action==="saveStudy"){ saveCurrentStudy(); return; }
+        if(action==="toggleStudy"){
+          var study=state.workspace.study.find(function(item){return item.id===idValue;});
+          if(study){ study.mastered=!study.mastered; scheduleWorkspaceSave(0); renderStudy(); }
+          return;
+        }
+        if(action==="deleteStudy"){
+          if(window.confirm(t("confirmDeleteStudy"))){
+            state.workspace.study=state.workspace.study.filter(function(item){return item.id!==idValue;});
+            scheduleWorkspaceSave(0); renderStudy();
+          }
+          return;
+        }
+        if(action==="toggleCloudSync"){
+          var enableCloud=!state.cloudSync.enabled;
+          var accountReconfirmation=enableCloud&&!!state.cloudSync.requiresAccountReconfirmation;
+          if(!window.confirm(t(enableCloud?(accountReconfirmation?"confirmRebindCloud":"confirmEnableCloud"):"confirmDisableCloud")))return;
+          var cloudRequestId=id("cloud-sync");
+          state.cloudSyncPending=true;
+          bridge("configureCloudSync",{
+            requestId:cloudRequestId,enabled:enableCloud,includeTitles:enableCloud&&!!state.cloudSync.includeTitles,
+            consentConfirmed:enableCloud,titleConsentConfirmed:enableCloud&&!!state.cloudSync.includeTitles,
+            accountChangeConfirmed:accountReconfirmation
+          });
+          renderSettings();
+          return;
+        }
+        if(action==="toggleCloudTitles"){
+          if(!state.cloudSync.enabled)return;
+          var includeTitles=!state.cloudSync.includeTitles;
+          if(includeTitles&&!window.confirm(t("confirmIncludeTitles")))return;
+          var titleRequestId=id("cloud-titles");
+          state.cloudSyncPending=true;
+          bridge("configureCloudSync",{
+            requestId:titleRequestId,enabled:true,includeTitles:includeTitles,
+            consentConfirmed:true,titleConsentConfirmed:includeTitles,accountChangeConfirmed:false
+          });
+          renderSettings();
+          return;
+        }
+        if(action==="syncCloudNow"){
+          state.cloudSyncPending=true;
+          bridge("syncCloudNow",{requestId:id("cloud-sync-now")});
+          renderSettings();
+          return;
+        }
+        if(action==="openReleaseLink"){
+          bridge("openReleaseLink",{kind:actionButton.dataset.kind||""});
+          return;
+        }
+        if(action==="openExternalPolicy"){
+          var policyURL=validWebURL(actionButton.dataset.url||"");
+          if(policyURL&&policyURL.protocol==="https:")bridge("openURL",{url:policyURL.href});
+          return;
+        }
+        if(action==="saveTranslatorConfig"){
+          var baseURL=$("#translatorBaseURL").value.trim();
+          var model=$("#translatorModel").value.trim();
+          var apiKey=$("#translatorAPIKey").value;
+          var configRequestId=id("translator-config");
+          state.translatorConfigPending={requestId:configRequestId,clearKey:false,hadKeyInput:!!apiKey};
+          $("#translatorConfigMessage").textContent=t("configSaving");
+          $("#translatorConfigMessage").className="form-message";
+          bridge("configureTranslator",{requestId:configRequestId,baseURL:baseURL,model:model,apiKey:apiKey});
+          renderSettings();
+          return;
+        }
+        if(action==="clearTranslatorKey"){
+          if(!window.confirm(t("confirmClearAPIKey")))return;
+          var clearRequestId=id("translator-config");
+          state.translatorConfigPending={requestId:clearRequestId,clearKey:true,hadKeyInput:false};
+          $("#translatorConfigMessage").textContent=t("configSaving");
+          $("#translatorConfigMessage").className="form-message";
+          bridge("configureTranslator",{requestId:clearRequestId,clearAPIKey:true});
+          renderSettings();
+          return;
+        }
+      });
+      document.addEventListener("input",function(event){
+        var field=event.target.dataset.noteField;
+        if(!field)return;
+        var card=event.target.closest("[data-note-id]");
+        if(!card)return;
+        var note=state.workspace.notes.find(function(item){return item.id===card.dataset.noteId;});
+        if(!note)return;
+        note[field]=sanitizeText(event.target.value,field==="title"?120:50000);
+        note.updatedAt=Date.now();
+        scheduleWorkspaceSave(300);
+      });
+      $("#noteSearch").addEventListener("input",function(event){
+        state.noteQuery=event.target.value;
+        renderNotes();
+      });
+      $("#studySearch").addEventListener("input",function(event){
+        state.studyQuery=event.target.value;
+        renderStudy();
+      });
+      $("#studySearch").addEventListener("keydown",function(event){
+        if(event.key==="Escape"&&event.target.value){
+          event.preventDefault();
+          event.stopPropagation();
+          event.target.value="";
+          state.studyQuery="";
+          renderStudy();
+        }
+      });
+      $("#studyStatusFilter").addEventListener("change",function(event){
+        var status=event.target.value;
+        state.studyStatus=["all","learning","mastered"].indexOf(status)>=0?status:"all";
+        renderStudy();
+      });
+      $("#historySearch").addEventListener("input",function(event){
+        state.historyQuery=event.target.value;
+        state.historyLimit=12;
+        renderUsageHistory();
+      });
+      $("#historyToolFilter").addEventListener("change",function(event){
+        state.historyTool=event.target.value||"all";
+        state.historyLimit=12;
+        renderUsageHistory();
+      });
+      $("#translationInput").addEventListener("input",function(event){
+        if(!state.translation)return;
+        var current=event.target.value.trim();
+        if(state.translation.requestId&&state.translation.submittedText===current){
+          $("#translationMessage").textContent="";
+          $("#translationMessage").className="result-message";
+        } else {
+          $("#translationMessage").textContent=t("resultOutdated");
+          $("#translationMessage").className="result-message error";
+        }
+        renderTranslation();
+      });
+      $("#translationInput").addEventListener("keydown",function(event){
+        if((event.metaKey||event.ctrlKey)&&event.key==="Enter"){
+          event.preventDefault();
+          requestTranslation(state.translationMode||"learn");
+        }
+      });
+      $("#connectionInput").addEventListener("keydown",function(event){
+        if(event.key==="Enter"){ event.preventDefault(); bridge("connect",{code:event.target.value}); }
+      });
+      $("#privacySwitch").addEventListener("click",function(){
+        state.privacy=!state.privacy;
+        localStorage.setItem("agentIsland.privacy",String(state.privacy));
+        render();
+      });
+      document.addEventListener("keydown",function(event){
+        if(event.key==="Escape"){
+          var consentDialog=$("#translationConsentDialog");
+          if(consentDialog&&consentDialog.open)return;
+          bridge("collapse");
+        }
+        if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="r"){
+          event.preventDefault(); setRefreshing(true); bridge("refresh");
+        }
+      });
+      window.addEventListener("beforeunload",function(){
+        if(workspaceSaveTimer)flushWorkspaceSave();
+      });
+
+      applyStaticTranslations();
+      setWorkspaceTab("sites");
+      render();
+    })();
+  </script>
+</body>
+</html>

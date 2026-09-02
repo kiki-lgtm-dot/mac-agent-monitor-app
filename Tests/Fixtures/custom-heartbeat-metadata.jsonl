@@ -1,0 +1,3 @@
+{"agent_id":"worker","timestamp":"2026-01-01T00:00:01Z","agent_name":"Old","model":"old","project_path":"/old","event_id":"meta-1"}
+{"agent_id":"worker","timestamp":"2026-01-01T00:00:10Z","status":"working","event_id":"heartbeat"}
+{"agent_id":"worker","timestamp":"2026-01-01T00:00:05Z","agent_name":"New","model":"new","project_path":"/new","event_id":"meta-2"}

@@ -1,0 +1,37 @@
+// Public display name. Internal AgentIsland target, storage, URL-scheme, and
+// CloudKit identifiers stay unchanged until a compatibility migration exists.
+AGENT_ISLAND_DISPLAY_NAME = Aivulet
+
+// Replace these identifiers with values registered to your Apple account.
+AGENT_ISLAND_APP_BUNDLE_ID = com.example.agentisland
+AGENT_ISLAND_WIDGET_BUNDLE_ID = $(AGENT_ISLAND_APP_BUNDLE_ID).liveactivity
+
+// Register this exact private CloudKit container in Certificates, Identifiers
+// & Profiles, then enable it for the App ID. The Widget target has no iCloud
+// entitlement and never reads CloudKit itself.
+AGENT_ISLAND_ICLOUD_CONTAINER_ID = iCloud.com.example.agentisland
+
+// The Mac producer and iPhone consumer must use the same private-database
+// record contract. These values are injected into App-Info.plist at build time.
+AGENT_ISLAND_CLOUDKIT_RECORD_TYPE = AgentIslandSnapshot
+AGENT_ISLAND_CLOUDKIT_RECORD_NAME = latest
+AGENT_ISLAND_CLOUDKIT_PAYLOAD_FIELD = payloadJSON
+
+// Replace both example.invalid URLs before shipping. The split slash variables
+// avoid xcconfig treating the // in an HTTPS URL as the start of a comment.
+AGENT_ISLAND_URL_SLASH = /
+AGENT_ISLAND_PRIVACY_POLICY_URL = https:$(AGENT_ISLAND_URL_SLASH)$(AGENT_ISLAND_URL_SLASH)example.invalid/privacy
+AGENT_ISLAND_SUPPORT_URL = https:$(AGENT_ISLAND_URL_SLASH)$(AGENT_ISLAND_URL_SLASH)example.invalid/support
+
+// Enter the 10-character Team ID from developer.apple.com/account.
+// Leaving this empty still permits unsigned simulator builds; Xcode will ask
+// you to select a team before installing on a device or archiving.
+AGENT_ISLAND_DEVELOPMENT_TEAM =
+
+DEVELOPMENT_TEAM = $(AGENT_ISLAND_DEVELOPMENT_TEAM)
+IPHONEOS_DEPLOYMENT_TARGET = 17.0
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
+CODE_SIGN_STYLE = Automatic
+ENABLE_USER_SCRIPT_SANDBOXING = YES

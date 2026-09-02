@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "revision": 7,
+  "updatedAt": 1767225600000,
+  "workspace": {
+    "sites": [
+      {
+        "id": "docs",
+        "title": "Docs",
+        "url": "https://example.test/docs"
+      }
+    ],
+    "notes": [],
+    "study": []
+  }
+}

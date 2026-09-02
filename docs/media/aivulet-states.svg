@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="720" viewBox="0 0 1600 720" role="img" aria-labelledby="title desc">
+  <title id="title">Aivulet compact and expanded interaction</title>
+  <desc id="desc">A compact macOS status pill changes from idle to three working agents, then expands on hover into an agent activity dashboard.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0e12"/>
+      <stop offset="1" stop-color="#050607"/>
+    </linearGradient>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3deeb3"/>
+      <stop offset="1" stop-color="#55d7e1"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="22" flood-color="#000" flood-opacity=".45"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="720" rx="38" fill="url(#bg)"/>
+  <circle cx="1420" cy="80" r="260" fill="#3deeb3" opacity=".045"/>
+  <circle cx="180" cy="660" r="310" fill="#6aa9ff" opacity=".04"/>
+
+  <text x="86" y="80" fill="#f7f8fa" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="38" font-weight="700">From a glance to the full picture</text>
+  <text x="86" y="120" fill="#8f939d" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="22">Idle → active → hover to inspect. Click once to pin the dashboard.</text>
+
+  <g transform="translate(88 172)">
+    <text x="0" y="0" fill="#6f747e" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="17" font-weight="700" letter-spacing="2">IDLE</text>
+    <rect x="0" y="26" width="330" height="64" rx="32" fill="#020304" stroke="#24282e"/>
+    <circle cx="78" cy="58" r="8" fill="#777b83"/>
+    <text x="103" y="66" fill="#b6b8be" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="23" font-weight="650">No Agents working</text>
+
+    <path d="M366 58h74" stroke="#383d45" stroke-width="2" stroke-linecap="round"/>
+    <path d="m426 47 14 11-14 11" fill="none" stroke="#616772" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <text x="486" y="0" fill="#3deeb3" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="17" font-weight="700" letter-spacing="2">ACTIVE</text>
+    <rect x="486" y="26" width="330" height="64" rx="32" fill="#020304" stroke="#164638" filter="url(#shadow)"/>
+    <circle cx="550" cy="58" r="8" fill="#3deeb3"/>
+    <circle cx="550" cy="58" r="15" fill="#3deeb3" opacity=".12"/>
+    <text x="575" y="66" fill="#3deeb3" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="23" font-weight="700">3 Agents working</text>
+
+    <path d="M852 58h74" stroke="#383d45" stroke-width="2" stroke-linecap="round"/>
+    <path d="m912 47 14 11-14 11" fill="none" stroke="#616772" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="948" y="64" fill="#8f939d" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="18">hover 150 ms</text>
+  </g>
+
+  <g transform="translate(88 310)" filter="url(#shadow)">
+    <rect width="1424" height="336" rx="28" fill="#0d1014" stroke="#2a2e35"/>
+    <rect width="242" height="336" rx="28" fill="#080a0d"/>
+    <path d="M242 0v336" stroke="#20242a"/>
+    <circle cx="50" cy="52" r="19" fill="url(#mint)"/>
+    <circle cx="50" cy="52" r="8" fill="#07100e"/>
+    <text x="82" y="51" fill="#f4f5f7" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="25" font-weight="750">Aivulet</text>
+    <text x="82" y="73" fill="#686d76" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" font-weight="700" letter-spacing="1.4">LOCAL OBSERVATORY</text>
+
+    <rect x="26" y="108" width="190" height="48" rx="14" fill="#14251f"/>
+    <text x="54" y="139" fill="#3deeb3" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="18" font-weight="700">◉  Monitor</text>
+    <text x="54" y="198" fill="#777c85" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="18">⌂  Workspace</text>
+    <text x="54" y="248" fill="#777c85" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="18">文  Translate</text>
+    <circle cx="50" cy="299" r="6" fill="#3deeb3"/>
+    <text x="68" y="306" fill="#9da1a9" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="15">Local monitoring</text>
+
+    <text x="278" y="52" fill="#f5f6f8" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="27" font-weight="750">Live agents</text>
+    <text x="278" y="79" fill="#737883" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="15">Synthetic preview data · updated now</text>
+
+    <g transform="translate(278 104)">
+      <rect width="250" height="90" rx="18" fill="#15181e" stroke="#292d34"/>
+      <text x="22" y="30" fill="#858a94" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="14">EXECUTING AGENTS</text>
+      <text x="22" y="69" fill="#3deeb3" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="34" font-weight="750">3</text>
+    </g>
+    <g transform="translate(546 104)">
+      <rect width="250" height="90" rx="18" fill="#15181e" stroke="#292d34"/>
+      <text x="22" y="30" fill="#858a94" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="14">ACTIVE CHATS</text>
+      <text x="22" y="69" fill="#f5c451" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="34" font-weight="750">2</text>
+    </g>
+    <g transform="translate(814 104)">
+      <rect width="250" height="90" rx="18" fill="#15181e" stroke="#292d34"/>
+      <text x="22" y="30" fill="#858a94" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="14">RUNNING TOOLS</text>
+      <text x="22" y="69" fill="#6aa9ff" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="34" font-weight="750">3</text>
+    </g>
+    <g transform="translate(1082 104)">
+      <rect width="306" height="90" rx="18" fill="#15181e" stroke="#292d34"/>
+      <text x="22" y="30" fill="#858a94" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="14">ACTIVE TOKEN USAGE</text>
+      <text x="22" y="69" fill="#fb923c" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="34" font-weight="750">42.1K</text>
+    </g>
+
+    <g transform="translate(278 214)">
+      <rect width="544" height="88" rx="18" fill="#12151a" stroke="#292d34"/>
+      <circle cx="28" cy="28" r="7" fill="#3deeb3"/>
+      <text x="48" y="33" fill="#e8eaed" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="18" font-weight="700">Prepare the open-source release</text>
+      <text x="22" y="65" fill="#7f848d" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="14">Codex · 34 min</text>
+      <text x="458" y="65" text-anchor="end" fill="#aeb2ba" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="14">18.4K tokens</text>
+    </g>
+    <g transform="translate(842 214)">
+      <rect width="546" height="88" rx="18" fill="#12151a" stroke="#292d34"/>
+      <circle cx="28" cy="28" r="7" fill="#fb7b52"/>
+      <text x="48" y="33" fill="#e8eaed" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="18" font-weight="700">Draft bilingual documentation</text>
+      <text x="22" y="65" fill="#7f848d" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="14">Claude Code · 27 min</text>
+      <text x="460" y="65" text-anchor="end" fill="#aeb2ba" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="14">14.1K tokens</text>
+    </g>
+  </g>
+</svg>

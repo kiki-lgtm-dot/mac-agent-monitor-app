@@ -1,0 +1,53 @@
+"dashboard.title" = "Aivulet";
+
+"sync.not_configured" = "尚未配置 Mac 同步";
+"sync.connected" = "已从 Mac 同步";
+"sync.cached" = "离线 · 显示上次同步快照";
+"sync.last_update" = "更新于";
+"sync.refreshing" = "正在刷新";
+"sync.error" = "无法载入最新的同步快照。";
+"sync.error.account_unavailable" = "请先在系统设置中登录 iCloud，然后重新刷新。";
+"sync.error.account_changed" = "同步时 iCloud 账号发生了变化，请刷新以载入当前账号。";
+
+"metric.agents" = "相关 Agent";
+"metric.running" = "运行中";
+"metric.conversations" = "活跃对话";
+"metric.tokens" = "Token";
+"metric.duration" = "工作时长";
+
+"agents.section.title" = "Agent";
+"conversations.active" = "正在处理的对话";
+"conversation.private_number" = "隐私对话 %lld";
+
+"state.working" = "工作中";
+"state.idle" = "空闲";
+"state.completed" = "已完成";
+"state.failed" = "失败";
+"state.stale" = "等待更新";
+
+"empty.title" = "还没有同步的 Agent";
+"empty.description" = "请让 Mac 和 iPhone 登录同一 iCloud 账号，在 Mac 版 Aivulet 中开启“iCloud 私有同步”，再进行刷新。";
+"action.refresh" = "刷新";
+
+"privacy.show_titles" = "显示完整标题";
+"privacy.hide_titles" = "隐藏完整标题";
+"privacy.title_toggle_hint" = "下次启动应用时会重新隐藏完整标题。";
+"privacy.titles_unavailable" = "Mac 未同步完整对话标题。";
+"privacy.sync_note" = "iPhone 只读取自身沙盒内的同步摘要，不会读取 Mac 文件、提示词、回复、API 密钥或工作区路径。";
+"privacy.policy_link" = "隐私政策";
+"support.link" = "支持与帮助";
+"release.links_not_configured" = "开发版：发布前请配置正式的隐私政策和支持 HTTPS 网址。";
+
+"activity.title" = "灵动岛";
+"activity.description" = "打开或刷新本应用后，灵动岛会显示最新的 Agent 数、工作时长和 Token；它不显示对话标题。";
+"activity.start" = "开启实时活动";
+"activity.stop" = "停止实时活动";
+"activity.error.disabled" = "请先在系统设置中允许实时活动。";
+"activity.error.no_agent" = "当前没有正在工作的 Agent。";
+
+"duration.hours_minutes" = "%lld 小时 %lld 分钟";
+"duration.minutes" = "%lld 分钟";
+
+"widget.agent_short" = "Agent";
+"widget.token_short" = "Token";
+"widget.privacy_summary" = "隐私活动摘要";

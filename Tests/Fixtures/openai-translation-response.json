@@ -1,0 +1,14 @@
+{
+  "choices": [
+    {
+      "message": {
+        "content": "{\"sourceLanguage\":\"en\",\"targetLanguage\":\"zh-Hans\",\"translation\":\"你好\",\"definitions\":[{\"term\":\"hello\",\"partOfSpeech\":\"interjection\",\"meaning\":\"问候语\"}],\"structure\":{\"summary\":\"用于见面问候\",\"segments\":[{\"text\":\"hello\",\"role\":\"interjection\",\"explanation\":\"见面时使用\"}],\"grammarPoints\":[\"感叹词\"]},\"alternatives\":[\"嗨\"],\"notes\":[\"口语\"]}"
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 8,
+    "total_tokens": 20
+  }
+}

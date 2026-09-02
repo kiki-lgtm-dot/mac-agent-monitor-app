@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "primaryBundleIdentifier": "com.yourname.agentisland",
+  "widgetBundleIdentifier": "com.yourname.agentisland.liveactivity",
+  "teamIdentifier": "YOURTEAMID",
+  "iCloudContainerIdentifier": "iCloud.com.yourname.agentisland",
+  "cloudKit": {
+    "databaseScope": "private",
+    "environment": "Production",
+    "recordType": "AgentIslandSnapshot",
+    "recordName": "latest",
+    "payloadField": "payloadJSON"
+  }
+}

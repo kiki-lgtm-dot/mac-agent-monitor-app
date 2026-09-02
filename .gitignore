@@ -1,0 +1,46 @@
+# macOS / Finder
+.DS_Store
+._*
+
+# Local build products and caches
+.build/
+.native-build/
+dist/
+.release/
+DerivedData/
+*.xcarchive
+*.dSYM/
+*.dSYM.zip
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+*.xcresult
+
+# Credentials, signing material, and local environment
+.env
+.env.*
+!.env.example
+*.p12
+*.p8
+*.cer
+*.crt
+*.pem
+*.key
+*.mobileprovision
+*.provisionprofile
+/Config/ReleaseIdentity.json
+/Config/Release.env
+
+# Local QA captures. Public media lives in docs/media.
+docs/screenshots/
+*-qa.png
+
+# The hosted landing page is maintained as a separate local project and may
+# contain deployment-bound metadata. It is intentionally excluded from this
+# first source release.
+release-site/
+
+# Editors
+.idea/
+.vscode/

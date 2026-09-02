@@ -1,0 +1,2 @@
+{"sessionId":"shared","type":"ai-title","aiTitle":"Merged Claude Session","cwd":"/tmp/claude-project","timestamp":"2026-08-01T00:00:00Z","uuid":"title-a"}
+{"sessionId":"shared","cwd":"/tmp/claude-project","timestamp":"2026-08-01T00:00:01Z","uuid":"event-a","message":{"id":"msg-dup","model":"claude-test","usage":{"input_tokens":10,"cache_creation_input_tokens":2,"cache_read_input_tokens":3,"output_tokens":4}}}

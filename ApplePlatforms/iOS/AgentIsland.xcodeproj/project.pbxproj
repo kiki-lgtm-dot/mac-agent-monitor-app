@@ -1,0 +1,731 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10300000000000000000001 /* AgentIslandMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000001 /* AgentIslandMobileApp.swift */; };
+		A10300000000000000000002 /* DashboardStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000002 /* DashboardStore.swift */; };
+		A10300000000000000000003 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000003 /* DashboardView.swift */; };
+		A10300000000000000000004 /* Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000004 /* Formatting.swift */; };
+		A10300000000000000000005 /* LiveActivityCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000005 /* LiveActivityCoordinator.swift */; };
+		A10300000000000000000006 /* SyncedSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000006 /* SyncedSnapshotStore.swift */; };
+		A10300000000000000000009 /* CloudKitSnapshotProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000007 /* CloudKitSnapshotProvider.swift */; };
+		A10300000000000000000007 /* AgentSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000011 /* AgentSnapshot.swift */; };
+		A10300000000000000000008 /* AgentIslandActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000012 /* AgentIslandActivityAttributes.swift */; };
+		A10300000000000000000011 /* AgentIslandLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000021 /* AgentIslandLiveActivity.swift */; };
+		A10300000000000000000012 /* AgentIslandWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000022 /* AgentIslandWidgetBundle.swift */; };
+		A10300000000000000000013 /* AgentSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000011 /* AgentSnapshot.swift */; };
+		A10300000000000000000014 /* AgentIslandActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000012 /* AgentIslandActivityAttributes.swift */; };
+		A10300000000000000000021 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000031 /* Assets.xcassets */; };
+		A10300000000000000000022 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000034 /* Localizable.strings */; };
+		A10300000000000000000023 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000043 /* PrivacyInfo.xcprivacy */; };
+		A10300000000000000000031 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000034 /* Localizable.strings */; };
+		A10300000000000000000032 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A10100000000000000000046 /* PrivacyInfo.xcprivacy */; };
+		A10300000000000000000041 /* AgentIslandLiveActivityExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A10100000000000000000052 /* AgentIslandLiveActivityExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A10300000000000000000051 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10100000000000000000081 /* CloudKit.framework */; };
+		B20300000000000000000001 /* DashboardStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20100000000000000000001 /* DashboardStoreTests.swift */; };
+		B20300000000000000000002 /* AgentSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20100000000000000000002 /* AgentSnapshotTests.swift */; };
+		B20300000000000000000003 /* SnapshotFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20100000000000000000003 /* SnapshotFixtures.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A10700000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10500000000000000000002;
+			remoteInfo = AgentIslandLiveActivityExtension;
+		};
+		B20700000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10500000000000000000001;
+			remoteInfo = AgentIslandMobile;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A10400000000000000000004 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A10300000000000000000041 /* AgentIslandLiveActivityExtension.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		A10100000000000000000001 /* AgentIslandMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIslandMobileApp.swift; sourceTree = "<group>"; };
+		A10100000000000000000002 /* DashboardStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardStore.swift; sourceTree = "<group>"; };
+		A10100000000000000000003 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		A10100000000000000000004 /* Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatting.swift; sourceTree = "<group>"; };
+		A10100000000000000000005 /* LiveActivityCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityCoordinator.swift; sourceTree = "<group>"; };
+		A10100000000000000000006 /* SyncedSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncedSnapshotStore.swift; sourceTree = "<group>"; };
+		A10100000000000000000007 /* CloudKitSnapshotProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitSnapshotProvider.swift; sourceTree = "<group>"; };
+		A10100000000000000000011 /* AgentSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSnapshot.swift; sourceTree = "<group>"; };
+		A10100000000000000000012 /* AgentIslandActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIslandActivityAttributes.swift; sourceTree = "<group>"; };
+		A10100000000000000000021 /* AgentIslandLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIslandLiveActivity.swift; sourceTree = "<group>"; };
+		A10100000000000000000022 /* AgentIslandWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIslandWidgetBundle.swift; sourceTree = "<group>"; };
+		A10100000000000000000031 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A10100000000000000000032 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A10100000000000000000033 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		A10100000000000000000041 /* App-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "App-Info.plist"; sourceTree = "<group>"; };
+		A10100000000000000000042 /* Widget-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Widget-Info.plist"; sourceTree = "<group>"; };
+		A10100000000000000000043 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A10100000000000000000044 /* Project.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Project.xcconfig; sourceTree = "<group>"; };
+		A10100000000000000000045 /* AgentIslandMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AgentIslandMobile.entitlements; sourceTree = "<group>"; };
+		A10100000000000000000046 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A10100000000000000000051 /* AgentIslandMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AgentIslandMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10100000000000000000052 /* AgentIslandLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AgentIslandLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10100000000000000000061 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		A10100000000000000000071 /* validate-project.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "validate-project.sh"; sourceTree = "<group>"; };
+		A10100000000000000000072 /* release-ios.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "release-ios.sh"; sourceTree = "<group>"; };
+		A10100000000000000000081 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
+		B20100000000000000000001 /* DashboardStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardStoreTests.swift; sourceTree = "<group>"; };
+		B20100000000000000000002 /* AgentSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSnapshotTests.swift; sourceTree = "<group>"; };
+		B20100000000000000000003 /* SnapshotFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotFixtures.swift; sourceTree = "<group>"; };
+		B20100000000000000000051 /* AgentIslandMobileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgentIslandMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10400000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10300000000000000000051 /* CloudKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10400000000000000000012 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20400000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10200000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A10200000000000000000002 /* App */,
+				A10200000000000000000003 /* Shared */,
+				A10200000000000000000004 /* WidgetExtension */,
+				A10200000000000000000005 /* Resources */,
+				A10200000000000000000006 /* Config */,
+				A10200000000000000000008 /* scripts */,
+				A10200000000000000000009 /* Frameworks */,
+				B20200000000000000000001 /* Tests */,
+				A10100000000000000000061 /* README.md */,
+				A10200000000000000000007 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10200000000000000000002 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A10100000000000000000001 /* AgentIslandMobileApp.swift */,
+				A10100000000000000000002 /* DashboardStore.swift */,
+				A10100000000000000000003 /* DashboardView.swift */,
+				A10100000000000000000004 /* Formatting.swift */,
+				A10100000000000000000005 /* LiveActivityCoordinator.swift */,
+				A10100000000000000000006 /* SyncedSnapshotStore.swift */,
+				A10100000000000000000007 /* CloudKitSnapshotProvider.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A10200000000000000000003 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A10100000000000000000011 /* AgentSnapshot.swift */,
+				A10100000000000000000012 /* AgentIslandActivityAttributes.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		A10200000000000000000004 /* WidgetExtension */ = {
+			isa = PBXGroup;
+			children = (
+				A10100000000000000000021 /* AgentIslandLiveActivity.swift */,
+				A10100000000000000000022 /* AgentIslandWidgetBundle.swift */,
+				A10100000000000000000046 /* PrivacyInfo.xcprivacy */,
+			);
+			path = WidgetExtension;
+			sourceTree = "<group>";
+		};
+		A10200000000000000000005 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A10100000000000000000031 /* Assets.xcassets */,
+				A10100000000000000000034 /* Localizable.strings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A10200000000000000000006 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				A10100000000000000000041 /* App-Info.plist */,
+				A10100000000000000000042 /* Widget-Info.plist */,
+				A10100000000000000000043 /* PrivacyInfo.xcprivacy */,
+				A10100000000000000000044 /* Project.xcconfig */,
+				A10100000000000000000045 /* AgentIslandMobile.entitlements */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		A10200000000000000000007 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10100000000000000000051 /* AgentIslandMobile.app */,
+				A10100000000000000000052 /* AgentIslandLiveActivityExtension.appex */,
+				B20100000000000000000051 /* AgentIslandMobileTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A10200000000000000000008 /* scripts */ = {
+			isa = PBXGroup;
+			children = (
+				A10100000000000000000071 /* validate-project.sh */,
+				A10100000000000000000072 /* release-ios.sh */,
+			);
+			path = scripts;
+			sourceTree = "<group>";
+		};
+		A10200000000000000000009 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A10100000000000000000081 /* CloudKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		B20200000000000000000001 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				B20100000000000000000001 /* DashboardStoreTests.swift */,
+				B20100000000000000000002 /* AgentSnapshotTests.swift */,
+				B20100000000000000000003 /* SnapshotFixtures.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10500000000000000000001 /* AgentIslandMobile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10900000000000000000002 /* Build configuration list for PBXNativeTarget "AgentIslandMobile" */;
+			buildPhases = (
+				A10400000000000000000001 /* Sources */,
+				A10400000000000000000002 /* Frameworks */,
+				A10400000000000000000003 /* Resources */,
+				A10400000000000000000004 /* Embed App Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A10600000000000000000001 /* PBXTargetDependency */,
+			);
+			name = AgentIslandMobile;
+			packageProductDependencies = (
+			);
+			productName = AgentIslandMobile;
+			productReference = A10100000000000000000051 /* AgentIslandMobile.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A10500000000000000000002 /* AgentIslandLiveActivityExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10900000000000000000003 /* Build configuration list for PBXNativeTarget "AgentIslandLiveActivityExtension" */;
+			buildPhases = (
+				A10400000000000000000011 /* Sources */,
+				A10400000000000000000012 /* Frameworks */,
+				A10400000000000000000013 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AgentIslandLiveActivityExtension;
+			packageProductDependencies = (
+			);
+			productName = AgentIslandLiveActivityExtension;
+			productReference = A10100000000000000000052 /* AgentIslandLiveActivityExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		B20500000000000000000001 /* AgentIslandMobileTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B20900000000000000000001 /* Build configuration list for PBXNativeTarget "AgentIslandMobileTests" */;
+			buildPhases = (
+				B20400000000000000000001 /* Sources */,
+				B20400000000000000000002 /* Frameworks */,
+				B20400000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B20600000000000000000001 /* PBXTargetDependency */,
+			);
+			name = AgentIslandMobileTests;
+			packageProductDependencies = (
+			);
+			productName = AgentIslandMobileTests;
+			productReference = B20100000000000000000051 /* AgentIslandMobileTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					A10500000000000000000001 = {
+						CreatedOnToolsVersion = 26.0;
+						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.iCloud = {
+								enabled = 1;
+							};
+						};
+					};
+					A10500000000000000000002 = {
+						CreatedOnToolsVersion = 26.0;
+						ProvisioningStyle = Automatic;
+					};
+					B20500000000000000000001 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = A10500000000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = A10900000000000000000001 /* Build configuration list for PBXProject "AgentIsland" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = A10200000000000000000001;
+			productRefGroup = A10200000000000000000007 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10500000000000000000001 /* AgentIslandMobile */,
+				A10500000000000000000002 /* AgentIslandLiveActivityExtension */,
+				B20500000000000000000001 /* AgentIslandMobileTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10400000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10300000000000000000021 /* Assets.xcassets in Resources */,
+				A10300000000000000000022 /* Localizable.strings in Resources */,
+				A10300000000000000000023 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10400000000000000000013 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10300000000000000000031 /* Localizable.strings in Resources */,
+				A10300000000000000000032 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20400000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10400000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10300000000000000000001 /* AgentIslandMobileApp.swift in Sources */,
+				A10300000000000000000002 /* DashboardStore.swift in Sources */,
+				A10300000000000000000003 /* DashboardView.swift in Sources */,
+				A10300000000000000000004 /* Formatting.swift in Sources */,
+				A10300000000000000000005 /* LiveActivityCoordinator.swift in Sources */,
+				A10300000000000000000006 /* SyncedSnapshotStore.swift in Sources */,
+				A10300000000000000000009 /* CloudKitSnapshotProvider.swift in Sources */,
+				A10300000000000000000007 /* AgentSnapshot.swift in Sources */,
+				A10300000000000000000008 /* AgentIslandActivityAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10400000000000000000011 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10300000000000000000011 /* AgentIslandLiveActivity.swift in Sources */,
+				A10300000000000000000012 /* AgentIslandWidgetBundle.swift in Sources */,
+				A10300000000000000000013 /* AgentSnapshot.swift in Sources */,
+				A10300000000000000000014 /* AgentIslandActivityAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20400000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B20300000000000000000001 /* DashboardStoreTests.swift in Sources */,
+				B20300000000000000000002 /* AgentSnapshotTests.swift in Sources */,
+				B20300000000000000000003 /* SnapshotFixtures.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A10600000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10500000000000000000002 /* AgentIslandLiveActivityExtension */;
+			targetProxy = A10700000000000000000001 /* PBXContainerItemProxy */;
+		};
+		B20600000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10500000000000000000001 /* AgentIslandMobile */;
+			targetProxy = B20700000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		A10100000000000000000034 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A10100000000000000000032 /* en */,
+				A10100000000000000000033 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		A10800000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A10100000000000000000044 /* Project.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A10800000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A10100000000000000000044 /* Project.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A10800000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = Config/AgentIslandMobile.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/App-Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AGENT_ISLAND_APP_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A10800000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = Config/AgentIslandMobile.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/App-Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AGENT_ISLAND_APP_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		A10800000000000000000021 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Widget-Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AGENT_ISLAND_WIDGET_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A10800000000000000000022 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Widget-Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AGENT_ISLAND_WIDGET_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		B20800000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AGENT_ISLAND_APP_BUNDLE_ID).tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AgentIslandMobile.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AgentIslandMobile";
+				TEST_TARGET_NAME = AgentIslandMobile;
+			};
+			name = Debug;
+		};
+		B20800000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AGENT_ISLAND_APP_BUNDLE_ID).tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AgentIslandMobile.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AgentIslandMobile";
+				TEST_TARGET_NAME = AgentIslandMobile;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10900000000000000000001 /* Build configuration list for PBXProject "AgentIsland" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10800000000000000000001 /* Debug */,
+				A10800000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10900000000000000000002 /* Build configuration list for PBXNativeTarget "AgentIslandMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10800000000000000000011 /* Debug */,
+				A10800000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10900000000000000000003 /* Build configuration list for PBXNativeTarget "AgentIslandLiveActivityExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10800000000000000000021 /* Debug */,
+				A10800000000000000000022 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B20900000000000000000001 /* Build configuration list for PBXNativeTarget "AgentIslandMobileTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B20800000000000000000011 /* Debug */,
+				B20800000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A10000000000000000000001 /* Project object */;
+}

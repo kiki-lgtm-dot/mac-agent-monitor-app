@@ -1,0 +1,108 @@
+{
+  "scannedAt": 1788264000000,
+  "usageHistory": {
+    "totals": {
+      "total": 12,
+      "input": 8,
+      "cached": 2,
+      "output": 4,
+      "reasoning": 0,
+      "unknown": 0
+    }
+  },
+  "sessions": [
+    {
+      "id": "raw-session-id-must-not-leave-mac",
+      "toolKey": "codex",
+      "toolName": "Codex",
+      "status": "working",
+      "durationMs": 3000,
+      "updatedAt": 1788264000000,
+      "total": 12,
+      "input": 8,
+      "cached": 2,
+      "output": 4,
+      "reasoning": 0,
+      "unknown": 0,
+      "conversationTitle": "Fixture title",
+      "titleSource": "codex.title",
+      "taskSummary": "must never sync",
+      "project": "/Users/example/secret",
+      "model": "secret-model"
+    },
+    {
+      "id": "older-completed-session",
+      "toolKey": "codex",
+      "toolName": "Codex",
+      "status": "finished",
+      "durationMs": 86400000,
+      "updatedAt": 1788263000000,
+      "total": 1,
+      "input": 1,
+      "cached": 0,
+      "output": 0,
+      "reasoning": 0,
+      "unknown": 0,
+      "conversationTitle": "Older completed task",
+      "titleSource": "codex.title"
+    }
+  ],
+  "tools": [
+    {
+      "id": "codex",
+      "kind": "agent",
+      "installed": true,
+      "running": true,
+      "hostRunning": true,
+      "sessionCount": 1,
+      "activeSessionCount": 1,
+      "totalTokens": 12,
+      "durationMs": 3000
+    },
+    {
+      "id": "cursor",
+      "kind": "host",
+      "installed": true,
+      "running": false,
+      "hostRunning": false,
+      "sessionCount": 0,
+      "activeSessionCount": 0,
+      "totalTokens": null,
+      "durationMs": null,
+      "path": "/Applications/Cursor.app"
+    },
+    {
+      "id": "windsurf",
+      "kind": "host",
+      "installed": true,
+      "running": true,
+      "hostRunning": true,
+      "sessionCount": 0,
+      "activeSessionCount": 0,
+      "totalTokens": null,
+      "durationMs": null
+    },
+    {
+      "id": "unsupported-secret-tool",
+      "kind": "agent",
+      "installed": true,
+      "running": true,
+      "hostRunning": true,
+      "sessionCount": 0,
+      "activeSessionCount": 0,
+      "totalTokens": 99,
+      "durationMs": 99
+    },
+    {
+      "id": "zed",
+      "kind": "host",
+      "installed": false,
+      "running": false,
+      "hostRunning": false,
+      "sessionCount": 0,
+      "activeSessionCount": 0,
+      "totalTokens": 0,
+      "durationMs": 0
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>DeveloperCertificates</key>
+  <array>
+    <data>RklYVFVSRQ==</data>
+  </array>
+  <key>Entitlements</key>
+  <dict>
+    <key>com.apple.application-identifier</key>
+    <string>ABCDE12345.com.agentisland.release</string>
+    <key>com.apple.developer.team-identifier</key>
+    <string>ABCDE12345</string>
+    <key>com.apple.developer.icloud-container-identifiers</key>
+    <array>
+      <string>iCloud.com.agentisland.releasefixture</string>
+    </array>
+    <key>com.apple.developer.icloud-container-environment</key>
+    <string>Production</string>
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+      <string>CloudKit</string>
+    </array>
+  </dict>
+  <key>ExpirationDate</key>
+  <date>2041-01-01T00:00:00Z</date>
+  <key>Name</key>
+  <string>Aivulet decoded Developer ID fixture</string>
+  <key>Platform</key>
+  <array>
+    <string>OSX</string>
+  </array>
+  <key>ProvisionsAllDevices</key>
+  <true/>
+  <key>TeamIdentifier</key>
+  <array>
+    <string>ABCDE12345</string>
+  </array>
+  <key>UUID</key>
+  <string>00000000-0000-4000-8000-000000000001</string>
+</dict>
+</plist>
