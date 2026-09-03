@@ -1,0 +1,23 @@
+name: Verify
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-and-release-gates:
+    name: macOS source and release gates
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+      - name: Run macOS app and release tests
+        run: ./scripts/test.sh
+      - name: Validate the iOS project structure
+        run: ./ApplePlatforms/iOS/scripts/validate-project.sh
