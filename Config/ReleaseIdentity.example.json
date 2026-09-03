@@ -1,7 +1,9 @@
 {
-  "schemaVersion": 1,
-  "primaryBundleIdentifier": "com.yourname.agentisland",
-  "widgetBundleIdentifier": "com.yourname.agentisland.liveactivity",
+  "schemaVersion": 2,
+  "appStoreRecordMode": "universal-purchase",
+  "macOSAppBundleIdentifier": "com.yourname.agentisland",
+  "iOSAppBundleIdentifier": "com.yourname.agentisland",
+  "iOSWidgetBundleIdentifier": "com.yourname.agentisland.liveactivity",
   "teamIdentifier": "YOURTEAMID",
   "iCloudContainerIdentifier": "iCloud.com.yourname.agentisland",
   "cloudKit": {

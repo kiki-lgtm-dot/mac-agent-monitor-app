@@ -1,5 +1,6 @@
 #!/bin/zsh
 set -euo pipefail
+umask 077
 
 IOS_ROOT="${0:A:h:h}"
 DELIVERY_RECORD_INPUT=""
@@ -37,6 +38,77 @@ EOF
 fail() {
   print -u2 -r -- "TestFlight evidence confirmation failed: $*"
   exit 2
+}
+
+verify_app_store_result_success_json() {
+  local result_path="$1"
+  local operation="$2"
+  /usr/bin/jq -s -e '
+    if length != 1 or (.[0] | type) != "object" then
+      false
+    else
+      .[0] as $result |
+      ($result["success-message"] | type == "string" and length > 0) and
+      (($result | has("product-errors") | not) or
+        $result["product-errors"] == null or
+        (($result["product-errors"] | type) == "array" and
+          ($result["product-errors"] | length) == 0)) and
+      (($result | has("errors") | not) or
+        $result.errors == null or
+        (($result.errors | type) == "array" and
+          ($result.errors | length) == 0))
+    end
+  ' "$result_path" >/dev/null \
+    || fail "stored App Store Connect $operation result is not an unambiguous success response"
+}
+
+require_readonly_file() {
+  local path="$1"
+  local label="$2"
+  [[ "$(/usr/bin/stat -f '%Sp' "$path")" != *w* ]] \
+    || fail "$label must be read-only (no write permission bits)"
+}
+
+require_shared_delivery_stamp() {
+  local delivery_path="$1"
+  local validation_path="$2"
+  local upload_path="$3"
+  local delivery_name="${delivery_path:t}"
+  local stamp="${delivery_name#testflight-delivery-}"
+  stamp="${stamp%.json}"
+  print -r -- "$stamp" | /usr/bin/grep -Eq '^[0-9]{8}T[0-9]{6}Z$' \
+    || fail "delivery record filename does not contain a strict UTC stamp"
+  /bin/date -j -u -f '%Y%m%dT%H%M%SZ' "$stamp" '+%s' >/dev/null 2>&1 \
+    || fail "delivery record filename contains an impossible UTC stamp"
+  [[ "${validation_path:t}" == "testflight-validation-$stamp.json" \
+      && "${upload_path:t}" == "testflight-upload-$stamp.json" ]] \
+    || fail "delivery, validation, and upload filenames must share one UTC stamp"
+}
+
+publish_readonly_no_overwrite() {
+  local temporary_path="$1"
+  local destination_path="$2"
+  local label="$3"
+  local temporary_identity misplaced_path
+  [[ "${temporary_path:h}" == "${destination_path:h}" ]] \
+    || fail "$label temporary file is not on the release volume"
+  [[ "$(/usr/bin/stat -f '%Sp' "$temporary_path")" != *w* ]] \
+    || fail "$label temporary inode is not read-only"
+  temporary_identity="$(/usr/bin/stat -f '%d:%i' "$temporary_path")"
+  /bin/ln -h "$temporary_path" "$destination_path" \
+    || fail "could not publish $label without overwriting a file"
+  if [[ ! -f "$destination_path" || -L "$destination_path" \
+      || "$(/usr/bin/stat -f '%d:%i' "$destination_path")" != "$temporary_identity" ]]; then
+    misplaced_path="$destination_path/${temporary_path:t}"
+    if [[ -f "$misplaced_path" && ! -L "$misplaced_path" \
+        && "$(/usr/bin/stat -f '%d:%i' "$misplaced_path")" == "$temporary_identity" ]]; then
+      /bin/rm -f "$misplaced_path" \
+        || fail "could not remove misplaced $label after a destination-directory race"
+    fi
+    fail "$label destination did not resolve to the sealed temporary inode"
+  fi
+  /bin/rm -f "$temporary_path" \
+    || fail "could not remove $label temporary name after publication"
 }
 
 while (( $# > 0 )); do
@@ -124,12 +196,18 @@ NOW_EPOCH="$(/bin/date -u '+%s')"
 
 [[ -f "$DELIVERY_RECORD_INPUT" && ! -L "$DELIVERY_RECORD_INPUT" ]] \
   || fail "delivery record must be an existing, non-symlink file"
+DELIVERY_RECORD_ABSOLUTE="${DELIVERY_RECORD_INPUT:a}"
 DELIVERY_RECORD_PATH="${DELIVERY_RECORD_INPUT:A}"
+[[ "$DELIVERY_RECORD_ABSOLUTE" == "$DELIVERY_RECORD_PATH" ]] \
+  || fail "delivery record path must not traverse symlink parents"
+[[ -d "${DELIVERY_RECORD_ABSOLUTE:h}" && ! -L "${DELIVERY_RECORD_ABSOLUTE:h}" ]] \
+  || fail "delivery record parent must be a non-symlink release directory"
 RELEASE_DIRECTORY="${DELIVERY_RECORD_PATH:h}"
 [[ -d "$RELEASE_DIRECTORY" && ! -L "$RELEASE_DIRECTORY" ]] \
   || fail "delivery record parent must be a non-symlink release directory"
 [[ "${DELIVERY_RECORD_PATH:t}" == testflight-delivery-*.json ]] \
   || fail "delivery record filename is not a generated TestFlight delivery record"
+require_readonly_file "$DELIVERY_RECORD_PATH" "delivery record"
 
 command -v jq >/dev/null 2>&1 || fail "jq is required"
 command -v shasum >/dev/null 2>&1 || fail "shasum is required"
@@ -181,6 +259,8 @@ require_safe_release_file() {
   [[ "$raw_path" == /* && -f "$raw_path" && ! -L "$raw_path" ]] \
     || fail "$label must be an existing, absolute, non-symlink file"
   local canonical_path="${raw_path:A}"
+  [[ "$raw_path" == "$canonical_path" ]] \
+    || fail "$label path must already be canonical and contain no symlink traversal"
   [[ "$canonical_path" == "$RELEASE_DIRECTORY"/* ]] \
     || fail "$label escapes the release directory"
   print -r -- "$canonical_path"
@@ -194,6 +274,10 @@ VALIDATION_RESULT_PATH="$(require_safe_release_file \
 UPLOAD_RESULT_PATH="$(require_safe_release_file "$UPLOAD_RESULT_PATH" "upload result")"
 [[ "$RELEASE_METADATA_PATH" == "$RELEASE_DIRECTORY/release-metadata.json" ]] \
   || fail "delivery record does not reference this release directory's metadata"
+require_readonly_file "$VALIDATION_RESULT_PATH" "validation result"
+require_readonly_file "$UPLOAD_RESULT_PATH" "upload result"
+require_shared_delivery_stamp "$DELIVERY_RECORD_PATH" \
+  "$VALIDATION_RESULT_PATH" "$UPLOAD_RESULT_PATH"
 
 file_sha256() {
   LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$1" | /usr/bin/awk '{print $1}'
@@ -207,10 +291,8 @@ file_sha256() {
   || fail "current validation result differs from the delivery record"
 [[ "$(file_sha256 "$UPLOAD_RESULT_PATH")" == "$UPLOAD_RESULT_SHA256" ]] \
   || fail "current upload result differs from the delivery record"
-/usr/bin/jq -e . "$VALIDATION_RESULT_PATH" >/dev/null \
-  || fail "validation result is no longer valid JSON"
-/usr/bin/jq -e . "$UPLOAD_RESULT_PATH" >/dev/null \
-  || fail "upload result is no longer valid JSON"
+verify_app_store_result_success_json "$VALIDATION_RESULT_PATH" "validation"
+verify_app_store_result_success_json "$UPLOAD_RESULT_PATH" "upload"
 
 /usr/bin/jq -e \
   --arg appBundleID "$APP_BUNDLE_ID" \
@@ -296,6 +378,8 @@ trap 'exit 143' TERM
     testedAt: $testedAt,
     createdAt: $createdAt
   }' >"$TEMP_EVIDENCE_PATH"
+/bin/chmod 0444 "$TEMP_EVIDENCE_PATH" \
+  || fail "could not seal verification evidence before publication"
 /usr/bin/jq -e '
   .schemaVersion == 1 and
   .platform == "iOS" and
@@ -310,16 +394,11 @@ trap 'exit 143' TERM
 ' "$TEMP_EVIDENCE_PATH" >/dev/null \
   || fail "generated verification evidence failed its schema contract"
 
-# A hard link on the same release volume is an atomic no-overwrite publish:
-# link(2) fails if the destination already exists, including a symlink. Make
-# the resulting inode read-only as an additional guard against accidental edits.
-/bin/ln "$TEMP_EVIDENCE_PATH" "$EVIDENCE_PATH" \
-  || fail "could not publish verification evidence without overwriting a file"
-/bin/chmod 0444 "$EVIDENCE_PATH" || {
-  /bin/rm -f "$EVIDENCE_PATH"
-  fail "could not make verification evidence read-only"
-}
-/bin/rm -f "$TEMP_EVIDENCE_PATH"
+# A hard link on the same release volume is an atomic no-overwrite publish.
+# The temporary inode is already read-only and validated before the destination
+# name becomes visible, including when an attacker pre-creates a symlink.
+publish_readonly_no_overwrite "$TEMP_EVIDENCE_PATH" "$EVIDENCE_PATH" \
+  "TestFlight verification evidence"
 TEMP_EVIDENCE_PATH=""
 
 print -r -- "TestFlight verification evidence recorded: $EVIDENCE_PATH"

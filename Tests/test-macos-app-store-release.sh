@@ -58,6 +58,11 @@ for marker in \
   'schemaVersion: 1' \
   'version: $version' \
   'build: $build' \
+  'APP_CATEGORY="public.app-category.developer-tools"' \
+  'AGENT_ISLAND_MAC_APP_BUNDLE_ID="$APP_BUNDLE_ID"' \
+  'LSApplicationCategoryType raw "$info"' \
+  'applicationCategory: $applicationCategory' \
+  '.applicationCategory == "public.app-category.developer-tools"' \
   'uploaded: false' \
   'No build was uploaded' \
   'ProvisionsAllDevices' \
@@ -83,10 +88,14 @@ done
 
 for marker in \
   '.version == $version and .build == $build' \
-  'AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_ARCHIVE_SHA256' \
-  'AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_PACKAGE_SHA256' \
+  'AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE' \
+  'AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE' \
+  'AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE' \
+  'MAC_APP_STORE_LOCAL_PREFLIGHT_PASSED' \
+  'MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE_READY' \
   'MAC_APP_STORE_FUNCTIONAL_EVIDENCE_BOUND_TO_CANDIDATE' \
   'readyForMacAppStoreUpload' \
+  'readyForMacAppStoreReviewSelection' \
   'readyForFunctionalMacAppStoreSubmissionDeprecated: true' \
   'READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false'; do
   contains "$marker" "$READINESS"
@@ -97,6 +106,9 @@ fi
 
 /usr/bin/env \
   -u AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA \
+  -u AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE \
+  -u AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE \
+  -u AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE \
   -u AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_ARCHIVE_SHA256 \
   -u AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_PACKAGE_SHA256 \
   -u AGENT_ISLAND_MAC_APP_STORE_SANDBOX_FLOW_VERIFIED \
@@ -107,8 +119,16 @@ fi
   "$READINESS" --json | /usr/bin/jq -e '
     .macMarketingVersion == "0.6.1" and
     .macBuildNumber == "8" and
+    .macAppStoreLocalPreflightPassed == false and
+    .macAppStoreFunctionalQAEvidenceReady == false and
     .macAppStoreFunctionalEvidenceBoundToCandidate == false and
+    .macAppStoreDeliveryEvidenceReady == false and
+    .macAppStoreUploadAccepted == false and
+    .macAppStoreProcessingEvidenceReady == false and
+    .macAppStoreProcessingVerified == false and
+    .macAppStoreAppReviewSubmissionRecorded == false and
     .readyForMacAppStoreUpload == false and
+    .readyForMacAppStoreReviewSelection == false and
     .readyForFunctionalMacAppStoreSubmissionDeprecated == true and
     .readyForFunctionalMacAppStoreSubmission == false
   ' >/dev/null || fail "default macOS readiness contract is unsafe"
@@ -135,7 +155,12 @@ PUBLISH_LINE="$(/usr/bin/grep -nF '/bin/mv "$STAGING_ROOT" "$FINAL_RELEASE_DIR"'
 [[ "$(/usr/bin/plutil -extract NSHumanReadableCopyright raw "$MAC_INFO")" == \
   '$(AGENT_ISLAND_COPYRIGHT)' ]] \
   || fail "Mac App Store Info.plist is not wired to the release copyright setting"
+[[ "$(/usr/bin/plutil -extract LSApplicationCategoryType raw "$MAC_INFO")" == \
+  'public.app-category.developer-tools' ]] \
+  || fail "Mac App Store Info.plist does not declare the Developer Tools category"
 contains 'NSHumanReadableCopyright == "$(AGENT_ISLAND_COPYRIGHT)"' "$MAC_VALIDATOR"
+contains '.LSApplicationCategoryType == "public.app-category.developer-tools"' "$MAC_VALIDATOR"
+contains '.buildSettings.PRODUCT_BUNDLE_IDENTIFIER == "$(AGENT_ISLAND_MAC_APP_BUNDLE_ID)"' "$MAC_VALIDATOR"
 contains 'ApplePlatforms/macOS/scripts/release-macos-app-store.sh' "$MAC_VALIDATOR"
 
 print -r -- "macOS App Store release-script contract passed"

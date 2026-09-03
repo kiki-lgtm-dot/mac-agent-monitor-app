@@ -70,7 +70,7 @@ DeepSeek 的公开材料没有为本应用 API 请求提供固定保留期、不
 
 | Target | Manifest | 当前必须匹配的声明 |
 | --- | --- | --- |
-| macOS 主 App | `Resources/PrivacyInfo.xcprivacy` | Other Usage Data + Other User Content；App Functionality；Linked；No Tracking。原生 macOS 不套用 iOS 等平台的 Required Reason API 申报门禁 |
+| macOS 主 App | `Resources/PrivacyInfo.xcprivacy` | Other Usage Data + Other User Content；App Functionality；Linked；No Tracking。清单当前保守包含 UserDefaults `CA92.1`，但原生 macOS 不套用 iOS 等平台的 Required Reason API 申报门禁，校验不把该理由码当作 macOS 上线条件 |
 | iOS 主 App | `ApplePlatforms/iOS/Config/PrivacyInfo.xcprivacy` | Other Usage Data + Other User Content；App Functionality；Linked；No Tracking；UserDefaults `CA92.1` |
 | iOS Widget Extension | `ApplePlatforms/iOS/WidgetExtension/PrivacyInfo.xcprivacy` | 不声明 collected data 或 required-reason API；No Tracking；无 tracking domains |
 

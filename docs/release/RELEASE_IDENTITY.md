@@ -12,9 +12,11 @@ cp Config/ReleaseIdentity.example.json Config/ReleaseIdentity.json
 
 允许的顶层字段只有：
 
-- `schemaVersion`，当前必须为 `1`；
-- `primaryBundleIdentifier`，Mac 与 iPhone 主 App 共用的正式 Bundle ID；
-- `widgetBundleIdentifier`，必须严格等于主 Bundle ID 加 `.liveactivity`；
+- `schemaVersion`，新配置必须为 `2`；旧版 `1` 仅按“Mac/iPhone 共用主 App ID”的原始含义兼容，并在校验时规范化为 v2 Universal Purchase；
+- `appStoreRecordMode`，只能是 `universal-purchase` 或 `separate-records`；
+- `macOSAppBundleIdentifier`，macOS App 的正式 Bundle ID；
+- `iOSAppBundleIdentifier`，iPhone App 的正式 Bundle ID；Universal Purchase 时必须与 macOS 相同，分开记录时必须不同；
+- `iOSWidgetBundleIdentifier`，必须严格等于 iPhone App Bundle ID 加 `.liveactivity`；
 - `teamIdentifier`，Apple Developer 中显示的 10 位大写 Team ID；
 - `iCloudContainerIdentifier`，已经或准备在同一 Team 注册的正式容器；
 - `cloudKit`，必须保持固定的 `private` / `Production` / `AgentIslandSnapshot` / `latest` / `payloadJSON` 契约。
@@ -29,7 +31,7 @@ cp Config/ReleaseIdentity.example.json Config/ReleaseIdentity.json
 
 省略模式时就是 `--check`。输出 JSON 会列出计划修改项、锁状态和 profile 状态；`writesPerformed` 必须为 `false`。检查模式只使用系统临时目录，不会创建 `.release`，也不会修改 plist 或 xcconfig。
 
-确认 Apple 后台中的主 App ID、Widget App ID、Team 和 Container 拼写一致后，才运行：
+确认 Apple 后台中的 macOS App ID、iPhone App ID、Widget App ID、记录模式、Team 和 Container 拼写一致后，才运行：
 
 ```bash
 ./scripts/apply-release-identity.sh --apply
@@ -41,11 +43,14 @@ cp Config/ReleaseIdentity.example.json Config/ReleaseIdentity.json
 .release/identity-backup/manifest.json
 .release/identity-backup/Resources/Info.plist
 .release/identity-backup/ApplePlatforms/iOS/Config/Project.xcconfig
+.release/identity-backup/ApplePlatforms/macOS/Config/Project.xcconfig
 ```
 
-然后只更新 Mac `CFBundleIdentifier` 和 iOS xcconfig 中的 App、Widget、Team、Container 设置，并生成 `.release/identity.lock.json`。重复应用相同身份不会改变目标内容、首次备份或锁内容。锁存在后，脚本拒绝把工程切到另一套不可逆标识。
+然后只更新 Mac `CFBundleIdentifier`、macOS xcconfig 中独立的 `AGENT_ISLAND_MAC_APP_BUNDLE_ID`，以及 iOS xcconfig 中的 App、Widget、Team、Container 设置，并生成 `.release/identity.lock.json`。Mac Xcode Target 绑定 macOS 专用宏，不会在 `separate-records` 模式下误用 iPhone Bundle ID。重复应用相同身份不会改变目标内容、首次备份或锁内容。锁存在后，脚本拒绝把工程切到另一套不可逆标识。
 
-需要恢复第一次应用前的工程时，先停止构建和 Xcode，再把备份中的两个文件按原相对路径复制回去。随后把 `.release/identity.lock.json` 和可能存在的 `.release/CloudKit.entitlements` 移到工程外保留审计，不要在没有检查备份哈希的情况下直接删除。`manifest.json` 记录了原文件 SHA-256 和原本不存在的生成文件。
+需要恢复第一次应用前的工程时，先停止构建和 Xcode，再把备份中的三个文件按原相对路径复制回去。随后把 `.release/identity.lock.json` 和可能存在的 `.release/CloudKit.entitlements` 移到工程外保留审计，不要在没有检查备份哈希的情况下直接删除。`manifest.json` 记录了原文件 SHA-256 和原本不存在的生成文件。一次 `--apply` 中如果后面的原子替换失败，脚本还会自动恢复本次事务里已经替换的前置文件；永久基线备份仍会保留。
+
+旧脚本生成的 v1 锁若尚未管理 macOS xcconfig，首次用新版 `--apply` 时会额外创建 `.release/identity-backup/schema-v2-macos-config/` 补充基线，并把 macOS 配置哈希加入锁；之后再次应用才是内容与锁均不变的 no-op。
 
 ## 3. App ID Prefix 只能来自正式 profile
 
@@ -65,7 +70,7 @@ generatedEntitlements: null
   --profile /absolute/path/AgentIsland_Developer_ID.provisionprofile
 ```
 
-脚本要求 profile 是 Apple 签名 CMS、属于同一 Team、包含精确主 Bundle ID、只授权指定 CloudKit Container、环境为 Production、`ProvisionsAllDevices=true`、未开启 `get-task-allow` 且未过期。通过后再应用：
+脚本要求 profile 是 Apple 签名 CMS、属于同一 Team，并要求 profile 顶层 `ApplicationIdentifierPrefix` 与 entitlement 中的 `com.apple.application-identifier` 精确组成 `前缀.macOSAppBundleIdentifier`；它还必须只授权指定 CloudKit Container、环境为 Production、`ProvisionsAllDevices=true`、未开启 `get-task-allow` 且未过期。脚本不会假设 App ID Prefix 等于 Team ID。通过后再应用：
 
 ```bash
 ./scripts/apply-release-identity.sh --apply \
@@ -86,9 +91,10 @@ generatedEntitlements: null
 正式公证前，将安全身份与凭据分别传给原有发布脚本：
 
 ```bash
-export AGENT_ISLAND_BUNDLE_ID="已锁定的 primaryBundleIdentifier"
-export AGENT_ISLAND_IOS_BUNDLE_ID="$AGENT_ISLAND_BUNDLE_ID"
-export AGENT_ISLAND_IOS_WIDGET_BUNDLE_ID="$AGENT_ISLAND_BUNDLE_ID.liveactivity"
+export AGENT_ISLAND_APP_STORE_RECORD_MODE="已锁定的 appStoreRecordMode"
+export AGENT_ISLAND_BUNDLE_ID="已锁定的 macOSAppBundleIdentifier"
+export AGENT_ISLAND_IOS_BUNDLE_ID="已锁定的 iOSAppBundleIdentifier"
+export AGENT_ISLAND_IOS_WIDGET_BUNDLE_ID="已锁定的 iOSWidgetBundleIdentifier"
 export AGENT_ISLAND_DEVELOPMENT_TEAM="已锁定的 teamIdentifier"
 export AGENT_ISLAND_ICLOUD_CONTAINER_ID="已锁定的 iCloudContainerIdentifier"
 export AGENT_ISLAND_DISPLAY_NAME="已完成名称清查的 2–30 字符正式名称"

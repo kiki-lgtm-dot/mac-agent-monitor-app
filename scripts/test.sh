@@ -64,16 +64,38 @@ fi
 /bin/zsh -n "$PROJECT_DIR/scripts/build-app.sh" "$PROJECT_DIR/scripts/release-macos.sh" \
   "$PROJECT_DIR/scripts/release-readiness.sh" "$PROJECT_DIR/scripts/render-app-icons.sh" \
   "$PROJECT_DIR/scripts/apply-release-identity.sh" "$PROJECT_DIR/Tests/test-release-identity.sh" \
+  "$PROJECT_DIR/ApplePlatforms/iOS/scripts/confirm-functional-qa-evidence.sh" \
+  "$PROJECT_DIR/ApplePlatforms/iOS/scripts/validate-functional-qa-evidence.sh" \
+  "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh" \
   "$PROJECT_DIR/ApplePlatforms/macOS/scripts/release-macos-app-store.sh" \
-  "$PROJECT_DIR/Tests/test-macos-app-store-release.sh"
+  "$PROJECT_DIR/ApplePlatforms/macOS/scripts/submit-macos-app-store.sh" \
+  "$PROJECT_DIR/ApplePlatforms/macOS/scripts/confirm-macos-app-store-evidence.sh" \
+  "$PROJECT_DIR/ApplePlatforms/macOS/scripts/verify-macos-app-store-delivery.sh" \
+  "$PROJECT_DIR/ApplePlatforms/macOS/scripts/verify-macos-app-store-evidence.sh" \
+  "$PROJECT_DIR/ApplePlatforms/macOS/scripts/confirm-functional-qa-evidence.sh" \
+  "$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-functional-qa-evidence.sh" \
+  "$PROJECT_DIR/Tests/test-macos-app-store-release.sh" \
+  "$PROJECT_DIR/Tests/test-macos-app-store-delivery.sh" \
+  "$PROJECT_DIR/Tests/test-macos-functional-qa-evidence.sh"
 /bin/bash -n "$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-project.sh"
 [[ -x "$PROJECT_DIR/scripts/release-macos.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/release-readiness.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/apply-release-identity.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-release-identity.sh" ]]
+[[ -x "$PROJECT_DIR/ApplePlatforms/iOS/scripts/confirm-functional-qa-evidence.sh" ]]
+[[ -x "$PROJECT_DIR/ApplePlatforms/iOS/scripts/validate-functional-qa-evidence.sh" ]]
+[[ -x "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh" ]]
 [[ -x "$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-project.sh" ]]
 [[ -x "$PROJECT_DIR/ApplePlatforms/macOS/scripts/release-macos-app-store.sh" ]]
+[[ -x "$PROJECT_DIR/ApplePlatforms/macOS/scripts/submit-macos-app-store.sh" ]]
+[[ -x "$PROJECT_DIR/ApplePlatforms/macOS/scripts/confirm-macos-app-store-evidence.sh" ]]
+[[ -x "$PROJECT_DIR/ApplePlatforms/macOS/scripts/verify-macos-app-store-delivery.sh" ]]
+[[ -x "$PROJECT_DIR/ApplePlatforms/macOS/scripts/verify-macos-app-store-evidence.sh" ]]
+[[ -x "$PROJECT_DIR/ApplePlatforms/macOS/scripts/confirm-functional-qa-evidence.sh" ]]
+[[ -x "$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-functional-qa-evidence.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-macos-app-store-release.sh" ]]
+[[ -x "$PROJECT_DIR/Tests/test-macos-app-store-delivery.sh" ]]
+[[ -x "$PROJECT_DIR/Tests/test-macos-functional-qa-evidence.sh" ]]
 READINESS_HELP="$("$PROJECT_DIR/scripts/release-readiness.sh" --help)"
 [[ "$READINESS_HELP" == *'Usage: release-readiness.sh [--json]'* ]]
 [[ "$READINESS_HELP" == *'never archives, signs, uploads, or changes Apple services'* ]]
@@ -95,9 +117,13 @@ rg -q --fixed-strings 'Unexpected arguments: --json extra' \
   "$VERIFY_ROOT/release-readiness-extra.err"
 "$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-project.sh"
 "$PROJECT_DIR/Tests/test-macos-app-store-release.sh"
+"$PROJECT_DIR/Tests/test-macos-app-store-delivery.sh"
+"$PROJECT_DIR/Tests/test-macos-functional-qa-evidence.sh"
 /usr/bin/jq -e '
-  .schemaVersion == 1 and
-  .widgetBundleIdentifier == (.primaryBundleIdentifier + ".liveactivity") and
+  .schemaVersion == 2 and
+  .appStoreRecordMode == "universal-purchase" and
+  .macOSAppBundleIdentifier == .iOSAppBundleIdentifier and
+  .iOSWidgetBundleIdentifier == (.iOSAppBundleIdentifier + ".liveactivity") and
   .cloudKit == {
     databaseScope: "private",
     environment: "Production",
@@ -108,12 +134,15 @@ rg -q --fixed-strings 'Unexpected arguments: --json extra' \
 ' "$PROJECT_DIR/Config/ReleaseIdentity.example.json" >/dev/null
 for marker in '--check' '--apply' 'identity.lock.json' 'identity-backup' \
   'com.apple.application-identifier' 'ProvisionsAllDevices' \
-  'appIDPrefixGuessed: false' 'widgetBundleIdentifier must equal primaryBundleIdentifier + .liveactivity' \
+  'appIDPrefixGuessed: false' \
+  'iOSWidgetBundleIdentifier must equal iOSAppBundleIdentifier + .liveactivity' \
+  'separate-records requires macOSAppBundleIdentifier and iOSAppBundleIdentifier to differ' \
   'private Production AgentIslandSnapshot/latest/payloadJSON contract'; do
   rg -q --fixed-strings -- "$marker" "$PROJECT_DIR/scripts/apply-release-identity.sh"
 done
 "$PROJECT_DIR/Tests/test-release-identity.sh"
 "$PROJECT_DIR/Tests/test-store-submission.sh"
+"$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh"
 node "$PROJECT_DIR/Tests/test-ios-build-settings.mjs"
 rg -q --fixed-strings 'MARKETING_VERSION = 0.6.1' \
   "$PROJECT_DIR/ApplePlatforms/iOS/Config/Project.xcconfig"
@@ -466,10 +495,15 @@ for READINESS_GATE in \
   'iosTestFlightUploadVerified' 'iosTestFlightProcessingVerified' \
   'iosTestFlightInstallVerified' 'iosTestFlightEvidenceConfigured' \
   'iosLocalIPAPreflightPassed' \
-  'iosTestFlightExactBuildEvidenceReady' 'iosFunctionalEvidenceBoundToCandidate' \
+  'iosTestFlightExactBuildEvidenceReady' \
+  'iosFunctionalQAEvidenceConfigured' 'iosFunctionalQAEvidenceReady' \
+  'iosFunctionalQAEvidencePath' 'iosFunctionalQAEvidenceSHA256' \
+  'iosFunctionalQADeviceModel' 'iosFunctionalQAOSVersion' 'iosFunctionalQATestedAt' \
+  'iosFunctionalEvidenceBoundToCandidate' \
   'iosTestFlightIPASHA256' 'iosTestFlightAppStoreConnectBuildID' \
   'AGENT_ISLAND_IOS_TESTFLIGHT_VERIFICATION_EVIDENCE' \
-  'AGENT_ISLAND_IOS_FUNCTIONAL_EVIDENCE_IPA_SHA256' \
+  'AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE' \
+  'validate-functional-qa-evidence.sh' \
   'testflight-verification-*.json' 'deliveryRecordSHA256' \
   '--check "$IOS_EVIDENCE_DIRECTORY"' \
   '"$IOS_EVIDENCE_BUNDLE_ID" == "$IOS_APP_BUNDLE_ID"' \
@@ -487,22 +521,47 @@ for READINESS_GATE in \
   'macPrivacySourceReady' 'appPrivacyReleaseEvidenceReady' \
   'macPrivacyReleaseEvidenceReady' 'iosPrivacyReleaseEvidenceReady' \
   '.releaseEvidence.recordScope == $recordScope' \
-  'storeSubmissionAssetsReady' \
+  'storeSubmissionAssetsReady' 'storeSubmissionBlockers' \
+  'storeSubmissionStructuralErrors' 'iosProjectReleaseValidationMessages' \
   'macAppStoreReleaseMetadataConfigured' 'macAppStoreExactCandidateEvidenceReady' \
+  'releaseIdentityLockConfigured' 'releaseIdentityLockValid' \
+  'releaseIdentityAppliedFilesMatch' 'releaseIdentityMatchesConfiguration' \
+  'releaseIdentityReady' 'releaseIdentityLockPath' 'releaseIdentityLockSHA256' \
+  'releaseIdentityInputSchemaVersion' 'releaseIdentityNormalizedSchemaVersion' \
+  'releaseIdentityRecordMode' \
   'macMarketingVersion' 'macBuildNumber' \
+  'macAppStoreLocalPreflightPassed' \
+  'macAppStoreFunctionalQAEvidenceConfigured' 'macAppStoreFunctionalQAEvidenceReady' \
+  'macAppStoreFunctionalQAEvidenceInputPath' 'macAppStoreFunctionalQAEvidencePath' \
+  'macAppStoreFunctionalQAEvidenceSHA256' \
+  'macAppStoreFunctionalQAMacModel' 'macAppStoreFunctionalQAOSVersion' \
+  'macAppStoreFunctionalQATestedAt' \
   'macAppStoreArchiveZipSHA256' 'macAppStorePackageSHA256' \
   'macAppStoreFunctionalEvidenceArchiveSHA256' \
   'macAppStoreFunctionalEvidencePackageSHA256' \
   'macAppStoreFunctionalEvidenceBoundToCandidate' \
-  'AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_ARCHIVE_SHA256' \
-  'AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_PACKAGE_SHA256' \
+  'AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE' \
+  'validate-functional-qa-evidence.sh' \
+  'macAppStoreDeliveryEvidenceConfigured' 'macAppStoreDeliveryEvidenceReady' \
+  'macAppStoreDeliveryEvidenceInputPath' 'macAppStoreDeliveryEvidencePath' \
+  'macAppStoreDeliveryEvidenceSHA256' 'macAppStoreDeliveryBoundToCandidate' \
+  'macAppStoreUploadAccepted' 'macAppStoreUploadSubmittedAt' \
+  'macAppStoreProcessingEvidenceConfigured' 'macAppStoreProcessingEvidenceReady' \
+  'macAppStoreProcessingEvidenceInputPath' 'macAppStoreProcessingEvidencePath' \
+  'macAppStoreProcessingEvidenceSHA256' 'macAppStoreProcessingBoundToDelivery' \
+  'macAppStoreProcessingState' 'macAppStoreProcessingVerified' \
+  'macAppStoreProcessingVerifiedAt' 'macAppStoreWarningsReviewed' \
+  'macAppStoreWarningsReviewedAt' 'macAppStoreConnectBuildID' \
+  'macAppStoreAppReviewSubmissionRecorded' \
+  'AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE' \
+  'AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE' \
   '.version == $version and .build == $build' \
   'appStoreRecordModeConfigured' 'universalPurchaseBundleIDsMatch' \
   'appStoreRecordModeBundleIDsValid' \
   'macAppStoreSandboxFlowVerified' 'macAppStoreArchiveVerified' \
   'macAppStoreProfileCertificateVerified' 'macAppStorePrivacyReportVerified' \
   'macAppStoreReviewPathVerified' 'readyForMacAppStoreArchive' \
-  'readyForMacAppStoreUpload' \
+  'readyForMacAppStoreUpload' 'readyForMacAppStoreReviewSelection' \
   'readyForFunctionalMacAppStoreSubmissionDeprecated' \
   'readyForFunctionalMacAppStoreSubmission' \
   'macDeveloperIDToolchainConfigured' '$MAC_DEVELOPER_ID_TOOLCHAIN' \
@@ -515,24 +574,44 @@ for READINESS_GATE in \
   '$MAC_APP_STORE_XCODE_PROJECT' '$MAC_APP_STORE_TARGET_MEMBERSHIP' \
   '$MAC_APP_STORE_RUNTIME_RESOURCES_IN_TARGET' '$MAC_APP_STORE_BUILD_SETTINGS_MATCH' \
   '$MAC_APP_STORE_INFO_PLIST_CONFIGURED' '$MAC_APP_STORE_ENTITLEMENTS_READY' \
-  '$MAC_APP_STORE_EXACT_CANDIDATE_EVIDENCE_READY' \
+  '$RELEASE_IDENTITY_LOCK_READY' '$MAC_APP_STORE_EXACT_CANDIDATE_EVIDENCE_READY' \
+  '$MAC_APP_STORE_LOCAL_PREFLIGHT_PASSED' '$MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE_READY' \
   '$MAC_APP_STORE_FUNCTIONAL_EVIDENCE_BOUND_TO_CANDIDATE' \
+  '$MAC_APP_STORE_DELIVERY_EVIDENCE_READY' '$MAC_APP_STORE_PROCESSING_EVIDENCE_READY' \
+  '$MAC_APP_STORE_PROCESSING_BOUND_TO_DELIVERY' \
   '$MAC_APP_STORE_RECORD_MODE_BUNDLE_IDS_VALID' \
   '$MAC_PRIVACY_SOURCE_READY' '$MAC_PRIVACY_RELEASE_EVIDENCE_READY' '$STORE_SUBMISSION_ASSETS_READY' \
   '$cloudKitProductionSchemaVerified and $iosRealDeviceSyncVerified' \
   '$iosLiveActivityVerified and $iosReviewPathVerified' \
-  '$iosTestFlightExactBuildEvidenceReady and $iosFunctionalEvidenceBoundToCandidate' \
+  '$iosTestFlightExactBuildEvidenceReady and $iosFunctionalQAEvidenceReady' \
+  '$iosFunctionalEvidenceBoundToCandidate and' \
   '$iosTestFlightUploadVerified and $iosTestFlightProcessingVerified' \
   '$iosTestFlightInstallVerified and $iosPrivacyReleaseEvidenceReady'; do
-  rg -q --fixed-strings -- "$READINESS_GATE" "$PROJECT_DIR/scripts/release-readiness.sh"
+  if ! rg -q --fixed-strings -- "$READINESS_GATE" \
+      "$PROJECT_DIR/scripts/release-readiness.sh"; then
+    echo "release readiness is missing contract marker $READINESS_GATE" >&2
+    exit 1
+  fi
 done
-for UNSAFE_TESTFLIGHT_BOOLEAN in \
+for UNSAFE_RELEASE_BOOLEAN in \
   AGENT_ISLAND_IOS_TESTFLIGHT_UPLOAD_VERIFIED \
   AGENT_ISLAND_IOS_TESTFLIGHT_PROCESSING_VERIFIED \
-  AGENT_ISLAND_IOS_TESTFLIGHT_INSTALL_VERIFIED; do
-  if rg -q --fixed-strings -- "$UNSAFE_TESTFLIGHT_BOOLEAN" \
+  AGENT_ISLAND_IOS_TESTFLIGHT_INSTALL_VERIFIED \
+  AGENT_ISLAND_CLOUDKIT_PRODUCTION_SCHEMA_VERIFIED \
+  AGENT_ISLAND_IOS_REAL_DEVICE_SYNC_VERIFIED \
+  AGENT_ISLAND_IOS_LIVE_ACTIVITY_VERIFIED \
+  AGENT_ISLAND_IOS_REVIEW_PATH_VERIFIED \
+  AGENT_ISLAND_IOS_FUNCTIONAL_EVIDENCE_IPA_SHA256 \
+  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_ARCHIVE_SHA256 \
+  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_PACKAGE_SHA256 \
+  AGENT_ISLAND_MAC_APP_STORE_SANDBOX_FLOW_VERIFIED \
+  AGENT_ISLAND_MAC_APP_STORE_ARCHIVE_VERIFIED \
+  AGENT_ISLAND_MAC_APP_STORE_PROFILE_CERTIFICATE_VERIFIED \
+  AGENT_ISLAND_MAC_APP_STORE_PRIVACY_REPORT_VERIFIED \
+  AGENT_ISLAND_MAC_APP_STORE_REVIEW_PATH_VERIFIED; do
+  if rg -q --fixed-strings -- "$UNSAFE_RELEASE_BOOLEAN" \
       "$PROJECT_DIR/scripts/release-readiness.sh"; then
-    echo "release readiness still accepts unbound TestFlight boolean $UNSAFE_TESTFLIGHT_BOOLEAN" >&2
+    echo "release readiness still accepts unbound release switch $UNSAFE_RELEASE_BOOLEAN" >&2
     exit 1
   fi
 done
@@ -556,11 +635,15 @@ done
   -u AGENT_ISLAND_IOS_REVIEW_PATH_VERIFIED \
   -u AGENT_ISLAND_IOS_TESTFLIGHT_VERIFICATION_EVIDENCE \
   -u AGENT_ISLAND_IOS_FUNCTIONAL_EVIDENCE_IPA_SHA256 \
+  -u AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE \
   -u AGENT_ISLAND_APP_PRIVACY_EVIDENCE \
   -u AGENT_ISLAND_MAC_APP_STORE_PROJECT \
   -u AGENT_ISLAND_MAC_APP_STORE_SCHEME \
   -u AGENT_ISLAND_APP_STORE_RECORD_MODE \
   -u AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA \
+  -u AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE \
+  -u AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE \
+  -u AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE \
   -u AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_ARCHIVE_SHA256 \
   -u AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_PACKAGE_SHA256 \
   -u AGENT_ISLAND_MAC_APP_STORE_SANDBOX_FLOW_VERIFIED \
@@ -569,6 +652,11 @@ done
   -u AGENT_ISLAND_MAC_APP_STORE_PRIVACY_REPORT_VERIFIED \
   -u AGENT_ISLAND_MAC_APP_STORE_REVIEW_PATH_VERIFIED \
   "$PROJECT_DIR/scripts/release-readiness.sh" | jq -e '
+  ((.hostMacOSVersion == null) or (.hostMacOSVersion | type == "string" and test("^[0-9]+(\\.[0-9]+){1,2}$"))) and
+  (.minimumHostMacOSForXcode26 == "15.6") and
+  (.minimumRequiredXcodeMajor == 26) and
+  (.minimumRequiredIOSSDKMajor == 26) and
+  (.xcode26HostCompatible | type == "boolean") and
   (.fullXcode | type == "boolean") and
   (.macDeveloperIDToolchainConfigured | type == "boolean") and
   (.developerPath | type == "string") and
@@ -593,6 +681,22 @@ done
   ((.productionDisplayName == null) or (.productionDisplayName | type == "string")) and
   (.iosAppBundleIDConfigured | type == "boolean") and
   (.iosWidgetBundleIDConfigured | type == "boolean") and
+  (.releaseIdentityLockConfigured | type == "boolean") and
+  (.releaseIdentityLockValid | type == "boolean") and
+  (.releaseIdentityAppliedFilesMatch | type == "boolean") and
+  (.releaseIdentityMatchesConfiguration | type == "boolean") and
+  (.releaseIdentityReady | type == "boolean") and
+  (.releaseIdentityLockPath | type == "string" and startswith("/") and endswith("/.release/identity.lock.json")) and
+  ((.releaseIdentityLockSHA256 == null) or (.releaseIdentityLockSHA256 | type == "string" and test("^[0-9a-f]{64}$"))) and
+  ((.releaseIdentityInputSchemaVersion == null) or (.releaseIdentityInputSchemaVersion == 1 or .releaseIdentityInputSchemaVersion == 2)) and
+  ((.releaseIdentityNormalizedSchemaVersion == null) or .releaseIdentityNormalizedSchemaVersion == 2) and
+  ((.releaseIdentityRecordMode == null) or
+    (.releaseIdentityRecordMode == "universal-purchase" or .releaseIdentityRecordMode == "separate-records")) and
+  ((.releaseIdentityReady | not) or (
+    .releaseIdentityLockConfigured and .releaseIdentityLockValid and
+    .releaseIdentityAppliedFilesMatch and .releaseIdentityMatchesConfiguration and
+    .releaseIdentityNormalizedSchemaVersion == 2
+  )) and
   (.notaryProfileConfigured | type == "boolean") and
   (.cloudKitEntitlementsConfigured | type == "boolean") and
   (.cloudKitContainerConfigured | type == "boolean") and
@@ -614,15 +718,23 @@ done
   (.iosTestFlightEvidenceConfigured | type == "boolean") and
   (.iosLocalIPAPreflightPassed | type == "boolean") and
   (.iosTestFlightExactBuildEvidenceReady | type == "boolean") and
+  (.iosFunctionalQAEvidenceConfigured | type == "boolean") and
+  (.iosFunctionalQAEvidenceReady | type == "boolean") and
+  ((.iosFunctionalQAEvidenceInputPath == null) or (.iosFunctionalQAEvidenceInputPath | type == "string")) and
+  ((.iosFunctionalQAEvidencePath == null) or (.iosFunctionalQAEvidencePath | type == "string")) and
+  ((.iosFunctionalQAEvidenceSHA256 == null) or (.iosFunctionalQAEvidenceSHA256 | test("^[0-9a-f]{64}$"))) and
+  ((.iosFunctionalQADeviceModel == null) or (.iosFunctionalQADeviceModel | type == "string" and length > 0)) and
+  ((.iosFunctionalQAOSVersion == null) or (.iosFunctionalQAOSVersion | type == "string" and length > 0)) and
+  ((.iosFunctionalQATestedAt == null) or (.iosFunctionalQATestedAt | type == "string" and test("Z$"))) and
   (.iosFunctionalEvidenceBoundToCandidate | type == "boolean") and
   ((.iosTestFlightVerificationEvidencePath == null) or (.iosTestFlightVerificationEvidencePath | type == "string")) and
   ((.iosTestFlightIPASHA256 == null) or (.iosTestFlightIPASHA256 | test("^[0-9a-f]{64}$"))) and
   ((.iosTestFlightAppStoreConnectBuildID == null) or (.iosTestFlightAppStoreConnectBuildID | type == "string" and length > 0)) and
-  ((.iosFunctionalEvidenceIPASHA256 == null) or (.iosFunctionalEvidenceIPASHA256 | test("^[0-9a-f]{64}$"))) and
   (.iosProjectConfigured | type == "boolean") and
   (.iosProjectPath | type == "string") and
   (.iosScheme == "AgentIslandMobile") and
   (.iosProjectReleaseValidationPassed | type == "boolean") and
+  (.iosProjectReleaseValidationMessages | type == "array") and
   (.iosBuildSettingsResolved | type == "boolean") and
   (.iosTargetBuildSettingsConfigured | type == "boolean") and
   (.iosProductionBuildSettingsConfigured | type == "boolean") and
@@ -635,6 +747,7 @@ done
   ((.iosProductionBuildSettingsConfigured | not) or .iosTargetBuildSettingsConfigured) and
   ((.readyForIOSArchive | not) or (
     .fullXcode and
+    .xcode26HostCompatible and
     .currentUploadToolchain and
     .appleDistributionTeamIdentityConfigured and
     .iosProjectConfigured and
@@ -680,16 +793,65 @@ done
   (.macPrivacyReleaseEvidenceReady | type == "boolean") and
   (.iosPrivacyReleaseEvidenceReady | type == "boolean") and
   (.storeSubmissionAssetsReady | type == "boolean") and
+  (.storeSubmissionBlockerCount | type == "number") and
+  (.storeSubmissionBlockers | type == "array") and
+  (.storeSubmissionStructuralErrors | type == "array") and
+  (.storeSubmissionBlockerCount == (.storeSubmissionBlockers | length)) and
   (.macAppStoreReleaseMetadataConfigured | type == "boolean") and
   (.macAppStoreExactCandidateEvidenceReady | type == "boolean") and
+  (.macAppStoreLocalPreflightPassed | type == "boolean") and
   ((.macMarketingVersion == null) or (.macMarketingVersion | type == "string")) and
   ((.macBuildNumber == null) or (.macBuildNumber | type == "string")) and
   ((.macAppStoreReleaseMetadataPath == null) or (.macAppStoreReleaseMetadataPath | type == "string")) and
   ((.macAppStoreArchiveZipSHA256 == null) or (.macAppStoreArchiveZipSHA256 | test("^[0-9a-f]{64}$"))) and
   ((.macAppStorePackageSHA256 == null) or (.macAppStorePackageSHA256 | test("^[0-9a-f]{64}$"))) and
+  (.macAppStoreFunctionalQAEvidenceConfigured | type == "boolean") and
+  (.macAppStoreFunctionalQAEvidenceReady | type == "boolean") and
+  ((.macAppStoreFunctionalQAEvidenceInputPath == null) or (.macAppStoreFunctionalQAEvidenceInputPath | type == "string")) and
+  ((.macAppStoreFunctionalQAEvidencePath == null) or (.macAppStoreFunctionalQAEvidencePath | type == "string")) and
+  ((.macAppStoreFunctionalQAEvidenceSHA256 == null) or (.macAppStoreFunctionalQAEvidenceSHA256 | test("^[0-9a-f]{64}$"))) and
+  ((.macAppStoreFunctionalQAMacModel == null) or (.macAppStoreFunctionalQAMacModel | type == "string" and length > 0)) and
+  ((.macAppStoreFunctionalQAOSVersion == null) or (.macAppStoreFunctionalQAOSVersion | type == "string" and length > 0)) and
+  ((.macAppStoreFunctionalQATestedAt == null) or (.macAppStoreFunctionalQATestedAt | type == "string" and test("Z$"))) and
   ((.macAppStoreFunctionalEvidenceArchiveSHA256 == null) or (.macAppStoreFunctionalEvidenceArchiveSHA256 | test("^[0-9a-f]{64}$"))) and
   ((.macAppStoreFunctionalEvidencePackageSHA256 == null) or (.macAppStoreFunctionalEvidencePackageSHA256 | test("^[0-9a-f]{64}$"))) and
   (.macAppStoreFunctionalEvidenceBoundToCandidate | type == "boolean") and
+  (.macAppStoreDeliveryEvidenceConfigured | type == "boolean") and
+  (.macAppStoreDeliveryEvidenceReady | type == "boolean") and
+  ((.macAppStoreDeliveryEvidenceInputPath == null) or (.macAppStoreDeliveryEvidenceInputPath | type == "string")) and
+  ((.macAppStoreDeliveryEvidencePath == null) or (.macAppStoreDeliveryEvidencePath | type == "string")) and
+  ((.macAppStoreDeliveryEvidenceSHA256 == null) or (.macAppStoreDeliveryEvidenceSHA256 | test("^[0-9a-f]{64}$"))) and
+  (.macAppStoreDeliveryBoundToCandidate | type == "boolean") and
+  (.macAppStoreUploadAccepted | type == "boolean") and
+  ((.macAppStoreUploadSubmittedAt == null) or (.macAppStoreUploadSubmittedAt | type == "string" and test("Z$"))) and
+  (.macAppStoreProcessingEvidenceConfigured | type == "boolean") and
+  (.macAppStoreProcessingEvidenceReady | type == "boolean") and
+  ((.macAppStoreProcessingEvidenceInputPath == null) or (.macAppStoreProcessingEvidenceInputPath | type == "string")) and
+  ((.macAppStoreProcessingEvidencePath == null) or (.macAppStoreProcessingEvidencePath | type == "string")) and
+  ((.macAppStoreProcessingEvidenceSHA256 == null) or (.macAppStoreProcessingEvidenceSHA256 | test("^[0-9a-f]{64}$"))) and
+  (.macAppStoreProcessingBoundToDelivery | type == "boolean") and
+  ((.macAppStoreProcessingState == null) or .macAppStoreProcessingState == "Complete") and
+  (.macAppStoreProcessingVerified | type == "boolean") and
+  ((.macAppStoreProcessingVerifiedAt == null) or (.macAppStoreProcessingVerifiedAt | type == "string" and test("Z$"))) and
+  (.macAppStoreWarningsReviewed | type == "boolean") and
+  ((.macAppStoreWarningsReviewedAt == null) or (.macAppStoreWarningsReviewedAt | type == "string" and test("Z$"))) and
+  ((.macAppStoreConnectBuildID == null) or (.macAppStoreConnectBuildID | type == "string" and length > 0)) and
+  (.macAppStoreAppReviewSubmissionRecorded | type == "boolean") and
+  ((.macAppStoreFunctionalQAEvidenceReady | not) or (
+    .macAppStoreExactCandidateEvidenceReady and .macAppStoreLocalPreflightPassed and
+    .macAppStoreFunctionalEvidenceBoundToCandidate
+  )) and
+  ((.macAppStoreDeliveryEvidenceReady | not) or (
+    .macAppStoreExactCandidateEvidenceReady and .macAppStoreLocalPreflightPassed and
+    .macAppStoreDeliveryBoundToCandidate and .macAppStoreUploadAccepted and
+    (.macAppStoreAppReviewSubmissionRecorded | not)
+  )) and
+  ((.macAppStoreProcessingEvidenceReady | not) or (
+    .macAppStoreDeliveryEvidenceReady and .macAppStoreProcessingBoundToDelivery and
+    .macAppStoreUploadAccepted and .macAppStoreProcessingState == "Complete" and
+    .macAppStoreProcessingVerified and .macAppStoreWarningsReviewed and
+    (.macAppStoreAppReviewSubmissionRecorded | not)
+  )) and
   (.appStoreRecordModeConfigured | type == "boolean") and
   ((.appStoreRecordMode == null) or (.appStoreRecordMode | type == "string")) and
   (.universalPurchaseBundleIDsMatch | type == "boolean") and
@@ -702,19 +864,32 @@ done
   (.readyForDeveloperIDRelease | type == "boolean") and
   (.readyForMacAppStoreArchive | type == "boolean") and
   (.readyForMacAppStoreUpload | type == "boolean") and
+  (.readyForMacAppStoreReviewSelection | type == "boolean") and
   (.readyForFunctionalMacAppStoreSubmissionDeprecated == true) and
   (.readyForFunctionalMacAppStoreSubmission | type == "boolean") and
   (.readyForIOSArchive | type == "boolean") and
   (.readyForFunctionalIOSTestFlight | type == "boolean") and
+  ((.readyForMacAppStoreArchive | not) or .xcode26HostCompatible) and
   ((.readyForMacAppStoreUpload | not) or (
+    .releaseIdentityReady and
     .macAppStoreExactCandidateEvidenceReady and
+    .macAppStoreLocalPreflightPassed and
+    .macAppStoreFunctionalQAEvidenceReady and
     .macAppStoreFunctionalEvidenceBoundToCandidate and
     .macPrivacyReleaseEvidenceReady and .storeSubmissionAssetsReady
+  )) and
+  ((.readyForMacAppStoreReviewSelection | not) or (
+    .readyForMacAppStoreUpload and .macAppStoreDeliveryEvidenceReady and
+    .macAppStoreDeliveryBoundToCandidate and .macAppStoreUploadAccepted and
+    .macAppStoreProcessingEvidenceReady and .macAppStoreProcessingBoundToDelivery and
+    .macAppStoreProcessingVerified and .macAppStoreProcessingState == "Complete" and
+    .macAppStoreWarningsReviewed and (.macAppStoreAppReviewSubmissionRecorded | not)
   )) and
   (.readyForFunctionalMacAppStoreSubmission == false) and
   ((.readyForFunctionalIOSTestFlight | not) or (
     .readyForIOSArchive and .iosTestFlightExactBuildEvidenceReady and
-    .iosFunctionalEvidenceBoundToCandidate and .iosTestFlightUploadVerified and
+    .iosFunctionalQAEvidenceReady and .iosFunctionalEvidenceBoundToCandidate and
+    .iosTestFlightUploadVerified and
     .iosTestFlightProcessingVerified and .iosTestFlightInstallVerified and
     .iosPrivacyReleaseEvidenceReady
   )) and
@@ -736,11 +911,27 @@ done
   (.iosTestFlightEvidenceConfigured == false) and
   (.iosLocalIPAPreflightPassed == false) and
   (.iosTestFlightExactBuildEvidenceReady == false) and
+  (.iosFunctionalQAEvidenceConfigured == false) and
+  (.iosFunctionalQAEvidenceReady == false) and
+  (.iosFunctionalQAEvidenceInputPath == null) and
+  (.iosFunctionalQAEvidencePath == null) and
+  (.iosFunctionalQAEvidenceSHA256 == null) and
+  (.iosFunctionalQADeviceModel == null) and
+  (.iosFunctionalQAOSVersion == null) and
+  (.iosFunctionalQATestedAt == null) and
   (.iosFunctionalEvidenceBoundToCandidate == false) and
   (.appleDistributionTeamIdentityConfigured == false) and
+  (.releaseIdentityLockConfigured == false) and
+  (.releaseIdentityLockValid == false) and
+  (.releaseIdentityAppliedFilesMatch == false) and
+  (.releaseIdentityMatchesConfiguration == false) and
+  (.releaseIdentityReady == false) and
+  (.releaseIdentityLockSHA256 == null) and
+  (.releaseIdentityInputSchemaVersion == null) and
+  (.releaseIdentityNormalizedSchemaVersion == null) and
+  (.releaseIdentityRecordMode == null) and
   (.appStoreRecordModeConfigured == false) and
   (.appStoreRecordMode == null) and
-  (.universalPurchaseBundleIDsMatch == false) and
   (.appStoreRecordModeBundleIDsValid == false) and
   (.macAppStoreSandboxFlowVerified == false) and
   (.macAppStoreArchiveVerified == false) and
@@ -749,22 +940,57 @@ done
   (.macAppStoreReviewPathVerified == false) and
   (.macAppStoreReleaseMetadataConfigured == false) and
   (.macAppStoreExactCandidateEvidenceReady == false) and
+  (.macAppStoreLocalPreflightPassed == false) and
+  (.macAppStoreFunctionalQAEvidenceConfigured == false) and
+  (.macAppStoreFunctionalQAEvidenceReady == false) and
+  (.macAppStoreFunctionalQAEvidenceInputPath == null) and
+  (.macAppStoreFunctionalQAEvidencePath == null) and
+  (.macAppStoreFunctionalQAEvidenceSHA256 == null) and
+  (.macAppStoreFunctionalQAMacModel == null) and
+  (.macAppStoreFunctionalQAOSVersion == null) and
+  (.macAppStoreFunctionalQATestedAt == null) and
+  (.macAppStoreFunctionalEvidenceArchiveSHA256 == null) and
+  (.macAppStoreFunctionalEvidencePackageSHA256 == null) and
   (.macAppStoreFunctionalEvidenceBoundToCandidate == false) and
+  (.macAppStoreDeliveryEvidenceConfigured == false) and
+  (.macAppStoreDeliveryEvidenceReady == false) and
+  (.macAppStoreDeliveryEvidenceInputPath == null) and
+  (.macAppStoreDeliveryEvidencePath == null) and
+  (.macAppStoreDeliveryEvidenceSHA256 == null) and
+  (.macAppStoreDeliveryBoundToCandidate == false) and
+  (.macAppStoreUploadAccepted == false) and
+  (.macAppStoreUploadSubmittedAt == null) and
+  (.macAppStoreProcessingEvidenceConfigured == false) and
+  (.macAppStoreProcessingEvidenceReady == false) and
+  (.macAppStoreProcessingEvidenceInputPath == null) and
+  (.macAppStoreProcessingEvidencePath == null) and
+  (.macAppStoreProcessingEvidenceSHA256 == null) and
+  (.macAppStoreProcessingBoundToDelivery == false) and
+  (.macAppStoreProcessingState == null) and
+  (.macAppStoreProcessingVerified == false) and
+  (.macAppStoreProcessingVerifiedAt == null) and
+  (.macAppStoreWarningsReviewed == false) and
+  (.macAppStoreWarningsReviewedAt == null) and
+  (.macAppStoreConnectBuildID == null) and
+  (.macAppStoreAppReviewSubmissionRecorded == false) and
   (.readyForMacAppStoreArchive == false) and
   (.readyForMacAppStoreUpload == false) and
+  (.readyForMacAppStoreReviewSelection == false) and
   (.readyForFunctionalMacAppStoreSubmission == false) and
   (.readyForFunctionalIOSTestFlight == false)
 ' >/dev/null
 
 RECORD_FIXTURE_ROOT="$VERIFY_ROOT/release-readiness-record-fixture"
-/bin/mkdir -p "$RECORD_FIXTURE_ROOT/scripts" "$RECORD_FIXTURE_ROOT/ApplePlatforms"
+/bin/mkdir -p "$RECORD_FIXTURE_ROOT/scripts" "$RECORD_FIXTURE_ROOT/ApplePlatforms" \
+  "$RECORD_FIXTURE_ROOT/.release"
 /bin/cp "$PROJECT_DIR/scripts/release-readiness.sh" "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh"
 /bin/cp -R "$PROJECT_DIR/ApplePlatforms/iOS" "$RECORD_FIXTURE_ROOT/ApplePlatforms/iOS"
-for RECORD_FIXTURE_ITEM in Native docs Resources Web Config .release; do
+/bin/cp -R "$PROJECT_DIR/ApplePlatforms/macOS" "$RECORD_FIXTURE_ROOT/ApplePlatforms/macOS"
+/bin/cp -R "$PROJECT_DIR/Resources" "$RECORD_FIXTURE_ROOT/Resources"
+for RECORD_FIXTURE_ITEM in Native docs Web Config; do
   /bin/ln -s "$PROJECT_DIR/$RECORD_FIXTURE_ITEM" "$RECORD_FIXTURE_ROOT/$RECORD_FIXTURE_ITEM"
 done
 /bin/mkdir -p "$RECORD_FIXTURE_ROOT/dist"
-/bin/ln -s "$PROJECT_DIR/ApplePlatforms/macOS" "$RECORD_FIXTURE_ROOT/ApplePlatforms/macOS"
 # Keep the privacy validator physically inside the fixture so its repository
 # root (and immutable candidate paths) are the fixture, not this checkout.
 /bin/cp "$PROJECT_DIR/scripts/validate-app-privacy.mjs" \
@@ -772,10 +998,124 @@ done
 /bin/ln -s "$PROJECT_DIR/scripts/validate-store-submission.mjs" \
   "$RECORD_FIXTURE_ROOT/scripts/validate-store-submission.mjs"
 RECORD_FIXTURE_XCCONFIG="$RECORD_FIXTURE_ROOT/ApplePlatforms/iOS/Config/Project.xcconfig"
+RECORD_FIXTURE_MAC_XCCONFIG="$RECORD_FIXTURE_ROOT/ApplePlatforms/macOS/Config/Project.xcconfig"
+RECORD_FIXTURE_INFO_PLIST="$RECORD_FIXTURE_ROOT/Resources/Info.plist"
 /usr/bin/sed -i '' \
   -e 's/com\.example\.agentisland/com.agentisland.mobile/g' \
   -e 's/^AGENT_ISLAND_DEVELOPMENT_TEAM =.*$/AGENT_ISLAND_DEVELOPMENT_TEAM = ABCDE12345/' \
   "$RECORD_FIXTURE_XCCONFIG"
+/usr/bin/sed -i '' \
+  -e 's/com\.example\.agentisland/com.agentisland.mobile/g' \
+  "$RECORD_FIXTURE_MAC_XCCONFIG"
+/usr/bin/plutil -replace CFBundleIdentifier -string 'com.agentisland.mobile' \
+  "$RECORD_FIXTURE_INFO_PLIST"
+
+# release-readiness must require the schema-v2 identity payload and exact hashes
+# of all three identity-bearing project files. The fixture lock is intentionally
+# local to VERIFY_ROOT so the suite never mutates a developer's real lock.
+RECORD_FIXTURE_INFO_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
+  "$RECORD_FIXTURE_INFO_PLIST" | /usr/bin/awk '{print $1}')"
+RECORD_FIXTURE_IOS_CONFIG_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
+  "$RECORD_FIXTURE_XCCONFIG" | /usr/bin/awk '{print $1}')"
+RECORD_FIXTURE_MAC_CONFIG_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
+  "$RECORD_FIXTURE_MAC_XCCONFIG" | /usr/bin/awk '{print $1}')"
+RECORD_FIXTURE_IDENTITY_LOCK="$RECORD_FIXTURE_ROOT/.release/identity.lock.json"
+/usr/bin/jq -n -S \
+  --arg infoSHA "$RECORD_FIXTURE_INFO_SHA" \
+  --arg iosSHA "$RECORD_FIXTURE_IOS_CONFIG_SHA" \
+  --arg macSHA "$RECORD_FIXTURE_MAC_CONFIG_SHA" '{
+    schemaVersion: 1,
+    firstAppliedAt: "2026-09-04T00:00:00Z",
+    identity: {
+      schemaVersion: 2,
+      appStoreRecordMode: "universal-purchase",
+      macOSAppBundleIdentifier: "com.agentisland.mobile",
+      iOSAppBundleIdentifier: "com.agentisland.mobile",
+      iOSWidgetBundleIdentifier: "com.agentisland.mobile.liveactivity",
+      teamIdentifier: "ABCDE12345",
+      iCloudContainerIdentifier: "iCloud.com.agentisland.mobile",
+      cloudKit: {
+        databaseScope: "private",
+        environment: "Production",
+        recordType: "AgentIslandSnapshot",
+        recordName: "latest",
+        payloadField: "payloadJSON"
+      }
+    },
+    provisioningProfile: null,
+    generatedEntitlements: null,
+    appliedFiles: [
+      {path: "Resources/Info.plist", sha256: $infoSHA},
+      {path: "ApplePlatforms/iOS/Config/Project.xcconfig", sha256: $iosSHA},
+      {path: "ApplePlatforms/macOS/Config/Project.xcconfig", sha256: $macSHA}
+    ]
+  }' >"$RECORD_FIXTURE_IDENTITY_LOCK"
+/bin/chmod 0600 "$RECORD_FIXTURE_IDENTITY_LOCK"
+
+run_release_state_readiness() {
+  /usr/bin/env \
+    DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
+    AGENT_ISLAND_BUNDLE_ID='com.agentisland.mobile' \
+    AGENT_ISLAND_IOS_BUNDLE_ID='com.agentisland.mobile' \
+    AGENT_ISLAND_IOS_WIDGET_BUNDLE_ID='com.agentisland.mobile.liveactivity' \
+    AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
+    AGENT_ISLAND_ICLOUD_CONTAINER_ID='iCloud.com.agentisland.mobile' \
+    AGENT_ISLAND_PRIVACY_POLICY_URL='https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/' \
+    AGENT_ISLAND_SUPPORT_URL='https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/' \
+    AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
+    AGENT_ISLAND_VERSION='0.6.1' \
+    AGENT_ISLAND_BUILD_NUMBER='8' \
+    AGENT_ISLAND_APP_STORE_RECORD_MODE='universal-purchase' \
+    "$@" \
+    "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh"
+}
+
+run_release_state_readiness | /usr/bin/jq -e \
+  --arg lockPath "$RECORD_FIXTURE_IDENTITY_LOCK" '
+    .releaseIdentityLockConfigured == true and
+    .releaseIdentityLockValid == true and
+    .releaseIdentityAppliedFilesMatch == true and
+    .releaseIdentityMatchesConfiguration == true and
+    .releaseIdentityReady == true and
+    .releaseIdentityLockPath == $lockPath and
+    (.releaseIdentityLockSHA256 | test("^[0-9a-f]{64}$")) and
+    .releaseIdentityInputSchemaVersion == 2 and
+    .releaseIdentityNormalizedSchemaVersion == 2 and
+    .releaseIdentityRecordMode == "universal-purchase"
+  ' >/dev/null
+
+# A valid lock is not ready when its record model differs from the requested
+# App Store topology, even though the lock and all applied-file hashes remain
+# internally valid.
+run_release_state_readiness \
+  AGENT_ISLAND_APP_STORE_RECORD_MODE='separate-records' | /usr/bin/jq -e '
+    .releaseIdentityLockConfigured == true and
+    .releaseIdentityLockValid == true and
+    .releaseIdentityAppliedFilesMatch == true and
+    .releaseIdentityMatchesConfiguration == false and
+    .releaseIdentityReady == false and
+    .readyForMacAppStoreArchive == false and
+    .readyForMacAppStoreUpload == false and
+    .readyForMacAppStoreReviewSelection == false
+  ' >/dev/null
+
+# Applied project files are part of the lock, not advisory metadata. Restore
+# the physical fixture immediately after proving a one-byte drift closes every
+# downstream release gate.
+/bin/cp "$RECORD_FIXTURE_MAC_XCCONFIG" \
+  "$VERIFY_ROOT/record-fixture-mac-xcconfig.saved"
+print -r -- '// identity drift fixture' >>"$RECORD_FIXTURE_MAC_XCCONFIG"
+run_release_state_readiness | /usr/bin/jq -e '
+    .releaseIdentityLockValid == true and
+    .releaseIdentityAppliedFilesMatch == false and
+    .releaseIdentityMatchesConfiguration == true and
+    .releaseIdentityReady == false and
+    .readyForMacAppStoreArchive == false and
+    .readyForMacAppStoreUpload == false and
+    .readyForMacAppStoreReviewSelection == false
+  ' >/dev/null
+/bin/cp "$VERIFY_ROOT/record-fixture-mac-xcconfig.saved" \
+  "$RECORD_FIXTURE_MAC_XCCONFIG"
 
 /usr/bin/env \
   DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
@@ -833,38 +1173,101 @@ RECORD_FIXTURE_XCCONFIG="$RECORD_FIXTURE_ROOT/ApplePlatforms/iOS/Config/Project.
   ' >/dev/null
 
 MAC_EVIDENCE_RELEASE_DIR="$RECORD_FIXTURE_ROOT/dist/macos-app-store/0.6.1-8-evidence"
-/bin/mkdir -p "$MAC_EVIDENCE_RELEASE_DIR/export"
+MAC_EVIDENCE_ARCHIVE="$MAC_EVIDENCE_RELEASE_DIR/AgentIslandMac.xcarchive"
+/bin/mkdir -p "$MAC_EVIDENCE_ARCHIVE" "$MAC_EVIDENCE_RELEASE_DIR/export"
 MAC_EVIDENCE_ARCHIVE_ZIP="$MAC_EVIDENCE_RELEASE_DIR/AgentIslandMac.xcarchive.zip"
-MAC_EVIDENCE_PACKAGE="$MAC_EVIDENCE_RELEASE_DIR/export/MAC-Agent-Monitor.pkg"
+MAC_EVIDENCE_PACKAGE="$MAC_EVIDENCE_RELEASE_DIR/export/AgentIslandMac.pkg"
 MAC_EVIDENCE_METADATA="$MAC_EVIDENCE_RELEASE_DIR/release-metadata.json"
 printf 'synthetic Mac archive fixture\n' >"$MAC_EVIDENCE_ARCHIVE_ZIP"
 printf 'synthetic Mac package fixture\n' >"$MAC_EVIDENCE_PACKAGE"
 MAC_EVIDENCE_ARCHIVE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$MAC_EVIDENCE_ARCHIVE_ZIP" | /usr/bin/awk '{print $1}')"
 MAC_EVIDENCE_PACKAGE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$MAC_EVIDENCE_PACKAGE" | /usr/bin/awk '{print $1}')"
+MAC_EVIDENCE_CREATED_AT="$(/bin/date -u -v-20M '+%Y-%m-%dT%H:%M:%SZ')"
 /usr/bin/jq -n \
+  --arg archivePath "$MAC_EVIDENCE_ARCHIVE" \
   --arg archive "$MAC_EVIDENCE_ARCHIVE_ZIP" --arg archiveSHA "$MAC_EVIDENCE_ARCHIVE_SHA" \
   --arg package "$MAC_EVIDENCE_PACKAGE" --arg packageSHA "$MAC_EVIDENCE_PACKAGE_SHA" \
-  --arg displayName "$PUBLIC_DISPLAY_NAME" '{
+  --arg displayName "$PUBLIC_DISPLAY_NAME" --arg createdAt "$MAC_EVIDENCE_CREATED_AT" '{
     schemaVersion: 1,
+    product: $displayName,
     platform: "macOS",
     distribution: "mac-app-store",
     appBundleID: "com.agentisland.mobile",
     teamID: "ABCDE12345",
     displayName: $displayName,
+    applicationCategory: "public.app-category.developer-tools",
     version: "0.6.1",
     build: "8",
     cloudContainerID: "iCloud.com.agentisland.mobile",
+    cloudKitEnvironment: "Production",
     privacyPolicyURL: "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/",
     supportURL: "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/",
+    archivePath: $archivePath,
     archiveZip: $archive,
     archiveZipSHA256: $archiveSHA,
+    resultBundle: null,
     exportedPackage: $package,
     packageSHA256: $packageSHA,
     exportMethod: "app-store-connect",
     exportDestination: "export",
+    signingCertificateSHA1: ("A" * 40),
     provisioningProfile: {certificateMatches: true},
-    uploaded: false
+    installerSigningIdentity: "Mac Installer Distribution: Fixture (ABCDE12345)",
+    uploaded: false,
+    createdAt: $createdAt
   }' >"$MAC_EVIDENCE_METADATA"
+
+# The exact-package preflight has its own focused tests. Here a strict stub
+# isolates release-readiness state integration from Xcode and signing assets.
+/bin/cat >"$RECORD_FIXTURE_ROOT/ApplePlatforms/macOS/scripts/submit-macos-app-store.sh" <<'EOF'
+#!/bin/zsh
+set -euo pipefail
+[[ "$#" -eq 2 && "$1" == "--check" &&
+    "$2" == "$AGENT_ISLAND_TEST_EXPECTED_RELEASE_DIRECTORY" ]] || exit 64
+[[ -f "$2/release-metadata.json" ]] || exit 65
+EOF
+/bin/chmod 0755 \
+  "$RECORD_FIXTURE_ROOT/ApplePlatforms/macOS/scripts/submit-macos-app-store.sh"
+
+# State 1: an exact local candidate has passed the credential-free package
+# preflight, but it has no functional, delivery, or processing evidence.
+run_release_state_readiness \
+  AGENT_ISLAND_TEST_EXPECTED_RELEASE_DIRECTORY="$MAC_EVIDENCE_RELEASE_DIR" \
+  AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$MAC_EVIDENCE_METADATA" \
+  | /usr/bin/jq -e \
+  --arg archiveSHA "$MAC_EVIDENCE_ARCHIVE_SHA" --arg packageSHA "$MAC_EVIDENCE_PACKAGE_SHA" '
+    .releaseIdentityReady == true and
+    .macAppStoreReleaseMetadataConfigured == true and
+    .macAppStoreExactCandidateEvidenceReady == true and
+    .macAppStoreLocalPreflightPassed == true and
+    .macMarketingVersion == "0.6.1" and
+    .macBuildNumber == "8" and
+    .macAppStoreArchiveZipSHA256 == $archiveSHA and
+    .macAppStorePackageSHA256 == $packageSHA and
+    .macAppStoreFunctionalEvidenceArchiveSHA256 == null and
+    .macAppStoreFunctionalEvidencePackageSHA256 == null and
+    .macAppStoreFunctionalEvidenceBoundToCandidate == false and
+    .macAppStoreSandboxFlowVerified == false and
+    .macAppStoreFunctionalQAEvidenceConfigured == false and
+    .macAppStoreFunctionalQAEvidenceReady == false and
+    .macAppStoreFunctionalQAEvidenceInputPath == null and
+    .macAppStoreDeliveryEvidenceConfigured == false and
+    .macAppStoreDeliveryEvidenceReady == false and
+    .macAppStoreUploadAccepted == false and
+    .macAppStoreProcessingEvidenceConfigured == false and
+    .macAppStoreProcessingEvidenceReady == false and
+    .macAppStoreProcessingState == null and
+    .macAppStoreAppReviewSubmissionRecorded == false and
+    .readyForMacAppStoreUpload == false and
+    .readyForMacAppStoreReviewSelection == false and
+    .readyForFunctionalMacAppStoreSubmission == false
+  ' >/dev/null
+
+# The category embedded in the exact candidate must agree with the Developer
+# Tools category selected for App Store Connect.
+/usr/bin/jq '.applicationCategory = "public.app-category.productivity"' \
+  "$MAC_EVIDENCE_METADATA" >"$MAC_EVIDENCE_METADATA.tmp"
+/bin/mv "$MAC_EVIDENCE_METADATA.tmp" "$MAC_EVIDENCE_METADATA"
 /usr/bin/env \
   DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
   AGENT_ISLAND_BUNDLE_ID='com.agentisland.mobile' \
@@ -875,26 +1278,20 @@ MAC_EVIDENCE_PACKAGE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$MAC_EVIDENC
   AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
   AGENT_ISLAND_APP_STORE_RECORD_MODE='universal-purchase' \
   AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$MAC_EVIDENCE_METADATA" \
-  "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e \
-  --arg archiveSHA "$MAC_EVIDENCE_ARCHIVE_SHA" --arg packageSHA "$MAC_EVIDENCE_PACKAGE_SHA" '
+  "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e '
     .macAppStoreReleaseMetadataConfigured == true and
-    .macAppStoreExactCandidateEvidenceReady == true and
-    .macMarketingVersion == "0.6.1" and
-    .macBuildNumber == "8" and
-    .macAppStoreArchiveZipSHA256 == $archiveSHA and
-    .macAppStorePackageSHA256 == $packageSHA and
-    .macAppStoreFunctionalEvidenceArchiveSHA256 == null and
-    .macAppStoreFunctionalEvidencePackageSHA256 == null and
-    .macAppStoreFunctionalEvidenceBoundToCandidate == false and
-    .macAppStoreSandboxFlowVerified == false and
-    .readyForMacAppStoreUpload == false and
-    .readyForFunctionalMacAppStoreSubmission == false
+    .macAppStoreExactCandidateEvidenceReady == false and
+    .readyForMacAppStoreUpload == false
   ' >/dev/null
+/usr/bin/jq '.applicationCategory = "public.app-category.developer-tools"' \
+  "$MAC_EVIDENCE_METADATA" >"$MAC_EVIDENCE_METADATA.tmp"
+/bin/mv "$MAC_EVIDENCE_METADATA.tmp" "$MAC_EVIDENCE_METADATA"
 
 # Bare QA booleans must not survive into the report without exact candidate
 # fingerprints. They may have been left in a shell from an older build.
 /usr/bin/env \
   DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
+  AGENT_ISLAND_TEST_EXPECTED_RELEASE_DIRECTORY="$MAC_EVIDENCE_RELEASE_DIR" \
   AGENT_ISLAND_BUNDLE_ID='com.agentisland.mobile' \
   AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
   AGENT_ISLAND_ICLOUD_CONTAINER_ID='iCloud.com.agentisland.mobile' \
@@ -910,6 +1307,7 @@ MAC_EVIDENCE_PACKAGE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$MAC_EVIDENC
   AGENT_ISLAND_MAC_APP_STORE_REVIEW_PATH_VERIFIED='true' \
   "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e '
     .macAppStoreExactCandidateEvidenceReady == true and
+    .macAppStoreLocalPreflightPassed == true and
     .macAppStoreFunctionalEvidenceBoundToCandidate == false and
     .macAppStoreSandboxFlowVerified == false and
     .macAppStoreArchiveVerified == false and
@@ -920,27 +1318,62 @@ MAC_EVIDENCE_PACKAGE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$MAC_EVIDENC
     .readyForFunctionalMacAppStoreSubmission == false
   ' >/dev/null
 
-# The same five claims become effective only when both fingerprints identify
-# the exact Archive ZIP and package that readiness has just re-hashed.
-/usr/bin/env \
-  DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
-  AGENT_ISLAND_BUNDLE_ID='com.agentisland.mobile' \
-  AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
-  AGENT_ISLAND_ICLOUD_CONTAINER_ID='iCloud.com.agentisland.mobile' \
-  AGENT_ISLAND_PRIVACY_POLICY_URL='https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/' \
-  AGENT_ISLAND_SUPPORT_URL='https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/' \
-  AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
-  AGENT_ISLAND_APP_STORE_RECORD_MODE='universal-purchase' \
+# State 2: only an immutable functional-QA record may activate the five manual
+# claims. The generator and validator are the production tools; only their
+# credential-free exact-package preflight is stubbed above.
+MAC_FUNCTIONAL_EVIDENCE="$MAC_EVIDENCE_RELEASE_DIR/macos-functional-verification-readiness.json"
+MAC_FUNCTIONAL_TESTED_AT="$(/bin/date -u -v-10M '+%Y-%m-%dT%H:%M:%SZ')"
+MAC_SANDBOX_QA="$MAC_EVIDENCE_RELEASE_DIR/sandbox-flow-report.txt"
+MAC_ARCHIVE_QA="$MAC_EVIDENCE_RELEASE_DIR/archive-install-report.txt"
+MAC_PROFILE_QA="$MAC_EVIDENCE_RELEASE_DIR/profile-certificate-report.txt"
+MAC_PRIVACY_QA="$MAC_EVIDENCE_RELEASE_DIR/xcode-privacy-report.txt"
+MAC_REVIEW_QA="$MAC_EVIDENCE_RELEASE_DIR/review-path-report.txt"
+print -n -r -- 'sandbox authorization, denial, revocation, recovery' >"$MAC_SANDBOX_QA"
+print -n -r -- 'archive install, launch, and quit' >"$MAC_ARCHIVE_QA"
+print -n -r -- 'profile and certificate binding' >"$MAC_PROFILE_QA"
+print -n -r -- 'privacy report reviewed' >"$MAC_PRIVACY_QA"
+print -n -r -- 'example and production review paths' >"$MAC_REVIEW_QA"
+MAC_FUNCTIONAL_CONFIRMATION="com.agentisland.mobile:0.6.1:8:$MAC_EVIDENCE_ARCHIVE_SHA:$MAC_EVIDENCE_PACKAGE_SHA"
+AGENT_ISLAND_TEST_EXPECTED_RELEASE_DIRECTORY="$MAC_EVIDENCE_RELEASE_DIR" \
+AGENT_ISLAND_CONFIRM_MAC_APP_STORE_FUNCTIONAL_QA="$MAC_FUNCTIONAL_CONFIRMATION" \
+  "$RECORD_FIXTURE_ROOT/ApplePlatforms/macOS/scripts/confirm-functional-qa-evidence.sh" \
+    --mac-model 'MacBook Pro 14-inch (2024)' \
+    --macos-version '15.6.1' \
+    --tested-at "$MAC_FUNCTIONAL_TESTED_AT" \
+    --sandbox-flow-result passed \
+    --sandbox-flow-evidence "$MAC_SANDBOX_QA" \
+    --archive-install-launch-quit-result passed \
+    --archive-install-launch-quit-evidence "$MAC_ARCHIVE_QA" \
+    --profile-certificate-result passed \
+    --profile-certificate-evidence "$MAC_PROFILE_QA" \
+    --privacy-report-result passed \
+    --privacy-report-evidence "$MAC_PRIVACY_QA" \
+    --review-path-result passed \
+    --review-path-evidence "$MAC_REVIEW_QA" \
+    --output "$MAC_FUNCTIONAL_EVIDENCE" \
+    "$MAC_EVIDENCE_METADATA" >/dev/null
+MAC_FUNCTIONAL_EVIDENCE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
+  "$MAC_FUNCTIONAL_EVIDENCE" | /usr/bin/awk '{print $1}')"
+
+run_release_state_readiness \
+  AGENT_ISLAND_TEST_EXPECTED_RELEASE_DIRECTORY="$MAC_EVIDENCE_RELEASE_DIR" \
   AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$MAC_EVIDENCE_METADATA" \
-  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_ARCHIVE_SHA256="$MAC_EVIDENCE_ARCHIVE_SHA" \
-  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_PACKAGE_SHA256="$MAC_EVIDENCE_PACKAGE_SHA" \
-  AGENT_ISLAND_MAC_APP_STORE_SANDBOX_FLOW_VERIFIED='true' \
-  AGENT_ISLAND_MAC_APP_STORE_ARCHIVE_VERIFIED='true' \
-  AGENT_ISLAND_MAC_APP_STORE_PROFILE_CERTIFICATE_VERIFIED='true' \
-  AGENT_ISLAND_MAC_APP_STORE_PRIVACY_REPORT_VERIFIED='true' \
-  AGENT_ISLAND_MAC_APP_STORE_REVIEW_PATH_VERIFIED='true' \
-  "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e \
-  --arg archiveSHA "$MAC_EVIDENCE_ARCHIVE_SHA" --arg packageSHA "$MAC_EVIDENCE_PACKAGE_SHA" '
+  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE="$MAC_FUNCTIONAL_EVIDENCE" \
+  | /usr/bin/jq -e \
+  --arg input "$MAC_FUNCTIONAL_EVIDENCE" \
+  --arg evidenceSHA "$MAC_FUNCTIONAL_EVIDENCE_SHA" \
+  --arg archiveSHA "$MAC_EVIDENCE_ARCHIVE_SHA" \
+  --arg packageSHA "$MAC_EVIDENCE_PACKAGE_SHA" \
+  --arg testedAt "$MAC_FUNCTIONAL_TESTED_AT" '
+    .macAppStoreLocalPreflightPassed == true and
+    .macAppStoreFunctionalQAEvidenceConfigured == true and
+    .macAppStoreFunctionalQAEvidenceReady == true and
+    .macAppStoreFunctionalQAEvidenceInputPath == $input and
+    .macAppStoreFunctionalQAEvidencePath == $input and
+    .macAppStoreFunctionalQAEvidenceSHA256 == $evidenceSHA and
+    .macAppStoreFunctionalQAMacModel == "MacBook Pro 14-inch (2024)" and
+    .macAppStoreFunctionalQAOSVersion == "15.6.1" and
+    .macAppStoreFunctionalQATestedAt == $testedAt and
     .macAppStoreFunctionalEvidenceArchiveSHA256 == $archiveSHA and
     .macAppStoreFunctionalEvidencePackageSHA256 == $packageSHA and
     .macAppStoreFunctionalEvidenceBoundToCandidate == true and
@@ -949,7 +1382,181 @@ MAC_EVIDENCE_PACKAGE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$MAC_EVIDENC
     .macAppStoreProfileCertificateVerified == true and
     .macAppStorePrivacyReportVerified == true and
     .macAppStoreReviewPathVerified == true and
-    .readyForMacAppStoreUpload == false and
+    .macAppStoreDeliveryEvidenceConfigured == false and
+    .macAppStoreDeliveryEvidenceReady == false and
+    .macAppStoreUploadAccepted == false and
+    .macAppStoreProcessingEvidenceConfigured == false and
+    .macAppStoreProcessingEvidenceReady == false and
+    .macAppStoreProcessingState == null and
+    .macAppStoreAppReviewSubmissionRecorded == false and
+    .readyForMacAppStoreReviewSelection == false and
+    .readyForFunctionalMacAppStoreSubmission == false
+  ' >/dev/null
+
+# State 3: an accepted upload is a delivery fact only. Its record intentionally
+# contains null/false processing and App Review fields.
+MAC_DELIVERY_STAMP="$(/bin/date -u -v-5M '+%Y%m%dT%H%M%SZ')"
+MAC_DELIVERY_SUBMITTED_AT="$(/bin/date -u -v-4M '+%Y-%m-%dT%H:%M:%SZ')"
+MAC_DELIVERY_VALIDATION="$MAC_EVIDENCE_RELEASE_DIR/mac-app-store-validation-$MAC_DELIVERY_STAMP.json"
+MAC_DELIVERY_UPLOAD="$MAC_EVIDENCE_RELEASE_DIR/mac-app-store-upload-$MAC_DELIVERY_STAMP.json"
+MAC_DELIVERY_EVIDENCE="$MAC_EVIDENCE_RELEASE_DIR/mac-app-store-delivery-$MAC_DELIVERY_STAMP.json"
+print -r -- '{"success-message":"No errors validating the readiness fixture."}' \
+  >"$MAC_DELIVERY_VALIDATION"
+print -r -- '{"success-message":"Successfully uploaded the readiness fixture."}' \
+  >"$MAC_DELIVERY_UPLOAD"
+MAC_DELIVERY_METADATA_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
+  "$MAC_EVIDENCE_METADATA" | /usr/bin/awk '{print $1}')"
+MAC_DELIVERY_VALIDATION_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
+  "$MAC_DELIVERY_VALIDATION" | /usr/bin/awk '{print $1}')"
+MAC_DELIVERY_UPLOAD_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
+  "$MAC_DELIVERY_UPLOAD" | /usr/bin/awk '{print $1}')"
+/usr/bin/jq -n \
+  --arg submittedAt "$MAC_DELIVERY_SUBMITTED_AT" \
+  --arg archive "$MAC_EVIDENCE_ARCHIVE_ZIP" \
+  --arg archiveSHA "$MAC_EVIDENCE_ARCHIVE_SHA" \
+  --arg package "$MAC_EVIDENCE_PACKAGE" \
+  --arg packageSHA "$MAC_EVIDENCE_PACKAGE_SHA" \
+  --arg metadata "$MAC_EVIDENCE_METADATA" \
+  --arg metadataSHA "$MAC_DELIVERY_METADATA_SHA" \
+  --arg validation "$MAC_DELIVERY_VALIDATION" \
+  --arg validationSHA "$MAC_DELIVERY_VALIDATION_SHA" \
+  --arg upload "$MAC_DELIVERY_UPLOAD" \
+  --arg uploadSHA "$MAC_DELIVERY_UPLOAD_SHA" '{
+    schemaVersion: 1,
+    platform: "macOS",
+    destination: "App Store Connect / Mac App Store",
+    submittedAt: $submittedAt,
+    appBundleID: "com.agentisland.mobile",
+    version: "0.6.1",
+    build: "8",
+    archiveZipPath: $archive,
+    archiveZipSHA256: $archiveSHA,
+    packagePath: $package,
+    packageSHA256: $packageSHA,
+    releaseMetadataPath: $metadata,
+    releaseMetadataSHA256: $metadataSHA,
+    validationResultPath: $validation,
+    validationResultSHA256: $validationSHA,
+    uploadResultPath: $upload,
+    uploadResultSHA256: $uploadSHA,
+    uploadAccepted: true,
+    processingState: null,
+    appStoreConnectBuildID: null,
+    processingVerified: false,
+    processingVerifiedAt: null,
+    warningsReviewed: false,
+    warningsReviewedAt: null,
+    submittedForAppReview: false
+  }' >"$MAC_DELIVERY_EVIDENCE"
+/bin/chmod 0444 "$MAC_DELIVERY_VALIDATION" "$MAC_DELIVERY_UPLOAD" \
+  "$MAC_DELIVERY_EVIDENCE"
+MAC_DELIVERY_EVIDENCE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
+  "$MAC_DELIVERY_EVIDENCE" | /usr/bin/awk '{print $1}')"
+
+run_release_state_readiness \
+  AGENT_ISLAND_TEST_EXPECTED_RELEASE_DIRECTORY="$MAC_EVIDENCE_RELEASE_DIR" \
+  AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$MAC_EVIDENCE_METADATA" \
+  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE="$MAC_FUNCTIONAL_EVIDENCE" \
+  AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE="$MAC_DELIVERY_EVIDENCE" \
+  | /usr/bin/jq -e \
+  --arg input "$MAC_DELIVERY_EVIDENCE" \
+  --arg evidenceSHA "$MAC_DELIVERY_EVIDENCE_SHA" \
+  --arg submittedAt "$MAC_DELIVERY_SUBMITTED_AT" '
+    .macAppStoreFunctionalQAEvidenceReady == true and
+    .macAppStoreDeliveryEvidenceConfigured == true and
+    .macAppStoreDeliveryEvidenceReady == true and
+    .macAppStoreDeliveryEvidenceInputPath == $input and
+    .macAppStoreDeliveryEvidencePath == $input and
+    .macAppStoreDeliveryEvidenceSHA256 == $evidenceSHA and
+    .macAppStoreDeliveryBoundToCandidate == true and
+    .macAppStoreUploadAccepted == true and
+    .macAppStoreUploadSubmittedAt == $submittedAt and
+    .macAppStoreProcessingEvidenceConfigured == false and
+    .macAppStoreProcessingEvidenceReady == false and
+    .macAppStoreProcessingEvidenceInputPath == null and
+    .macAppStoreProcessingEvidencePath == null and
+    .macAppStoreProcessingEvidenceSHA256 == null and
+    .macAppStoreProcessingBoundToDelivery == false and
+    .macAppStoreProcessingState == null and
+    .macAppStoreProcessingVerified == false and
+    .macAppStoreWarningsReviewed == false and
+    .macAppStoreConnectBuildID == null and
+    .macAppStoreAppReviewSubmissionRecorded == false and
+    .readyForMacAppStoreReviewSelection == false
+  ' >/dev/null
+
+# State 4: processing Complete is independently confirmed and cross-bound to
+# the immutable delivery record. It still must not claim App Review submission.
+MAC_PROCESSING_AT="$(/bin/date -u -v-2M '+%Y-%m-%dT%H:%M:%SZ')"
+MAC_APP_STORE_CONNECT_BUILD_ID='123456789042'
+MAC_PROCESSING_CONFIRMATION="com.agentisland.mobile:0.6.1:8:$MAC_EVIDENCE_PACKAGE_SHA:$MAC_APP_STORE_CONNECT_BUILD_ID"
+AGENT_ISLAND_TEST_EXPECTED_RELEASE_DIRECTORY="$MAC_EVIDENCE_RELEASE_DIR" \
+AGENT_ISLAND_CONFIRM_MAC_APP_STORE_PROCESSING="$MAC_PROCESSING_CONFIRMATION" \
+  "$RECORD_FIXTURE_ROOT/ApplePlatforms/macOS/scripts/confirm-macos-app-store-evidence.sh" \
+    --processing-state Complete \
+    --app-store-connect-build-id "$MAC_APP_STORE_CONNECT_BUILD_ID" \
+    --processing-verified-at "$MAC_PROCESSING_AT" \
+    --warnings-reviewed \
+    "$MAC_DELIVERY_EVIDENCE" >/dev/null
+MAC_PROCESSING_RECORDS=(
+  "$MAC_EVIDENCE_RELEASE_DIR"/mac-app-store-processing-verification-*.json(.N)
+)
+(( ${#MAC_PROCESSING_RECORDS} == 1 ))
+MAC_PROCESSING_EVIDENCE="${MAC_PROCESSING_RECORDS[1]}"
+MAC_PROCESSING_EVIDENCE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
+  "$MAC_PROCESSING_EVIDENCE" | /usr/bin/awk '{print $1}')"
+
+# A processing record cannot leapfrog its independently supplied delivery
+# record, even if that processing file is itself valid.
+run_release_state_readiness \
+  AGENT_ISLAND_TEST_EXPECTED_RELEASE_DIRECTORY="$MAC_EVIDENCE_RELEASE_DIR" \
+  AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$MAC_EVIDENCE_METADATA" \
+  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE="$MAC_FUNCTIONAL_EVIDENCE" \
+  AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE="$MAC_PROCESSING_EVIDENCE" \
+  | /usr/bin/jq -e --arg input "$MAC_PROCESSING_EVIDENCE" '
+    .macAppStoreProcessingEvidenceConfigured == true and
+    .macAppStoreProcessingEvidenceInputPath == $input and
+    .macAppStoreProcessingEvidenceReady == false and
+    .macAppStoreProcessingEvidencePath == null and
+    .macAppStoreProcessingBoundToDelivery == false and
+    .macAppStoreUploadAccepted == false and
+    .macAppStoreProcessingState == null and
+    .macAppStoreProcessingVerified == false and
+    .macAppStoreAppReviewSubmissionRecorded == false and
+    .readyForMacAppStoreReviewSelection == false
+  ' >/dev/null
+
+run_release_state_readiness \
+  AGENT_ISLAND_TEST_EXPECTED_RELEASE_DIRECTORY="$MAC_EVIDENCE_RELEASE_DIR" \
+  AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$MAC_EVIDENCE_METADATA" \
+  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE="$MAC_FUNCTIONAL_EVIDENCE" \
+  AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE="$MAC_DELIVERY_EVIDENCE" \
+  AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE="$MAC_PROCESSING_EVIDENCE" \
+  | /usr/bin/jq -e \
+  --arg input "$MAC_PROCESSING_EVIDENCE" \
+  --arg evidenceSHA "$MAC_PROCESSING_EVIDENCE_SHA" \
+  --arg processedAt "$MAC_PROCESSING_AT" \
+  --arg buildID "$MAC_APP_STORE_CONNECT_BUILD_ID" '
+    .releaseIdentityReady == true and
+    .macAppStoreLocalPreflightPassed == true and
+    .macAppStoreFunctionalQAEvidenceReady == true and
+    .macAppStoreDeliveryEvidenceReady == true and
+    .macAppStoreUploadAccepted == true and
+    .macAppStoreProcessingEvidenceConfigured == true and
+    .macAppStoreProcessingEvidenceReady == true and
+    .macAppStoreProcessingEvidenceInputPath == $input and
+    .macAppStoreProcessingEvidencePath == $input and
+    .macAppStoreProcessingEvidenceSHA256 == $evidenceSHA and
+    .macAppStoreProcessingBoundToDelivery == true and
+    .macAppStoreProcessingState == "Complete" and
+    .macAppStoreProcessingVerified == true and
+    .macAppStoreProcessingVerifiedAt == $processedAt and
+    .macAppStoreWarningsReviewed == true and
+    .macAppStoreWarningsReviewedAt == $processedAt and
+    .macAppStoreConnectBuildID == $buildID and
+    .macAppStoreAppReviewSubmissionRecorded == false and
+    .readyForMacAppStoreReviewSelection == false and
+    .readyForFunctionalMacAppStoreSubmissionDeprecated == true and
     .readyForFunctionalMacAppStoreSubmission == false
   ' >/dev/null
 
@@ -967,9 +1574,6 @@ MAC_EVIDENCE_PACKAGE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$MAC_EVIDENC
   AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
   AGENT_ISLAND_APP_STORE_RECORD_MODE='universal-purchase' \
   AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$MAC_EVIDENCE_METADATA" \
-  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_ARCHIVE_SHA256="$MAC_EVIDENCE_ARCHIVE_SHA" \
-  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_PACKAGE_SHA256="$MAC_EVIDENCE_PACKAGE_SHA" \
-  AGENT_ISLAND_MAC_APP_STORE_SANDBOX_FLOW_VERIFIED='true' \
   "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e '
     .macAppStoreExactCandidateEvidenceReady == false and
     .macAppStoreFunctionalEvidenceBoundToCandidate == false and
@@ -995,9 +1599,6 @@ MAC_EVIDENCE_PACKAGE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$MAC_EVIDENC
   AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
   AGENT_ISLAND_APP_STORE_RECORD_MODE='universal-purchase' \
   AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$MAC_EVIDENCE_METADATA" \
-  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_ARCHIVE_SHA256="$MAC_EVIDENCE_ARCHIVE_SHA" \
-  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_PACKAGE_SHA256="$MAC_EVIDENCE_PACKAGE_SHA" \
-  AGENT_ISLAND_MAC_APP_STORE_ARCHIVE_VERIFIED='true' \
   "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e '
     .macAppStoreExactCandidateEvidenceReady == false and
     .macAppStoreFunctionalEvidenceBoundToCandidate == false and
@@ -1021,9 +1622,6 @@ printf 'changed Mac package fixture\n' >"$MAC_EVIDENCE_PACKAGE"
   AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
   AGENT_ISLAND_APP_STORE_RECORD_MODE='universal-purchase' \
   AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$MAC_EVIDENCE_METADATA" \
-  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_ARCHIVE_SHA256="$MAC_EVIDENCE_ARCHIVE_SHA" \
-  AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_PACKAGE_SHA256="$MAC_EVIDENCE_PACKAGE_SHA" \
-  AGENT_ISLAND_MAC_APP_STORE_SANDBOX_FLOW_VERIFIED='true' \
   "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e '
     .macAppStoreReleaseMetadataConfigured == true and
     .macAppStoreExactCandidateEvidenceReady == false and
@@ -1039,10 +1637,12 @@ IOS_EVIDENCE_RELEASE_DIR="$RECORD_FIXTURE_ROOT/dist/ios/0.6.1-8-evidence"
 /bin/mkdir -p "$IOS_EVIDENCE_RELEASE_DIR/AgentIslandMobile.xcarchive"
 IOS_EVIDENCE_IPA="$IOS_EVIDENCE_RELEASE_DIR/MAC-Agent-Monitor.ipa"
 IOS_EVIDENCE_METADATA="$IOS_EVIDENCE_RELEASE_DIR/release-metadata.json"
-IOS_EVIDENCE_VALIDATION="$IOS_EVIDENCE_RELEASE_DIR/testflight-validation-evidence.json"
-IOS_EVIDENCE_UPLOAD="$IOS_EVIDENCE_RELEASE_DIR/testflight-upload-evidence.json"
-IOS_EVIDENCE_DELIVERY="$IOS_EVIDENCE_RELEASE_DIR/testflight-delivery-evidence.json"
+IOS_EVIDENCE_DELIVERY_STAMP="$(/bin/date -u -v-40M '+%Y%m%dT%H%M%SZ')"
+IOS_EVIDENCE_VALIDATION="$IOS_EVIDENCE_RELEASE_DIR/testflight-validation-$IOS_EVIDENCE_DELIVERY_STAMP.json"
+IOS_EVIDENCE_UPLOAD="$IOS_EVIDENCE_RELEASE_DIR/testflight-upload-$IOS_EVIDENCE_DELIVERY_STAMP.json"
+IOS_EVIDENCE_DELIVERY="$IOS_EVIDENCE_RELEASE_DIR/testflight-delivery-$IOS_EVIDENCE_DELIVERY_STAMP.json"
 IOS_EVIDENCE_RECORD="$IOS_EVIDENCE_RELEASE_DIR/testflight-verification-evidence.json"
+IOS_FUNCTIONAL_QA_EVIDENCE="$IOS_EVIDENCE_RELEASE_DIR/ios-functional-verification-evidence.json"
 IOS_EVIDENCE_PAYLOAD="$VERIFY_ROOT/ios-evidence-payload/Payload"
 IOS_EVIDENCE_APP="$IOS_EVIDENCE_PAYLOAD/MACAgentMonitor.app"
 IOS_EVIDENCE_WIDGET="$IOS_EVIDENCE_APP/PlugIns/AgentIslandLiveActivityExtension.appex"
@@ -1080,8 +1680,10 @@ printf 'unsigned arm64-lookalike fixture\n' \
   "$IOS_EVIDENCE_WIDGET/AgentIslandLiveActivityExtension"
 COPYFILE_DISABLE=1 /usr/bin/ditto --noextattr --norsrc -c -k --keepParent \
   "$IOS_EVIDENCE_PAYLOAD" "$IOS_EVIDENCE_IPA"
-printf '{"validated":true}\n' >"$IOS_EVIDENCE_VALIDATION"
-printf '{"uploaded":true}\n' >"$IOS_EVIDENCE_UPLOAD"
+printf '{"success-message":"No errors validating the readiness fixture."}\n' \
+  >"$IOS_EVIDENCE_VALIDATION"
+printf '{"success-message":"Successfully uploaded the readiness fixture."}\n' \
+  >"$IOS_EVIDENCE_UPLOAD"
 IOS_EVIDENCE_IPA_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDENCE_IPA" | /usr/bin/awk '{print $1}')"
 IOS_EVIDENCE_VALIDATION_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDENCE_VALIDATION" | /usr/bin/awk '{print $1}')"
 IOS_EVIDENCE_UPLOAD_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDENCE_UPLOAD" | /usr/bin/awk '{print $1}')"
@@ -1123,7 +1725,13 @@ print -rn -- "$IOS_EVIDENCE_IPA_SHA  ${IOS_EVIDENCE_IPA:t}" >"$IOS_EVIDENCE_IPA.
     uploaded: false
   }' >"$IOS_EVIDENCE_METADATA"
 IOS_EVIDENCE_METADATA_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDENCE_METADATA" | /usr/bin/awk '{print $1}')"
+IOS_EVIDENCE_SUBMITTED_AT="$(/bin/date -u -v-40M '+%Y-%m-%dT%H:%M:%SZ')"
+IOS_EVIDENCE_PROCESSING_AT="$(/bin/date -u -v-30M '+%Y-%m-%dT%H:%M:%SZ')"
+IOS_EVIDENCE_TESTED_AT="$(/bin/date -u -v-20M '+%Y-%m-%dT%H:%M:%SZ')"
+IOS_EVIDENCE_CREATED_AT="$(/bin/date -u -v-15M '+%Y-%m-%dT%H:%M:%SZ')"
+IOS_FUNCTIONAL_QA_TESTED_AT="$(/bin/date -u -v-10M '+%Y-%m-%dT%H:%M:%SZ')"
 /usr/bin/jq -n \
+  --arg submittedAt "$IOS_EVIDENCE_SUBMITTED_AT" \
   --arg ipa "$IOS_EVIDENCE_IPA" --arg ipaSHA "$IOS_EVIDENCE_IPA_SHA" \
   --arg metadata "$IOS_EVIDENCE_METADATA" --arg metadataSHA "$IOS_EVIDENCE_METADATA_SHA" \
   --arg validation "$IOS_EVIDENCE_VALIDATION" --arg validationSHA "$IOS_EVIDENCE_VALIDATION_SHA" \
@@ -1131,7 +1739,7 @@ IOS_EVIDENCE_METADATA_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDEN
     schemaVersion: 1,
     platform: "iOS",
     destination: "App Store Connect / TestFlight",
-    submittedAt: "2026-09-04T01:00:00Z",
+    submittedAt: $submittedAt,
     appBundleID: "com.agentisland.mobile",
     version: "0.6.1",
     build: "8",
@@ -1153,8 +1761,13 @@ IOS_EVIDENCE_METADATA_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDEN
     testedAt: null,
     submittedForAppReview: false
   }' >"$IOS_EVIDENCE_DELIVERY"
+/bin/chmod 0444 "$IOS_EVIDENCE_VALIDATION" "$IOS_EVIDENCE_UPLOAD" \
+  "$IOS_EVIDENCE_DELIVERY"
 IOS_EVIDENCE_DELIVERY_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDENCE_DELIVERY" | /usr/bin/awk '{print $1}')"
 /usr/bin/jq -n \
+  --arg processingAt "$IOS_EVIDENCE_PROCESSING_AT" \
+  --arg testedAt "$IOS_EVIDENCE_TESTED_AT" \
+  --arg createdAt "$IOS_EVIDENCE_CREATED_AT" \
   --arg ipa "$IOS_EVIDENCE_IPA" --arg ipaSHA "$IOS_EVIDENCE_IPA_SHA" \
   --arg metadata "$IOS_EVIDENCE_METADATA" --arg metadataSHA "$IOS_EVIDENCE_METADATA_SHA" \
   --arg delivery "$IOS_EVIDENCE_DELIVERY" --arg deliverySHA "$IOS_EVIDENCE_DELIVERY_SHA" '{
@@ -1172,25 +1785,27 @@ IOS_EVIDENCE_DELIVERY_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDEN
     uploadAccepted: true,
     appStoreConnectBuildID: "fixture-build-id",
     processingState: "VALID",
-    processingVerifiedAt: "2026-09-04T01:05:00Z",
+    processingVerifiedAt: $processingAt,
     distributedToTesters: true,
     installedFromTestFlight: true,
-    testedAt: "2026-09-04T01:10:00Z",
-    createdAt: "2026-09-04T01:11:00Z"
+    testedAt: $testedAt,
+    createdAt: $createdAt
   }' >"$IOS_EVIDENCE_RECORD"
+/bin/chmod 0444 "$IOS_EVIDENCE_RECORD"
 
 # The real credential-free preflight must reject an unsigned ZIP even when all
 # hand-written metadata and evidence hashes agree.
 /usr/bin/env \
   DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
   AGENT_ISLAND_IOS_TESTFLIGHT_VERIFICATION_EVIDENCE="$IOS_EVIDENCE_RECORD" \
-  AGENT_ISLAND_IOS_FUNCTIONAL_EVIDENCE_IPA_SHA256="$IOS_EVIDENCE_IPA_SHA" \
   "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e \
   --arg sha "$IOS_EVIDENCE_IPA_SHA" '
     .iosTestFlightEvidenceConfigured == true and
     .iosLocalIPAPreflightPassed == false and
     .iosTestFlightExactBuildEvidenceReady == false and
     .iosTestFlightUploadVerified == false and
+    .iosFunctionalQAEvidenceConfigured == false and
+    .iosFunctionalQAEvidenceReady == false and
     .iosFunctionalEvidenceBoundToCandidate == false and
     .iosTestFlightIPASHA256 == null
   ' >/dev/null
@@ -1200,17 +1815,55 @@ IOS_EVIDENCE_DELIVERY_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDEN
 # Production readiness always invokes the repository's full --check script.
 /bin/cp /usr/bin/true \
   "$RECORD_FIXTURE_ROOT/ApplePlatforms/iOS/scripts/submit-testflight.sh"
+IOS_FUNCTIONAL_QA_CLOUDKIT="$IOS_EVIDENCE_RELEASE_DIR/cloudkit-production-report.txt"
+IOS_FUNCTIONAL_QA_SYNC="$IOS_EVIDENCE_RELEASE_DIR/same-account-sync-report.txt"
+IOS_FUNCTIONAL_QA_LIVE="$IOS_EVIDENCE_RELEASE_DIR/live-activity-report.txt"
+IOS_FUNCTIONAL_QA_REVIEW="$IOS_EVIDENCE_RELEASE_DIR/review-path-report.txt"
+print -r -- 'Production CloudKit schema inspected for this release container.' \
+  >"$IOS_FUNCTIONAL_QA_CLOUDKIT"
+print -r -- 'Same-account Mac-to-iPhone refresh observed on the installed build.' \
+  >"$IOS_FUNCTIONAL_QA_SYNC"
+print -r -- 'Live Activity observed on the named physical iPhone.' \
+  >"$IOS_FUNCTIONAL_QA_LIVE"
+print -r -- 'Example and production review paths completed on the installed build.' \
+  >"$IOS_FUNCTIONAL_QA_REVIEW"
+AGENT_ISLAND_CONFIRM_IOS_FUNCTIONAL_QA="com.agentisland.mobile:0.6.1:8:$IOS_EVIDENCE_IPA_SHA" \
+  "$RECORD_FIXTURE_ROOT/ApplePlatforms/iOS/scripts/confirm-functional-qa-evidence.sh" \
+    --device-model 'iPhone 16 Pro' \
+    --ios-version '18.6.2' \
+    --tested-at "$IOS_FUNCTIONAL_QA_TESTED_AT" \
+    --cloudkit-production-schema-result passed \
+    --cloudkit-evidence "$IOS_FUNCTIONAL_QA_CLOUDKIT" \
+    --same-account-sync-result passed \
+    --sync-evidence "$IOS_FUNCTIONAL_QA_SYNC" \
+    --live-activity-result passed \
+    --live-activity-evidence "$IOS_FUNCTIONAL_QA_LIVE" \
+    --review-path-result passed \
+    --review-path-evidence "$IOS_FUNCTIONAL_QA_REVIEW" \
+    --output "$IOS_FUNCTIONAL_QA_EVIDENCE" \
+    "$IOS_EVIDENCE_RECORD" >/dev/null
 /usr/bin/env \
   DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
   AGENT_ISLAND_IOS_TESTFLIGHT_VERIFICATION_EVIDENCE="$IOS_EVIDENCE_RECORD" \
-  AGENT_ISLAND_IOS_FUNCTIONAL_EVIDENCE_IPA_SHA256="$IOS_EVIDENCE_IPA_SHA" \
+  AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE="$IOS_FUNCTIONAL_QA_EVIDENCE" \
   "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e \
-  --arg sha "$IOS_EVIDENCE_IPA_SHA" '
+  --arg sha "$IOS_EVIDENCE_IPA_SHA" \
+  --arg qaPath "$IOS_FUNCTIONAL_QA_EVIDENCE" '
     .iosLocalIPAPreflightPassed == true and
     .iosTestFlightExactBuildEvidenceReady == true and
     .iosTestFlightUploadVerified == true and
     .iosTestFlightProcessingVerified == true and
     .iosTestFlightInstallVerified == true and
+    .iosFunctionalQAEvidenceConfigured == true and
+    .iosFunctionalQAEvidenceReady == true and
+    .iosFunctionalQAEvidencePath == $qaPath and
+    (.iosFunctionalQAEvidenceSHA256 | test("^[0-9a-f]{64}$")) and
+    .iosFunctionalQADeviceModel == "iPhone 16 Pro" and
+    .iosFunctionalQAOSVersion == "18.6.2" and
+    .cloudKitProductionSchemaVerified == true and
+    .iosRealDeviceSyncVerified == true and
+    .iosLiveActivityVerified == true and
+    .iosReviewPathVerified == true and
     .iosFunctionalEvidenceBoundToCandidate == true and
     .iosTestFlightIPASHA256 == $sha and
     .iosTestFlightAppStoreConnectBuildID == "fixture-build-id" and
@@ -1316,6 +1969,7 @@ record_fixture_readiness() {
   local privacy_evidence="$1"
   /usr/bin/env \
     DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
+    AGENT_ISLAND_TEST_EXPECTED_RELEASE_DIRECTORY="$MAC_EVIDENCE_RELEASE_DIR" \
     AGENT_ISLAND_BUNDLE_ID='com.agentisland.mobile' \
     AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
     AGENT_ISLAND_ICLOUD_CONTAINER_ID='iCloud.com.agentisland.mobile' \
@@ -1325,7 +1979,7 @@ record_fixture_readiness() {
     AGENT_ISLAND_APP_STORE_RECORD_MODE='universal-purchase' \
     AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$MAC_EVIDENCE_METADATA" \
     AGENT_ISLAND_IOS_TESTFLIGHT_VERIFICATION_EVIDENCE="$IOS_EVIDENCE_RECORD" \
-    AGENT_ISLAND_IOS_FUNCTIONAL_EVIDENCE_IPA_SHA256="$IOS_EVIDENCE_IPA_SHA" \
+    AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE="$IOS_FUNCTIONAL_QA_EVIDENCE" \
     AGENT_ISLAND_APP_PRIVACY_EVIDENCE="$privacy_evidence" \
     "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh"
 }
@@ -1349,11 +2003,12 @@ record_fixture_readiness "$COMBINED_PRIVACY_CONFIG_RELATIVE" | /usr/bin/jq -e '
   .iosPrivacyReleaseEvidenceReady == true
 ' >/dev/null
 
+/bin/chmod 0644 "$IOS_EVIDENCE_UPLOAD"
 printf '{"uploaded":false}\n' >"$IOS_EVIDENCE_UPLOAD"
 /usr/bin/env \
   DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
   AGENT_ISLAND_IOS_TESTFLIGHT_VERIFICATION_EVIDENCE="$IOS_EVIDENCE_RECORD" \
-  AGENT_ISLAND_IOS_FUNCTIONAL_EVIDENCE_IPA_SHA256="$IOS_EVIDENCE_IPA_SHA" \
+  AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE="$IOS_FUNCTIONAL_QA_EVIDENCE" \
   "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e '
     .iosTestFlightEvidenceConfigured == true and
     .iosLocalIPAPreflightPassed == true and

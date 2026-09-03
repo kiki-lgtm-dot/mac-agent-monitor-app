@@ -56,6 +56,18 @@ for marker in \
   'IPA Widget signature/profile identifiers are wrong or an iCloud entitlement leaked'; do
   contains "$marker" "$SCRIPT"
 done
+for delivery_marker in \
+  'verify_altool_success_json' \
+  '/usr/bin/jq -s -e' \
+  '["success-message"]' \
+  'verify_core_candidate_unchanged' \
+  'verify_staged_candidate_unchanged' \
+  '.testflight-submit.lock' \
+  'publish_readonly_no_overwrite' \
+  '/bin/chmod 0444 "$VALIDATION_RESULT_TEMP"' \
+  'release artifact paths must already be canonical'; do
+  contains "$delivery_marker" "$SCRIPT"
+done
 
 STUB_DIRECTORY="$TEST_ROOT/stubs"
 INSTRUMENTED_ROOT="$TEST_ROOT/ApplePlatforms/iOS"
@@ -97,13 +109,79 @@ set -euo pipefail
 [[ "$1" == "-archs" && -f "$2" ]] || exit 64
 print -r -- "arm64"
 EOF
+
+/bin/cat >"$STUB_DIRECTORY/xcodebuild" <<'EOF'
+#!/bin/zsh
+set -euo pipefail
+[[ "$1" == "-version" ]] || exit 64
+print -r -- "Xcode 26.1"
+print -r -- "Build version 17A100"
+EOF
+
+/bin/cat >"$STUB_DIRECTORY/date" <<'EOF'
+#!/bin/zsh
+set -euo pipefail
+if [[ "$#" -eq 2 && "$1" == "-u" && "$2" == "+%Y%m%dT%H%M%SZ" ]]; then
+  print -r -- "20990102T030405Z"
+  exit 0
+fi
+exec /bin/date "$@"
+EOF
+
+/bin/cat >"$STUB_DIRECTORY/xcrun" <<'EOF'
+#!/bin/zsh
+set -euo pipefail
+[[ "$1" == "altool" ]] || exit 64
+operation=""
+candidate_path=""
+for (( index = 2; index <= $#; index++ )); do
+  case "${argv[$index]}" in
+    --validate-app) operation="validation" ;;
+    --upload-app) operation="upload" ;;
+    --file)
+      (( index < $# )) || exit 65
+      candidate_path="${argv[$(( index + 1 ))]}"
+      ;;
+  esac
+done
+[[ -n "$operation" && -f "$candidate_path" && ! -L "$candidate_path" ]] || exit 66
+[[ "$candidate_path" != "$AGENT_ISLAND_TEST_ORIGINAL_IPA" ]] || exit 67
+[[ "$(/usr/bin/stat -f '%Lp' "${candidate_path:h}")" == "700" ]] || exit 68
+[[ "$(/usr/bin/stat -f '%Lp' "$candidate_path")" == "400" ]] || exit 69
+actual_sha256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$candidate_path" \
+  | /usr/bin/awk '{print $1}')"
+[[ "$actual_sha256" == "$AGENT_ISLAND_TEST_EXPECTED_IPA_SHA256" ]] || exit 70
+print -r -- "$operation:$candidate_path" >>"$AGENT_ISLAND_TEST_XCRUN_LOG"
+if [[ "$operation" == "${AGENT_ISLAND_TEST_RACE_OPERATION:-validation}" \
+    && -n "${AGENT_ISLAND_TEST_RACE_DESTINATION:-}" ]]; then
+  if [[ "${AGENT_ISLAND_TEST_RACE_KIND:-}" == "symlink" ]]; then
+    /bin/ln -s "$AGENT_ISLAND_TEST_RACE_TARGET" \
+      "$AGENT_ISLAND_TEST_RACE_DESTINATION"
+  elif [[ "${AGENT_ISLAND_TEST_RACE_KIND:-}" == "directory" ]]; then
+    /bin/mkdir "$AGENT_ISLAND_TEST_RACE_DESTINATION"
+  else
+    print -n -r -- 'racing writer sentinel' \
+      >"$AGENT_ISLAND_TEST_RACE_DESTINATION"
+  fi
+fi
+if [[ "$operation" == "validation" ]]; then
+  /bin/cat "$AGENT_ISLAND_TEST_VALIDATION_RESPONSE"
+else
+  /bin/cat "$AGENT_ISLAND_TEST_UPLOAD_RESPONSE"
+fi
+EOF
 /bin/chmod 0755 "$STUB_DIRECTORY/codesign" "$STUB_DIRECTORY/security" \
-  "$STUB_DIRECTORY/lipo"
+  "$STUB_DIRECTORY/lipo" "$STUB_DIRECTORY/xcodebuild" \
+  "$STUB_DIRECTORY/date" "$STUB_DIRECTORY/xcrun"
 
 /usr/bin/sed \
   -e "s#/usr/bin/codesign#$STUB_DIRECTORY/codesign#g" \
   -e "s#/usr/bin/security#$STUB_DIRECTORY/security#g" \
   -e "s#/usr/bin/lipo#$STUB_DIRECTORY/lipo#g" \
+  -e "s#/usr/bin/xcodebuild#$STUB_DIRECTORY/xcodebuild#g" \
+  -e "s#/usr/bin/xcrun#$STUB_DIRECTORY/xcrun#g" \
+  -e "s#/bin/date#$STUB_DIRECTORY/date#g" \
+  -e 's#\${HOME}/.appstoreconnect/private_keys#'"$TEST_ROOT/private_keys"'#g' \
   "$SCRIPT" >"$INSTRUMENTED_SCRIPT"
 /bin/chmod 0755 "$INSTRUMENTED_SCRIPT"
 
@@ -383,4 +461,214 @@ write_profiles
 refresh_artifact
 expect_rejected 'IPA App signature/profile failed exact production CloudKit entitlement validation'
 
-print -r -- 'iOS TestFlight exact-IPA identity and provisioning-profile tests passed'
+write_profiles
+refresh_artifact
+
+API_KEY_ID="ZYXWV98765"
+API_ISSUER_ID="12345678-1234-1234-1234-123456789abc"
+PRIVATE_KEY_DIRECTORY="$TEST_ROOT/private_keys"
+PRIVATE_KEY_PATH="$PRIVATE_KEY_DIRECTORY/AuthKey_${API_KEY_ID}.p8"
+FAKE_DEVELOPER_PATH="$TEST_ROOT/Xcode26.app/Contents/Developer"
+/bin/mkdir -p "$PRIVATE_KEY_DIRECTORY" "$FAKE_DEVELOPER_PATH/usr/bin"
+print -n -r -- 'synthetic private key' >"$PRIVATE_KEY_PATH"
+print -n -r -- 'synthetic altool executable' >"$FAKE_DEVELOPER_PATH/usr/bin/altool"
+/bin/chmod 0600 "$PRIVATE_KEY_PATH"
+/bin/chmod 0755 "$FAKE_DEVELOPER_PATH/usr/bin/altool"
+
+VALIDATION_SUCCESS_RESPONSE="$TEST_ROOT/validation-success.json"
+UPLOAD_SUCCESS_RESPONSE="$TEST_ROOT/upload-success.json"
+MULTIPLE_TOP_LEVEL_RESPONSE="$TEST_ROOT/multiple-top-level.json"
+FALSE_ERRORS_RESPONSE="$TEST_ROOT/false-errors.json"
+FALSE_PRODUCT_ERRORS_RESPONSE="$TEST_ROOT/false-product-errors.json"
+print -r -- '{"success-message":"validation accepted","product-errors":null}' \
+  >"$VALIDATION_SUCCESS_RESPONSE"
+print -r -- '{"success-message":"upload accepted","errors":[]}' \
+  >"$UPLOAD_SUCCESS_RESPONSE"
+print -r -- '{"product-errors":[{"message":"first object failed"}]}' \
+  >"$MULTIPLE_TOP_LEVEL_RESPONSE"
+print -r -- '{"success-message":"second object"}' >>"$MULTIPLE_TOP_LEVEL_RESPONSE"
+print -r -- '{"success-message":"ambiguous","errors":false}' >"$FALSE_ERRORS_RESPONSE"
+print -r -- '{"success-message":"ambiguous","product-errors":false}' \
+  >"$FALSE_PRODUCT_ERRORS_RESPONSE"
+
+FIXED_STAMP="20990102T030405Z"
+VALIDATION_RESULT_PATH="$RELEASE_DIRECTORY/testflight-validation-$FIXED_STAMP.json"
+UPLOAD_RESULT_PATH="$RELEASE_DIRECTORY/testflight-upload-$FIXED_STAMP.json"
+DELIVERY_RECORD_PATH="$RELEASE_DIRECTORY/testflight-delivery-$FIXED_STAMP.json"
+XCRUN_LOG="$TEST_ROOT/xcrun.log"
+EXPECTED_IPA_SHA256="$(/usr/bin/jq -r '.ipaSHA256' "$METADATA_PATH")"
+CONFIRMATION_VALUE="$APP_BUNDLE_ID:1.2.3:42:$EXPECTED_IPA_SHA256"
+export AGENT_ISLAND_TEST_ORIGINAL_IPA="$IPA_PATH"
+export AGENT_ISLAND_TEST_EXPECTED_IPA_SHA256="$EXPECTED_IPA_SHA256"
+export AGENT_ISLAND_TEST_XCRUN_LOG="$XCRUN_LOG"
+export AGENT_ISLAND_TEST_VALIDATION_RESPONSE="$VALIDATION_SUCCESS_RESPONSE"
+export AGENT_ISLAND_TEST_UPLOAD_RESPONSE="$UPLOAD_SUCCESS_RESPONSE"
+
+clear_remote_outputs() {
+  /bin/rm -f "$VALIDATION_RESULT_PATH" "$UPLOAD_RESULT_PATH" "$DELIVERY_RECORD_PATH"
+}
+
+assert_no_transient_delivery_state() {
+  local transient_count
+  transient_count="$(/usr/bin/find "$RELEASE_DIRECTORY" -maxdepth 1 \
+    -name '.testflight-*' -print | /usr/bin/wc -l | /usr/bin/tr -d ' ')"
+  [[ "$transient_count" == "0" ]] \
+    || fail "remote submission left a temporary file or collaboration lock"
+}
+
+run_remote() {
+  local mode="$1"
+  DEVELOPER_DIR="$FAKE_DEVELOPER_PATH" \
+  AGENT_ISLAND_ASC_API_KEY_ID="$API_KEY_ID" \
+  AGENT_ISLAND_ASC_API_ISSUER_ID="$API_ISSUER_ID" \
+  AGENT_ISLAND_CONFIRM_TESTFLIGHT_UPLOAD="$CONFIRMATION_VALUE" \
+    "$INSTRUMENTED_SCRIPT" "$mode" "$RELEASE_DIRECTORY"
+}
+
+expect_remote_rejected() {
+  local marker="$1"
+  local mode="$2"
+  local output="$TEST_ROOT/remote-rejected.txt"
+  if run_remote "$mode" >"$output" 2>&1; then
+    fail "remote mode accepted fixture expected to fail with: $marker"
+  fi
+  contains "$marker" "$output"
+  assert_no_transient_delivery_state
+}
+
+clear_remote_outputs
+: >"$XCRUN_LOG"
+export AGENT_ISLAND_TEST_VALIDATION_RESPONSE="$MULTIPLE_TOP_LEVEL_RESPONSE"
+expect_remote_rejected \
+  'does not contain an unambiguous altool success response' --validate
+[[ ! -e "$VALIDATION_RESULT_PATH" ]] \
+  || fail "multi-object validation response was published"
+
+for false_response in "$FALSE_ERRORS_RESPONSE" "$FALSE_PRODUCT_ERRORS_RESPONSE"; do
+  : >"$XCRUN_LOG"
+  export AGENT_ISLAND_TEST_VALIDATION_RESPONSE="$false_response"
+  expect_remote_rejected \
+    'does not contain an unambiguous altool success response' --validate
+  [[ ! -e "$VALIDATION_RESULT_PATH" ]] \
+    || fail "boolean error field validation response was published"
+done
+
+export AGENT_ISLAND_TEST_VALIDATION_RESPONSE="$VALIDATION_SUCCESS_RESPONSE"
+: >"$XCRUN_LOG"
+run_remote --validate >"$TEST_ROOT/remote-validation-valid.txt" 2>&1 \
+  || fail "valid remote validation fixture failed: $(/bin/cat "$TEST_ROOT/remote-validation-valid.txt")"
+[[ -f "$VALIDATION_RESULT_PATH" && ! -L "$VALIDATION_RESULT_PATH" ]] \
+  || fail "valid remote validation did not publish its result"
+[[ "$(/usr/bin/stat -f '%Lp' "$VALIDATION_RESULT_PATH")" == "444" ]] \
+  || fail "published validation result is not mode 0444"
+[[ "$(/usr/bin/wc -l <"$XCRUN_LOG" | /usr/bin/tr -d ' ')" == "1" ]] \
+  || fail "remote validation did not make exactly one staged-candidate request"
+assert_no_transient_delivery_state
+clear_remote_outputs
+
+print -n -r -- 'do not overwrite this result' >"$VALIDATION_RESULT_PATH"
+: >"$XCRUN_LOG"
+expect_remote_rejected \
+  'refusing to overwrite an existing App Store Connect validation result' --validate
+[[ "$(/bin/cat "$VALIDATION_RESULT_PATH")" == 'do not overwrite this result' ]] \
+  || fail "existing validation result was overwritten"
+[[ ! -s "$XCRUN_LOG" ]] || fail "overwrite rejection contacted the remote service"
+clear_remote_outputs
+
+RACE_SYMLINK_TARGET="$TEST_ROOT/race-symlink-target"
+/bin/mkdir "$RACE_SYMLINK_TARGET"
+export AGENT_ISLAND_TEST_RACE_DESTINATION="$VALIDATION_RESULT_PATH"
+export AGENT_ISLAND_TEST_RACE_KIND="symlink"
+export AGENT_ISLAND_TEST_RACE_TARGET="$RACE_SYMLINK_TARGET"
+: >"$XCRUN_LOG"
+expect_remote_rejected \
+  'could not publish App Store Connect validation result without overwriting a file' \
+  --validate
+[[ -L "$VALIDATION_RESULT_PATH" && \
+    "$(/usr/bin/find "$RACE_SYMLINK_TARGET" -mindepth 1 -maxdepth 1 \
+      -print | /usr/bin/wc -l | /usr/bin/tr -d ' ')" == "0" ]] \
+  || fail "atomic publication followed a directory symlink created after its precheck"
+unset AGENT_ISLAND_TEST_RACE_DESTINATION AGENT_ISLAND_TEST_RACE_KIND \
+  AGENT_ISLAND_TEST_RACE_TARGET
+clear_remote_outputs
+
+SYMLINK_TARGET="$TEST_ROOT/delivery-symlink-target"
+print -n -r -- 'symlink target sentinel' >"$SYMLINK_TARGET"
+/bin/ln -s "$SYMLINK_TARGET" "$DELIVERY_RECORD_PATH"
+: >"$XCRUN_LOG"
+expect_remote_rejected \
+  'refusing to overwrite an existing TestFlight delivery record' --upload
+[[ -L "$DELIVERY_RECORD_PATH" && \
+    "$(/bin/cat "$SYMLINK_TARGET")" == 'symlink target sentinel' ]] \
+  || fail "delivery symlink or its target was overwritten"
+[[ ! -s "$XCRUN_LOG" ]] || fail "symlink rejection contacted the remote service"
+clear_remote_outputs
+
+/bin/mkdir "$RELEASE_DIRECTORY/.testflight-submit.lock"
+: >"$XCRUN_LOG"
+if run_remote --validate >"$TEST_ROOT/lock-rejected.txt" 2>&1; then
+  fail "remote validation ignored an existing release-directory collaboration lock"
+fi
+contains 'another TestFlight validation or upload is already active' \
+  "$TEST_ROOT/lock-rejected.txt"
+[[ -d "$RELEASE_DIRECTORY/.testflight-submit.lock" ]] \
+  || fail "submission removed a collaboration lock it did not own"
+[[ ! -s "$XCRUN_LOG" ]] || fail "locked submission contacted the remote service"
+/bin/rmdir "$RELEASE_DIRECTORY/.testflight-submit.lock"
+
+export AGENT_ISLAND_TEST_UPLOAD_RESPONSE="$FALSE_PRODUCT_ERRORS_RESPONSE"
+: >"$XCRUN_LOG"
+expect_remote_rejected \
+  'does not contain an unambiguous altool success response' --upload
+[[ -f "$VALIDATION_RESULT_PATH" && \
+    "$(/usr/bin/stat -f '%Lp' "$VALIDATION_RESULT_PATH")" == "444" ]] \
+  || fail "successful validation result was not retained as read-only evidence"
+[[ ! -e "$UPLOAD_RESULT_PATH" && ! -L "$UPLOAD_RESULT_PATH" \
+    && ! -e "$DELIVERY_RECORD_PATH" && ! -L "$DELIVERY_RECORD_PATH" ]] \
+  || fail "failed upload left a partial upload result or delivery record"
+clear_remote_outputs
+
+export AGENT_ISLAND_TEST_UPLOAD_RESPONSE="$UPLOAD_SUCCESS_RESPONSE"
+export AGENT_ISLAND_TEST_RACE_OPERATION="upload"
+export AGENT_ISLAND_TEST_RACE_DESTINATION="$DELIVERY_RECORD_PATH"
+export AGENT_ISLAND_TEST_RACE_KIND="directory"
+: >"$XCRUN_LOG"
+expect_remote_rejected \
+  'TestFlight delivery record destination did not resolve to the sealed temporary inode' \
+  --upload
+for retained_result in "$VALIDATION_RESULT_PATH" "$UPLOAD_RESULT_PATH"; do
+  [[ -f "$retained_result" && ! -L "$retained_result" \
+      && "$(/usr/bin/stat -f '%Lp' "$retained_result")" == "444" ]] \
+    || fail "delivery publication race did not retain sealed remote results"
+done
+[[ -d "$DELIVERY_RECORD_PATH" && ! -L "$DELIVERY_RECORD_PATH" && \
+    "$(/usr/bin/find "$DELIVERY_RECORD_PATH" -mindepth 1 -maxdepth 1 \
+      -print | /usr/bin/wc -l | /usr/bin/tr -d ' ')" == "0" ]] \
+  || fail "delivery publication accepted or leaked into a racing directory"
+/bin/rmdir "$DELIVERY_RECORD_PATH"
+unset AGENT_ISLAND_TEST_RACE_OPERATION AGENT_ISLAND_TEST_RACE_DESTINATION \
+  AGENT_ISLAND_TEST_RACE_KIND
+clear_remote_outputs
+
+: >"$XCRUN_LOG"
+run_remote --upload >"$TEST_ROOT/remote-upload-valid.txt" 2>&1 \
+  || fail "valid remote upload fixture failed: $(/bin/cat "$TEST_ROOT/remote-upload-valid.txt")"
+for published_path in "$VALIDATION_RESULT_PATH" "$UPLOAD_RESULT_PATH" \
+    "$DELIVERY_RECORD_PATH"; do
+  [[ -f "$published_path" && ! -L "$published_path" \
+      && "$(/usr/bin/stat -f '%Lp' "$published_path")" == "444" ]] \
+    || fail "remote upload output ${published_path:t} is not a mode-0444 regular file"
+done
+[[ "$(/usr/bin/wc -l <"$XCRUN_LOG" | /usr/bin/tr -d ' ')" == "2" ]] \
+  || fail "upload mode did not make exactly one validation and one upload request"
+/usr/bin/jq -e \
+  --arg ipa "$IPA_PATH" \
+  --arg sha "$EXPECTED_IPA_SHA256" '
+    .ipaPath == $ipa and
+    .ipaSHA256 == $sha and
+    .uploadAccepted == true
+  ' "$DELIVERY_RECORD_PATH" >/dev/null \
+  || fail "delivery evidence does not remain bound to the original verified IPA"
+assert_no_transient_delivery_state
+
+print -r -- 'iOS TestFlight exact-IPA, remote-response, and atomic-publication tests passed'

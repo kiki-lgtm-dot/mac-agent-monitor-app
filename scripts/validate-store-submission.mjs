@@ -331,6 +331,44 @@ function inspectAppPrivacyReleaseGate() {
 
 const appPrivacy = inspectAppPrivacyReleaseGate();
 
+// Apple requires the Support URL to lead to actual contact information. An
+// issue tracker is useful, but it does not replace a reachable email, an
+// international telephone number, or a legal contact address when required.
+const supportSitePath = join(projectRoot, "docs/site/support/index.html");
+let supportContact = {
+  path: supportSitePath,
+  emailLinks: [],
+  telephoneLinks: [],
+  addressBlocks: 0,
+  configured: false,
+};
+if (!existsSync(supportSitePath)) {
+  structuralErrors.push(`missing public support page: ${supportSitePath}`);
+} else {
+  const supportHTML = readFileSync(supportSitePath, "utf8");
+  const emailLinks = [...supportHTML.matchAll(/href=["']mailto:([^"']+)["']/gi)]
+    .map((match) => match[1].trim())
+    .filter((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+      && !/(?:example|placeholder|\.invalid$|\.test$)/i.test(value));
+  const telephoneLinks = [...supportHTML.matchAll(/href=["']tel:(\+[0-9][0-9 -]{6,})["']/gi)]
+    .map((match) => match[1].trim());
+  const addressBlocks = [...supportHTML.matchAll(/<address\b[^>]*>([\s\S]*?)<\/address>/gi)]
+    .map((match) => match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim())
+    .filter((value) => value.length >= 12 && !/(?:placeholder|\[[^\]]+\])/i.test(value));
+  supportContact = {
+    path: supportSitePath,
+    emailLinks,
+    telephoneLinks,
+    addressBlocks: addressBlocks.length,
+    configured: emailLinks.length > 0 || telephoneLinks.length > 0 || addressBlocks.length > 0,
+  };
+  if (!supportContact.configured) {
+    releaseBlockers.push(
+      "public Support URL has no actual email, international telephone number, or legal contact address",
+    );
+  }
+}
+
 const allowedScreenshotDimensions = {
   macos: new Set(["1280x800", "1440x900", "2560x1600", "2880x1800"]),
   ios: new Set([
@@ -449,6 +487,7 @@ const result = {
   metadata,
   submissionDocuments,
   appPrivacy,
+  supportContact,
   icons: { ready: iconChecks.length > 0 && iconChecks.every((item) => item.valid), images: iconChecks },
   referenceScreenshots,
   finalScreenshots,

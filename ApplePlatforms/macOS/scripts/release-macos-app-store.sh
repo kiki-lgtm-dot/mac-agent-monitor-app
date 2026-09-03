@@ -9,6 +9,7 @@ SCHEME="AgentIslandMac"
 CONFIGURATION="Release"
 DIST_ROOT="$PRODUCT_ROOT/dist/macos-app-store"
 PUBLIC_APP_NAME="MAC版灵动岛--Agent运行监测"
+APP_CATEGORY="public.app-category.developer-tools"
 EXPORT_PACKAGE=false
 ALLOW_PROVISIONING_UPDATES=false
 WORK_ROOT=""
@@ -335,6 +336,8 @@ validate_app_info_and_contents() {
     || fail "$label support URL changed"
   [[ "$(/usr/bin/plutil -extract LSMinimumSystemVersion raw "$info" 2>/dev/null)" == "$DEPLOYMENT_TARGET" ]] \
     || fail "$label minimum macOS version changed"
+  [[ "$(/usr/bin/plutil -extract LSApplicationCategoryType raw "$info" 2>/dev/null)" == "$APP_CATEGORY" ]] \
+    || fail "$label application category must remain $APP_CATEGORY"
   [[ "$(/usr/bin/plutil -extract LSUIElement raw "$info" 2>/dev/null)" == "true" ]] \
     || fail "$label must remain an LSUIElement menu-bar application"
   [[ "$(/usr/bin/plutil -extract ITSAppUsesNonExemptEncryption raw "$info" 2>/dev/null)" == "false" ]] \
@@ -570,7 +573,7 @@ ARCHIVE_ARGS=(
 DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild "${ARCHIVE_ARGS[@]}" \
   DEVELOPMENT_TEAM="$TEAM_ID" \
   CODE_SIGN_IDENTITY="$SELECTED_IDENTITY" \
-  AGENT_ISLAND_APP_BUNDLE_ID="$APP_BUNDLE_ID" \
+  AGENT_ISLAND_MAC_APP_BUNDLE_ID="$APP_BUNDLE_ID" \
   AGENT_ISLAND_ICLOUD_CONTAINER_ID="$CLOUD_CONTAINER_ID" \
   AGENT_ISLAND_DISPLAY_NAME="$DISPLAY_NAME" \
   AGENT_ISLAND_COPYRIGHT="$COPYRIGHT" \
@@ -731,6 +734,7 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
   --arg teamID "$TEAM_ID" \
   --arg appBundleID "$APP_BUNDLE_ID" \
   --arg displayName "$DISPLAY_NAME" \
+  --arg applicationCategory "$APP_CATEGORY" \
   --arg copyright "$COPYRIGHT" \
   --arg applicationIdentifier "$ARCHIVE_APPLICATION_IDENTIFIER" \
   --arg cloudContainerID "$CLOUD_CONTAINER_ID" \
@@ -766,6 +770,7 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
     teamID: $teamID,
     appBundleID: $appBundleID,
     displayName: $displayName,
+    applicationCategory: $applicationCategory,
     copyright: $copyright,
     applicationIdentifier: $applicationIdentifier,
     cloudContainerID: $cloudContainerID,
@@ -796,6 +801,7 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
   .schemaVersion == 1 and
   .platform == "macOS" and
   .distribution == "mac-app-store" and
+  .applicationCategory == "public.app-category.developer-tools" and
   .uploaded == false and
   .archiveZipSHA256 != "" and
   .provisioningProfile.certificateMatches == true and
@@ -816,4 +822,4 @@ print -r -- "Archive ZIP: $ARCHIVE_ZIP_FINAL"
 [[ -n "$EXPORTED_PACKAGE_FINAL" ]] \
   && print -r -- "App Store package: $EXPORTED_PACKAGE_FINAL"
 print -r -- "Metadata: $METADATA_FINAL"
-print -r -- "No build was uploaded. Inspect these immutable candidates before a deliberate App Store Connect upload."
+print -r -- "No build was uploaded. Inspect these local candidates before a deliberate App Store Connect upload."

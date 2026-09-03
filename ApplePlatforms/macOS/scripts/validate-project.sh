@@ -47,6 +47,10 @@ required_files=(
   "ApplePlatforms/macOS/Config/Mac-Info.plist"
   "ApplePlatforms/macOS/Config/AgentIslandMac.entitlements"
   "ApplePlatforms/macOS/scripts/release-macos-app-store.sh"
+  "ApplePlatforms/macOS/scripts/submit-macos-app-store.sh"
+  "ApplePlatforms/macOS/scripts/confirm-macos-app-store-evidence.sh"
+  "ApplePlatforms/macOS/scripts/verify-macos-app-store-delivery.sh"
+  "ApplePlatforms/macOS/scripts/verify-macos-app-store-evidence.sh"
   "ApplePlatforms/iOS/Config/Project.xcconfig"
   "Native/AgentIsland.m"
   "Resources/Info.plist"
@@ -58,8 +62,49 @@ required_files=(
 for relative_path in "${required_files[@]}"; do
   [ -f "$repo_root/$relative_path" ] || fail "missing $relative_path"
 done
-[ -x "$repo_root/ApplePlatforms/macOS/scripts/release-macos-app-store.sh" ] \
-  || fail "macOS App Store release script must be executable"
+for release_script in \
+  release-macos-app-store.sh \
+  submit-macos-app-store.sh \
+  confirm-macos-app-store-evidence.sh \
+  verify-macos-app-store-delivery.sh \
+  verify-macos-app-store-evidence.sh; do
+  [ -x "$repo_root/ApplePlatforms/macOS/scripts/$release_script" ] \
+    || fail "macOS App Store script must be executable: $release_script"
+  /bin/zsh -n "$repo_root/ApplePlatforms/macOS/scripts/$release_script" \
+    || fail "macOS App Store script has invalid zsh syntax: $release_script"
+done
+
+delivery_verifier="$repo_root/ApplePlatforms/macOS/scripts/verify-macos-app-store-delivery.sh"
+for required_marker in \
+  '--check' \
+  '--json' \
+  'evidenceVerified: true' \
+  'uploadAccepted: true' \
+  'processingState: null' \
+  'submittedForAppReview: false' \
+  '[[ "$raw_path" == "$canonical_path" ]]' \
+  'submit-macos-app-store.sh" --check'; do
+  grep -Fq -- "$required_marker" "$delivery_verifier" \
+    || fail "Mac App Store delivery verifier is missing: $required_marker"
+done
+
+processing_verifier="$repo_root/ApplePlatforms/macOS/scripts/verify-macos-app-store-evidence.sh"
+for required_marker in \
+  'deliveryEvidenceVerified: true' \
+  'deliveryRecordPath: $deliveryRecordPath' \
+  'releaseMetadataPath: $releaseMetadataPath' \
+  'archiveZipPath: $archiveZipPath' \
+  'validationResultPath: $validationResultPath' \
+  'uploadResultPath: $uploadResultPath' \
+  'submittedAt: $submittedAt' \
+  'processingState: "Complete"' \
+  'warningsReviewed: true' \
+  'submittedForAppReview: false' \
+  '[[ "$raw_path" == "$canonical_path" ]]' \
+  'verify-macos-app-store-delivery.sh"'; do
+  grep -Fq -- "$required_marker" "$processing_verifier" \
+    || fail "Mac App Store processing verifier is missing: $required_marker"
+done
 
 plutil -lint \
   "$project_file" \
@@ -148,7 +193,7 @@ jq -e '
       | $objects[.]] as $configs
   | ($configs | map(.name) | sort) == ["Debug", "Release"]
     and all($configs[];
-      .buildSettings.PRODUCT_BUNDLE_IDENTIFIER == "$(AGENT_ISLAND_APP_BUNDLE_ID)"
+      .buildSettings.PRODUCT_BUNDLE_IDENTIFIER == "$(AGENT_ISLAND_MAC_APP_BUNDLE_ID)"
       and .buildSettings.DEVELOPMENT_TEAM == "$(AGENT_ISLAND_DEVELOPMENT_TEAM)"
       and .buildSettings.CODE_SIGN_STYLE == "Automatic"
       and .buildSettings.CODE_SIGN_ENTITLEMENTS == "Config/AgentIslandMac.entitlements"
@@ -206,6 +251,16 @@ for identity_key in \
     fail "macOS Project.xcconfig must not shadow shared identity key $identity_key"
   fi
 done
+mac_bundle_key_count="$(grep -Ec \
+  '^[[:space:]]*AGENT_ISLAND_MAC_APP_BUNDLE_ID[[:space:]]*=' \
+  "$project_root/Config/Project.xcconfig")"
+[ "$mac_bundle_key_count" = "1" ] \
+  || fail "macOS Project.xcconfig must define AGENT_ISLAND_MAC_APP_BUNDLE_ID exactly once"
+mac_bundle_value="$(xcconfig_value \
+  "$project_root/Config/Project.xcconfig" AGENT_ISLAND_MAC_APP_BUNDLE_ID)"
+printf '%s\n' "$mac_bundle_value" | grep -Eq \
+  '^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$' \
+  || fail "macOS Project.xcconfig contains an invalid Mac App bundle ID"
 for shared_key in \
   AGENT_ISLAND_DISPLAY_NAME \
   AGENT_ISLAND_APP_BUNDLE_ID \
@@ -245,11 +300,13 @@ jq -e '
   and .AgentIslandPrivacyPolicyURL == "$(AGENT_ISLAND_PRIVACY_POLICY_URL)"
   and .AgentIslandSupportURL == "$(AGENT_ISLAND_SUPPORT_URL)"
   and .CFBundleIconFile == "AgentIsland"
+  and .LSApplicationCategoryType == "public.app-category.developer-tools"
   and .LSUIElement == true
   and .ITSAppUsesNonExemptEncryption == false
   and .NSAppTransportSecurity.NSAllowsLocalNetworking == true
   and .NSHumanReadableCopyright == "$(AGENT_ISLAND_COPYRIGHT)"
-' "$info_json" >/dev/null || fail "Mac-Info.plist is not driven by release macros"
+' "$info_json" >/dev/null \
+  || fail "Mac-Info.plist release macros or Developer Tools category are incomplete"
 
 jq -e '
   ."com.apple.security.app-sandbox" == true

@@ -21,6 +21,19 @@
 
 源码阶段可分别运行 `node scripts/validate-app-privacy.mjs` 和 `node scripts/validate-store-submission.mjs`；候选发布时两者都必须带 `--release` 通过。这两项只是发布门禁的一部分，不代替最终 Archive、签名/profile、Xcode Privacy Report 和真机验证。
 
+## 身份锁与 Mac App Store 证据层级
+
+新的正式身份必须使用 `Config/ReleaseIdentity.json` schemaVersion 2，并由 `.release/identity.lock.json` 锁定。`appStoreRecordMode=universal-purchase` 时 macOS/iOS 主 App Bundle ID 必须相同；`separate-records` 时必须不同。`AGENT_ISLAND_APP_STORE_RECORD_MODE`、`AGENT_ISLAND_BUNDLE_ID` 和 `AGENT_ISLAND_IOS_BUNDLE_ID` 必须分别等于锁中的记录模式、macOS App ID 和 iOS App ID；旧 schemaVersion 1 只作 Universal Purchase 兼容输入，不能表示分开记录。
+
+Mac App Store 发布状态必须按以下证据层级逐步判定，不得用单个布尔值跨层代替：
+
+1. `release-macos-app-store.sh --export` 生成 `release-metadata.json`、Archive ZIP 和 PKG；`submit-macos-app-store.sh --check` 在本地重算哈希并重验精确候选，不上传。
+2. `confirm-functional-qa-evidence.sh` 将沙盒授权/拒绝/撤销/恢复、Archive/PKG 安装启退、profile+证书、Xcode Privacy Report 和审核路径的五份不同附件绑定到同一 Archive ZIP + PKG。将生成的只读、不覆盖记录填入 `AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE`。
+3. `readyForMacAppStoreUpload: true` 只表示本地候选、候选级 App Privacy 和功能 QA 已通过上传前门禁，不表示已上传、Apple 已处理或已提审。
+4. 显式执行 `submit-macos-app-store.sh --upload` 后，将交付记录填入 `AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE`。上传命令被接受不等于 App Store Connect 处理完成。
+5. 人工在 App Store Connect 确认该精确构建为 `Complete` 并检查全部警告后，用 `confirm-macos-app-store-evidence.sh` 生成处理记录，再填入 `AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE`。这是操作人员的本地证据，验证脚本不会回查 Apple 状态。
+6. `readyForMacAppStoreReviewSelection: true` 只表示证据链已支持在对应 macOS 版本中人工选择该 Build；它不表示 Build 已被选中，更不表示已执行 App Review 提交。选择构建和最终提审仍由账号授权人在 App Store Connect 中完成。
+
 ## 必须替换的占位符
 
 发布前全文搜索 `[`，逐项替换或删除：
@@ -38,17 +51,20 @@
 
 ## 当前上线阻断项
 
-1. 当前 Bundle ID 为开发占位值 `local.agentisland.desktop`，构建采用 ad-hoc 签名。
-2. Mac App Store Xcode Target、App Sandbox、主目录只读安全书签及撤销/重新授权源码已完成静态验证；仍需在完整 Xcode、正式签名的商店构建中实测授权、拒绝、书签失效、监测停止与恢复流程。
-3. 隐私政策与支持页面已部署到稳定的公开 GitHub Pages URL，并于 2026-09-04 从未登录请求复核 HTTPS 200。每个候选提交前仍须重新验证并将结果绑定到候选包，同时补齐 App Store Connect 所需的法定姓名、支持邮箱等账号材料。
-4. 翻译器默认地址当前指向 DeepSeek API。官方公开资料基线审计已归档，应用内分层告知、首次离机传输确认和官方政策链接已实施，公开隐私页也已同步。但公开材料未给出本下游应用 API 请求的固定保留期或不训练承诺；仍需决定是否保留默认第三方端点，并据此最终确认 App Privacy 标签。
-5. iOS 与 macOS 都已有明确标识、可退出并重置的内置离线示例模式。macOS 示例仅替代 Agent 监测数据，不读本机 Agent 日志/自定义源，不访问网络或 CloudKit，且退出后不自动恢复真实监测；iOS 示例不访问 CloudKit。两者都不能替代候选签名构建的动态验收、真实生产同步或真机验证。
-6. Mac producer 与 iPhone receiver 的代码契约已接通：用户明确同意后，Mac 可向其私有 CloudKit 数据库写入 `AgentIslandSnapshot/latest/payloadJSON`，iPhone 按当前 iCloud 账号读取并缓存。但正式 Developer ID entitlement/profile、生产 Container/schema 和同账号真机链路尚未验收；完成这些项目、完整 Xcode 构建和 Archive 之前，不得提交或宣传可用的跨设备监控。
-7. iOS 已与 macOS 统一为 0.6.1（Build 8），但仍使用 `com.example.agentisland` 占位 Bundle ID 和空 Team ID；Widget ID 也必须随正式 App ID 注册。
+1. Apple 自 2026-04-28 起要求 iOS/iPadOS 上传使用 iOS/iPadOS 26 SDK 或更新版；Xcode 26 至少需要 macOS Sequoia 15.6。`release-readiness.sh` 现在会分开报告主机系统兼容性、Xcode 与 SDK 版本。
+2. 当前 Bundle ID 为开发占位值 `local.agentisland.desktop`，构建采用 ad-hoc 签名。
+3. Mac App Store Xcode Target、App Sandbox、主目录只读安全书签及撤销/重新授权源码已完成静态验证；仍需在完整 Xcode、正式签名的商店构建中实测授权、拒绝、书签失效、监测停止与恢复流程。
+4. 隐私政策与支持页面已部署到稳定的公开 GitHub Pages URL，并于 2026-09-04 从未登录请求复核 HTTPS 200。每个候选提交前仍须重新验证并将结果绑定到候选包，同时补齐 App Store Connect 所需的法定姓名、支持邮箱等账号材料。
+5. 翻译器默认地址当前指向 DeepSeek API。官方公开资料基线审计已归档，应用内分层告知、首次离机传输确认和官方政策链接已实施，公开隐私页也已同步。但公开材料未给出本下游应用 API 请求的固定保留期或不训练承诺；仍需决定是否保留默认第三方端点，并据此最终确认 App Privacy 标签。
+6. iOS 与 macOS 都已有明确标识、可退出并重置的内置离线示例模式。macOS 示例仅替代 Agent 监测数据，不读本机 Agent 日志/自定义源，不访问网络或 CloudKit，且退出后不自动恢复真实监测；iOS 示例不访问 CloudKit。两者都不能替代候选签名构建的动态验收、真实生产同步或真机验证。
+7. Mac producer 与 iPhone receiver 的代码契约已接通：用户明确同意后，Mac 可向其私有 CloudKit 数据库写入 `AgentIslandSnapshot/latest/payloadJSON`，iPhone 按当前 iCloud 账号读取并缓存。但正式 Developer ID entitlement/profile、生产 Container/schema 和同账号真机链路尚未验收；完成这些项目、完整 Xcode 构建和 Archive 之前，不得提交或宣传可用的跨设备监控。
+8. iOS 已与 macOS 统一为 0.6.1（Build 8），但仍使用 `com.example.agentisland` 占位 Bundle ID 和空 Team ID；Widget ID 也必须随正式 App ID 注册。
 
 ## 官方核对入口
 
 - [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
+- [App Store 当前上传 SDK 要求](https://developer.apple.com/app-store/submitting/)
+- [Xcode 系统要求](https://developer.apple.com/xcode/system-requirements/)
 - [App Store Connect 元数据字段](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information)
 - [App Privacy 填写说明](https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy/)
 - [App Sandbox](https://developer.apple.com/documentation/security/app-sandbox)

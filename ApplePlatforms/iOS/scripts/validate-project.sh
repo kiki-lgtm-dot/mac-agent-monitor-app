@@ -295,8 +295,8 @@ for confirmation_marker in \
   'escapes the release directory' \
   'submit-testflight.sh" --check' \
   'refusing to overwrite an existing TestFlight verification evidence file' \
-  '/bin/ln "$TEMP_EVIDENCE_PATH" "$EVIDENCE_PATH"' \
-  '/bin/chmod 0444 "$EVIDENCE_PATH"' \
+  'publish_readonly_no_overwrite "$TEMP_EVIDENCE_PATH" "$EVIDENCE_PATH"' \
+  'destination did not resolve to the sealed temporary inode' \
   'schemaVersion: 1' \
   'platform: "iOS"' \
   'uploadAccepted: true' \

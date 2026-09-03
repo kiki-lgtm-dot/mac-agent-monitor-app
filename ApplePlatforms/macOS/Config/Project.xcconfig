@@ -1,7 +1,11 @@
-// macOS shares the immutable Apple identity and CloudKit wire contract with
-// the iOS companion. apply-release-identity.sh updates the included file, so
-// both App targets stay on the same Team, App ID, and private container.
+// macOS shares the Team and CloudKit wire contract with the iOS companion.
+// Its App ID is explicit because separate App Store records require different
+// macOS/iOS bundle identifiers; Universal Purchase configures both to match.
 #include "../../iOS/Config/Project.xcconfig"
+
+// apply-release-identity.sh owns this value. Do not point the Mac target at
+// AGENT_ISLAND_APP_BUNDLE_ID, which is the iOS App identifier.
+AGENT_ISLAND_MAC_APP_BUNDLE_ID = com.example.agentisland
 
 MACOSX_DEPLOYMENT_TARGET = 13.0
 MARKETING_VERSION = 0.6.1

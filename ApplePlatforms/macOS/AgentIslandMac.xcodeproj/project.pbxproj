@@ -327,7 +327,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "$(AGENT_ISLAND_APP_BUNDLE_ID)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AGENT_ISLAND_MAC_APP_BUNDLE_ID)";
 				PRODUCT_NAME = AgentIslandMac;
 				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = macosx;
@@ -350,7 +350,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "$(AGENT_ISLAND_APP_BUNDLE_ID)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AGENT_ISLAND_MAC_APP_BUNDLE_ID)";
 				PRODUCT_NAME = AgentIslandMac;
 				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = macosx;

@@ -25,6 +25,11 @@ node "$VALIDATOR" >"$RESULT"
   (.appPrivacy.releaseReady | type == "boolean") and
   .appPrivacy.releaseEvidenceReady == false and
   .appPrivacy.releaseReady == false and
+  (.supportContact.path | endswith("docs/site/support/index.html")) and
+  (.supportContact.emailLinks == []) and
+  (.supportContact.telephoneLinks == []) and
+  (.supportContact.addressBlocks == 0) and
+  (.supportContact.configured == false) and
   (.validatorSelfTests.placeholderParser == true) and
   (.validatorSelfTests.releaseDraftSentinelParser == true) and
   (.metadata | all(
@@ -41,6 +46,7 @@ node "$VALIDATOR" >"$RESULT"
   (.releaseBlockers | any(contains("unresolved placeholder"))) and
   (.releaseBlockers | any(contains("release document still contains"))) and
   (.releaseBlockers | any(contains("App Privacy evidence.path does not exist"))) and
+  (.releaseBlockers | any(contains("public Support URL has no actual"))) and
   (.releaseBlockers | any(contains("expected 1-10 final screenshots")))
 ' "$RESULT" >/dev/null
 

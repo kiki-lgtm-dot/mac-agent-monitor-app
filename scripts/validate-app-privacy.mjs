@@ -372,7 +372,7 @@ function validateCandidateArchive(archive, absolutePath, label, blockers) {
   }
   const projectRelative = path.relative(projectRoot, absolutePath);
   if (projectRelative !== 'dist' && !projectRelative.startsWith(`dist${path.sep}`)) {
-    blockers.push(`${label}.path must identify an immutable candidate file under dist/`);
+    blockers.push(`${label}.path must identify a candidate file under dist/`);
   }
   const lowerName = archive.path.toLowerCase();
   if (archive.platform === 'iOS') {

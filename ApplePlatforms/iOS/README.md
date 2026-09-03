@@ -103,7 +103,8 @@ conversation titles are absent from the sample and cannot be revealed.
 
 ## Open and sign in Xcode
 
-Use Xcode 26 or newer. The project deployment target is iOS 17.0.
+Use Xcode 26 or newer with the iOS 26 SDK or newer. Xcode 26 itself requires
+macOS Sequoia 15.6 or newer. The project deployment target remains iOS 17.0.
 
 1. Open `AgentIsland.xcodeproj`.
 2. Edit `Config/Project.xcconfig` and verify:
@@ -382,17 +383,23 @@ AGENT_ISLAND_CONFIRM_TESTFLIGHT_UPLOAD='<exact value printed by --check>' \
 ```
 
 The private key is never a command-line argument, is never read into output,
-and is never copied into `dist`. Successful remote validation and delivery
-responses are retained beside the release metadata. A successful upload only
-starts App Store Connect processing: the generated delivery record explicitly
-leaves processing verification, tester distribution, and App Review submission
-false. Inspect all processing warnings in App Store Connect and verify the
-processed bundle/version/build before enabling internal or external TestFlight.
-Xcode Organizer or Apple's Transporter app remains a supported manual fallback.
+and is never copied into `dist`. Remote modes take an atomic per-release
+collaboration lock, copy the already-hashed IPA into a private read-only staging
+directory, verify the copy's SHA-256, and give that copy to Apple's tool. A
+response is accepted only when it is exactly one JSON object with a non-empty
+success message and `product-errors`/`errors` are absent, null, or empty arrays.
+Validation, upload, and delivery records are sealed mode `0444` as same-directory
+temporary inodes before atomic no-overwrite publication beside the metadata. A
+successful upload only starts App Store Connect processing: the delivery record
+explicitly leaves processing verification, tester distribution, and App Review
+submission false. Inspect all processing warnings in App Store Connect and
+verify the processed bundle/version/build before enabling internal or external
+TestFlight. Xcode Organizer or Apple's Transporter app remains a supported
+manual fallback.
 
 After App Store Connect reports the exact bundle/version/build as `VALID` (or
 `Complete`), distribute that processed build to testers and install it from
-TestFlight on a real device. Then create a local, immutable evidence record:
+TestFlight on a real device. Then create a local, read-only no-overwrite evidence record:
 
 ```bash
 AGENT_ISLAND_CONFIRM_TESTFLIGHT_VERIFICATION='<exact bundle:version:build:IPA-SHA256>' \
@@ -408,16 +415,58 @@ AGENT_ISLAND_CONFIRM_TESTFLIGHT_VERIFICATION='<exact bundle:version:build:IPA-SH
 
 The confirmation script is offline and changes neither Apple state nor the
 original delivery record. It re-hashes the IPA, release metadata, delivery,
-validation, and upload records, then writes a new no-overwrite
+validation, and upload records, independently rechecks both stored Apple
+responses for the same strict success semantics, then writes a new no-overwrite
 `testflight-verification-*.json`. Point
 `AGENT_ISLAND_IOS_TESTFLIGHT_VERIFICATION_EVIDENCE` at that file before running
-release readiness. After repeating the CloudKit, Mac-to-iPhone, Live Activity,
-and review-path checks on this installed build, set
-`AGENT_ISLAND_IOS_FUNCTIONAL_EVIDENCE_IPA_SHA256` to its exact 64-character IPA
-hash. The readiness result stays false if any path, identity, or hash no longer
-matches. Readiness also reruns this script's credential-free `--check` against
-the evidence directory, so a ZIP or hand-authored metadata chain cannot stand
-in for a signed device IPA. This evidence does not replace App Privacy evidence:
+release readiness.
+
+Do not represent the four installed-build checks as reusable shell booleans.
+After repeating the CloudKit Production-schema, same-iCloud-account
+Mac-to-iPhone sync, Live Activity, and review-path checks on that exact
+TestFlight installation, save one distinct redacted report or screenshot for
+each check inside the same release directory. Then record the device and exact
+results in a read-only, no-overwrite candidate-bound document:
+
+```bash
+AGENT_ISLAND_CONFIRM_IOS_FUNCTIONAL_QA='<exact bundle:version:build:IPA-SHA256>' \
+  ./scripts/confirm-functional-qa-evidence.sh \
+  --device-model 'iPhone 16 Pro' \
+  --ios-version '18.6.2' \
+  --tested-at 'YYYY-MM-DDTHH:MM:SSZ' \
+  --cloudkit-production-schema-result passed \
+  --cloudkit-evidence '/absolute/release/path/cloudkit-production-report.png' \
+  --same-account-sync-result passed \
+  --sync-evidence '/absolute/release/path/same-account-sync-report.png' \
+  --live-activity-result passed \
+  --live-activity-evidence '/absolute/release/path/live-activity-report.png' \
+  --review-path-result passed \
+  --review-path-evidence '/absolute/release/path/review-path-report.png' \
+  '/absolute/release/path/testflight-verification-<timestamp>.json'
+
+./scripts/validate-functional-qa-evidence.sh --json \
+  --expected-testflight-verification \
+    '/absolute/release/path/testflight-verification-<timestamp>.json' \
+  --expected-ipa-sha256 '<exact 64-character IPA SHA-256>' \
+  '/absolute/release/path/ios-functional-verification-<timestamp>.json'
+```
+
+The generator accepts only the literal result `passed`; missing, `false`, and
+placeholder values fail closed. The four attachments must be different,
+non-empty, non-symlink files no larger than 25 MiB. They must also have four
+different device/inode identities and four different content hashes, and none
+may duplicate the content hash of the IPA or a core release/evidence record.
+Their canonical paths, sizes, and hashes are recorded. The JSON is atomically published without
+overwrite and made mode `0444`. Validation re-hashes the complete local
+TestFlight chain and attachments, independently rechecks validation/upload
+success semantics, repeats credential-free IPA preflight, and ensures the
+functional test happened after the recorded TestFlight install.
+It does not re-query App Store Connect, so retain the original Apple responses
+and use the resulting record only as operator QA evidence. Release readiness
+must consume this whole record (via
+`AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE`), not a copied IPA hash or four naked
+booleans. A ZIP or hand-authored metadata chain cannot stand in for a signed
+device IPA. This evidence does not replace App Privacy evidence:
 the iOS archive entry in `AGENT_ISLAND_APP_PRIVACY_EVIDENCE` must independently
 match this same platform, bundle ID, version, build number, and IPA SHA-256.
 

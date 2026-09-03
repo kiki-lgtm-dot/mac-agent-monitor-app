@@ -1,6 +1,7 @@
 #!/bin/zsh
 set -euo pipefail
 setopt NULL_GLOB
+umask 077
 
 IOS_ROOT="${0:A:h:h}"
 CONFIG_FILE="$IOS_ROOT/Config/Project.xcconfig"
@@ -40,6 +41,58 @@ EOF
 fail() {
   print -u2 -r -- "TestFlight submission failed: $*"
   exit 2
+}
+
+file_sha256() {
+  LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$1" | /usr/bin/awk '{print $1}'
+}
+
+verify_altool_success_json() {
+  local result_path="$1"
+  local operation="$2"
+  /usr/bin/jq -s -e '
+    if length != 1 or (.[0] | type) != "object" then
+      false
+    else
+      .[0] as $result |
+      ($result["success-message"] | type == "string" and length > 0) and
+      (($result | has("product-errors") | not) or
+        $result["product-errors"] == null or
+        (($result["product-errors"] | type) == "array" and
+          ($result["product-errors"] | length) == 0)) and
+      (($result | has("errors") | not) or
+        $result.errors == null or
+        (($result.errors | type) == "array" and
+          ($result.errors | length) == 0))
+    end
+  ' "$result_path" >/dev/null \
+    || fail "App Store Connect $operation result does not contain an unambiguous altool success response"
+}
+
+publish_readonly_no_overwrite() {
+  local temporary_path="$1"
+  local destination_path="$2"
+  local label="$3"
+  local temporary_identity misplaced_path
+  [[ "${temporary_path:h}" == "${destination_path:h}" ]] \
+    || fail "$label temporary file is not on the release volume"
+  [[ "$(/usr/bin/stat -f '%Sp' "$temporary_path")" != *w* ]] \
+    || fail "$label temporary inode is not read-only"
+  temporary_identity="$(/usr/bin/stat -f '%d:%i' "$temporary_path")"
+  /bin/ln -h "$temporary_path" "$destination_path" \
+    || fail "could not publish $label without overwriting a file"
+  if [[ ! -f "$destination_path" || -L "$destination_path" \
+      || "$(/usr/bin/stat -f '%d:%i' "$destination_path")" != "$temporary_identity" ]]; then
+    misplaced_path="$destination_path/${temporary_path:t}"
+    if [[ -f "$misplaced_path" && ! -L "$misplaced_path" \
+        && "$(/usr/bin/stat -f '%d:%i' "$misplaced_path")" == "$temporary_identity" ]]; then
+      /bin/rm -f "$misplaced_path" \
+        || fail "could not remove misplaced $label after a destination-directory race"
+    fi
+    fail "$label destination did not resolve to the sealed temporary inode"
+  fi
+  /bin/rm -f "$temporary_path" \
+    || fail "could not remove $label temporary name after publication"
 }
 
 setting_value() {
@@ -178,7 +231,10 @@ done
 [[ -n "$RELEASE_DIRECTORY" ]] || fail "a release directory is required"
 [[ -d "$RELEASE_DIRECTORY" && ! -L "$RELEASE_DIRECTORY" ]] \
   || fail "release directory must be an existing, non-symlink directory"
+RELEASE_DIRECTORY_ABSOLUTE="${RELEASE_DIRECTORY:a}"
 RELEASE_DIRECTORY="${RELEASE_DIRECTORY:A}"
+[[ "$RELEASE_DIRECTORY_ABSOLUTE" == "$RELEASE_DIRECTORY" ]] \
+  || fail "release directory path must not traverse symlink parents"
 
 command -v jq >/dev/null 2>&1 || fail "jq is required"
 command -v plutil >/dev/null 2>&1 || fail "plutil is required"
@@ -280,8 +336,12 @@ esac
   || fail "exportedIPA must be an existing, absolute, non-symlink file"
 [[ "$ARCHIVE_PATH" == /* && -d "$ARCHIVE_PATH" && ! -L "$ARCHIVE_PATH" ]] \
   || fail "archivePath must be an existing, absolute, non-symlink directory"
+RAW_IPA_PATH="$IPA_PATH"
+RAW_ARCHIVE_PATH="$ARCHIVE_PATH"
 IPA_PATH="${IPA_PATH:A}"
 ARCHIVE_PATH="${ARCHIVE_PATH:A}"
+[[ "$RAW_IPA_PATH" == "$IPA_PATH" && "$RAW_ARCHIVE_PATH" == "$ARCHIVE_PATH" ]] \
+  || fail "release artifact paths must already be canonical and must not traverse symlink parents"
 [[ "$IPA_PATH" == "$RELEASE_DIRECTORY"/* ]] \
   || fail "the IPA must remain inside the release directory"
 [[ "$ARCHIVE_PATH" == "$RELEASE_DIRECTORY"/* ]] \
@@ -291,6 +351,18 @@ ACTUAL_IPA_SHA256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IPA_PATH" \
   | /usr/bin/awk '{print $1}')"
 [[ "$ACTUAL_IPA_SHA256" == "$EXPECTED_IPA_SHA256" ]] \
   || fail "the IPA SHA-256 no longer matches release-metadata.json"
+EXPECTED_METADATA_SHA256="$(file_sha256 "$METADATA_PATH")"
+verify_core_candidate_unchanged() {
+  [[ -f "$METADATA_PATH" && ! -L "$METADATA_PATH" \
+      && "${METADATA_PATH:A}" == "$METADATA_PATH" ]] \
+    || fail "release metadata became unsafe during delivery"
+  [[ -f "$IPA_PATH" && ! -L "$IPA_PATH" && "${IPA_PATH:A}" == "$IPA_PATH" ]] \
+    || fail "the IPA became unsafe during delivery"
+  [[ "$(file_sha256 "$METADATA_PATH")" == "$EXPECTED_METADATA_SHA256" ]] \
+    || fail "release metadata changed during delivery"
+  [[ "$(file_sha256 "$IPA_PATH")" == "$EXPECTED_IPA_SHA256" ]] \
+    || fail "the IPA changed during delivery"
+}
 
 CHECKSUM_PATH="$IPA_PATH.sha256"
 [[ -f "$CHECKSUM_PATH" && ! -L "$CHECKSUM_PATH" ]] \
@@ -300,9 +372,25 @@ EXPECTED_CHECKSUM_LINE="$EXPECTED_IPA_SHA256  ${IPA_PATH:t}"
   || fail "the IPA checksum sidecar does not match the verified artifact"
 
 WORK_DIRECTORY="$(mktemp -d "${TMPDIR:-/tmp}/agentisland-testflight.XXXXXX")"
+LOCK_DIRECTORY=""
+LOCK_HELD=false
+VALIDATION_RESULT_TEMP=""
+UPLOAD_RESULT_TEMP=""
+DELIVERY_RECORD_TEMP=""
 cleanup() {
   local exit_code=$?
   trap - EXIT HUP INT TERM
+  local temporary_path
+  for temporary_path in "$VALIDATION_RESULT_TEMP" "$UPLOAD_RESULT_TEMP" \
+      "$DELIVERY_RECORD_TEMP"; do
+    if [[ -n "$temporary_path" && "$temporary_path" == "$RELEASE_DIRECTORY"/.testflight-* \
+        && -f "$temporary_path" && ! -L "$temporary_path" ]]; then
+      /bin/rm -f "$temporary_path"
+    fi
+  done
+  if [[ "$LOCK_HELD" == true && -n "$LOCK_DIRECTORY" ]]; then
+    /bin/rmdir "$LOCK_DIRECTORY" 2>/dev/null || true
+  fi
   if [[ "$WORK_DIRECTORY" == "${TMPDIR:-/tmp}"/agentisland-testflight.* ]]; then
     /bin/rm -rf "$WORK_DIRECTORY"
   fi
@@ -312,6 +400,8 @@ trap cleanup EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
+/bin/chmod 0700 "$WORK_DIRECTORY" \
+  || fail "could not secure the private TestFlight working directory"
 
 /usr/bin/ditto -x -k "$IPA_PATH" "$WORK_DIRECTORY/payload"
 exported_apps=("$WORK_DIRECTORY/payload/Payload"/*.app(N))
@@ -537,6 +627,7 @@ print -r -- "SHA-256: $EXPECTED_IPA_SHA256"
 print -r -- "Upload confirmation: $CONFIRMATION_VALUE"
 
 [[ "$MODE" != "check" ]] || exit 0
+verify_core_candidate_unchanged
 
 DEVELOPER_PATH="${DEVELOPER_DIR:-$(/usr/bin/xcode-select -p 2>/dev/null || true)}"
 [[ "$DEVELOPER_PATH" == */Xcode*.app/Contents/Developer ]] \
@@ -568,53 +659,93 @@ PRIVATE_KEY_MODE="$(/usr/bin/stat -f '%Lp' "$PRIVATE_KEY_PATH")"
 
 [[ -w "$RELEASE_DIRECTORY" ]] \
   || fail "release directory must be writable before recording App Store Connect results"
+LOCK_DIRECTORY="$RELEASE_DIRECTORY/.testflight-submit.lock"
+/bin/mkdir "$LOCK_DIRECTORY" 2>/dev/null \
+  || fail "another TestFlight validation or upload is already active for this release directory"
+LOCK_HELD=true
+/bin/chmod 0700 "$LOCK_DIRECTORY" \
+  || fail "could not secure the TestFlight release-directory lock"
+
 STAMP="$(/bin/date -u '+%Y%m%dT%H%M%SZ')"
 VALIDATION_RESULT="$RELEASE_DIRECTORY/testflight-validation-$STAMP.json"
-VALIDATION_RESULT_TEMP="$WORK_DIRECTORY/testflight-validation.json"
 [[ ! -e "$VALIDATION_RESULT" && ! -L "$VALIDATION_RESULT" ]] \
   || fail "refusing to overwrite an existing App Store Connect validation result"
+if [[ "$MODE" == "upload" ]]; then
+  UPLOAD_RESULT="$RELEASE_DIRECTORY/testflight-upload-$STAMP.json"
+  DELIVERY_RECORD="$RELEASE_DIRECTORY/testflight-delivery-$STAMP.json"
+  [[ ! -e "$UPLOAD_RESULT" && ! -L "$UPLOAD_RESULT" ]] \
+    || fail "refusing to overwrite an existing App Store Connect upload result"
+  [[ ! -e "$DELIVERY_RECORD" && ! -L "$DELIVERY_RECORD" ]] \
+    || fail "refusing to overwrite an existing TestFlight delivery record"
+fi
+
+STAGED_IPA_PATH="$WORK_DIRECTORY/testflight-upload-candidate.ipa"
+/bin/cp "$IPA_PATH" "$STAGED_IPA_PATH" \
+  || fail "could not copy the verified IPA into private staging"
+[[ -f "$STAGED_IPA_PATH" && ! -L "$STAGED_IPA_PATH" ]] \
+  || fail "private staged IPA is not a regular file"
+/bin/chmod 0400 "$STAGED_IPA_PATH" \
+  || fail "could not make the private staged IPA read-only"
+verify_staged_candidate_unchanged() {
+  [[ -f "$STAGED_IPA_PATH" && ! -L "$STAGED_IPA_PATH" ]] \
+    || fail "the private staged IPA became unsafe"
+  [[ "$(file_sha256 "$STAGED_IPA_PATH")" == "$EXPECTED_IPA_SHA256" ]] \
+    || fail "the private staged IPA SHA-256 differs from the verified release candidate"
+}
+verify_staged_candidate_unchanged
+verify_core_candidate_unchanged
+
+VALIDATION_RESULT_TEMP="$(mktemp "$RELEASE_DIRECTORY/.testflight-validation.XXXXXX")"
 DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcrun altool \
   --validate-app \
-  --file "$IPA_PATH" \
+  --file "$STAGED_IPA_PATH" \
   --type ios \
   --apiKey "$API_KEY_ID" \
   --apiIssuer "$API_ISSUER_ID" \
   --output-format json >"$VALIDATION_RESULT_TEMP"
 [[ -s "$VALIDATION_RESULT_TEMP" ]] || fail "App Store Connect returned no validation result"
-/usr/bin/jq -e . "$VALIDATION_RESULT_TEMP" >/dev/null \
-  || fail "App Store Connect validation result is not valid JSON"
-/bin/mv "$VALIDATION_RESULT_TEMP" "$VALIDATION_RESULT"
+/bin/chmod 0444 "$VALIDATION_RESULT_TEMP" \
+  || fail "could not seal the App Store Connect validation result"
+verify_altool_success_json "$VALIDATION_RESULT_TEMP" "validation"
+verify_staged_candidate_unchanged
+verify_core_candidate_unchanged
+publish_readonly_no_overwrite "$VALIDATION_RESULT_TEMP" "$VALIDATION_RESULT" \
+  "App Store Connect validation result"
+VALIDATION_RESULT_TEMP=""
 VALIDATION_RESULT_SHA256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
   "$VALIDATION_RESULT" | /usr/bin/awk '{print $1}')"
 print -r -- "App Store Connect validation passed: $VALIDATION_RESULT"
 
 [[ "$MODE" == "upload" ]] || exit 0
+verify_core_candidate_unchanged
+verify_staged_candidate_unchanged
 [[ "${AGENT_ISLAND_CONFIRM_TESTFLIGHT_UPLOAD:-}" == "$CONFIRMATION_VALUE" ]] \
   || fail "AGENT_ISLAND_CONFIRM_TESTFLIGHT_UPLOAD does not match this exact IPA"
 
-UPLOAD_RESULT="$RELEASE_DIRECTORY/testflight-upload-$STAMP.json"
-UPLOAD_RESULT_TEMP="$WORK_DIRECTORY/testflight-upload.json"
-DELIVERY_RECORD="$RELEASE_DIRECTORY/testflight-delivery-$STAMP.json"
-[[ ! -e "$UPLOAD_RESULT" && ! -L "$UPLOAD_RESULT" ]] \
-  || fail "refusing to overwrite an existing App Store Connect upload result"
-[[ ! -e "$DELIVERY_RECORD" && ! -L "$DELIVERY_RECORD" ]] \
-  || fail "refusing to overwrite an existing TestFlight delivery record"
+UPLOAD_RESULT_TEMP="$(mktemp "$RELEASE_DIRECTORY/.testflight-upload.XXXXXX")"
 DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcrun altool \
   --upload-app \
-  --file "$IPA_PATH" \
+  --file "$STAGED_IPA_PATH" \
   --type ios \
   --apiKey "$API_KEY_ID" \
   --apiIssuer "$API_ISSUER_ID" \
   --output-format json >"$UPLOAD_RESULT_TEMP"
 [[ -s "$UPLOAD_RESULT_TEMP" ]] || fail "App Store Connect returned no upload result"
-/usr/bin/jq -e . "$UPLOAD_RESULT_TEMP" >/dev/null \
-  || fail "App Store Connect upload result is not valid JSON"
-/bin/mv "$UPLOAD_RESULT_TEMP" "$UPLOAD_RESULT"
+/bin/chmod 0444 "$UPLOAD_RESULT_TEMP" \
+  || fail "could not seal the App Store Connect upload result"
+verify_altool_success_json "$UPLOAD_RESULT_TEMP" "upload"
+verify_staged_candidate_unchanged
+verify_core_candidate_unchanged
+publish_readonly_no_overwrite "$UPLOAD_RESULT_TEMP" "$UPLOAD_RESULT" \
+  "App Store Connect upload result"
+UPLOAD_RESULT_TEMP=""
 UPLOAD_RESULT_SHA256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
   "$UPLOAD_RESULT" | /usr/bin/awk '{print $1}')"
 
-METADATA_SHA256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$METADATA_PATH" \
-  | /usr/bin/awk '{print $1}')"
+verify_core_candidate_unchanged
+verify_staged_candidate_unchanged
+METADATA_SHA256="$EXPECTED_METADATA_SHA256"
+DELIVERY_RECORD_TEMP="$(mktemp "$RELEASE_DIRECTORY/.testflight-delivery.XXXXXX")"
 /usr/bin/jq -n \
   --arg submittedAt "$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')" \
   --arg appBundleID "$APP_BUNDLE_ID" \
@@ -652,7 +783,26 @@ METADATA_SHA256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$METADATA_PATH" \
     installedFromTestFlight: false,
     testedAt: null,
     submittedForAppReview: false
-  }' >"$DELIVERY_RECORD"
+  }' >"$DELIVERY_RECORD_TEMP"
+
+/bin/chmod 0444 "$DELIVERY_RECORD_TEMP" \
+  || fail "could not seal the generated TestFlight delivery record"
+/usr/bin/jq -e '
+  type == "object" and
+  .schemaVersion == 1 and
+  .platform == "iOS" and
+  .destination == "App Store Connect / TestFlight" and
+  .uploadAccepted == true and
+  .processingState == null and
+  .processingVerified == false and
+  .distributedToTesters == false and
+  .installedFromTestFlight == false and
+  .submittedForAppReview == false
+' "$DELIVERY_RECORD_TEMP" >/dev/null \
+  || fail "generated TestFlight delivery record failed its schema contract"
+publish_readonly_no_overwrite "$DELIVERY_RECORD_TEMP" "$DELIVERY_RECORD" \
+  "TestFlight delivery record"
+DELIVERY_RECORD_TEMP=""
 
 print -r -- "Upload accepted by altool: $UPLOAD_RESULT"
 print -r -- "Delivery record: $DELIVERY_RECORD"
