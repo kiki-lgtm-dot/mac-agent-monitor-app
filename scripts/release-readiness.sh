@@ -78,7 +78,10 @@ XCODE_MAJOR=0
 IPHONE_SDK=""
 IPHONE_SDK_MAJOR=0
 if [[ "$FULL_XCODE" == true ]]; then
-  XCODE_VERSION="$(DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild -version 2>/dev/null | /usr/bin/awk '/^Xcode / {print $2; exit}')"
+  # Read the complete xcodebuild output before awk exits.  With pipefail enabled,
+  # stopping after the first line can send SIGPIPE to xcodebuild (exit 141) on
+  # GitHub's full Xcode runners even though the version lookup succeeded.
+  XCODE_VERSION="$(DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild -version 2>/dev/null | /usr/bin/awk '/^Xcode / {print $2}')"
   [[ "$XCODE_VERSION" == <->* ]] && XCODE_MAJOR="${XCODE_VERSION%%.*}"
   IPHONE_SDK="$(DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || true)"
   [[ "$IPHONE_SDK" == <->* ]] && IPHONE_SDK_MAJOR="${IPHONE_SDK%%.*}"
