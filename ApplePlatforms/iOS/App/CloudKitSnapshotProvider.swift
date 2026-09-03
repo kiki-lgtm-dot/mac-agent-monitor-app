@@ -22,6 +22,17 @@ public struct CloudKitSnapshotConfiguration: Sendable {
     self.payloadField = payloadField
   }
 
+  /// Development clones intentionally ship with an example container ID so
+  /// the project can build before the developer registers CloudKit. Treat that
+  /// value as unconfigured: constructing CKContainer with it in an unsigned
+  /// simulator process can trap before XCTest (or the app UI) has launched.
+  public var hasUsableContainerIdentifier: Bool {
+    guard let containerIdentifier else { return false }
+    let normalized = containerIdentifier.lowercased()
+    return normalized.hasPrefix("icloud.")
+      && !normalized.hasPrefix("icloud.com.example.")
+  }
+
   public static func fromBundle(_ bundle: Bundle = .main) -> Self {
     let container = configuredString(
       in: bundle,
@@ -67,8 +78,8 @@ public struct CloudKitSnapshotConfiguration: Sendable {
 /// CloudKit and receives only the reduced ActivityKit ContentState.
 public actor CloudKitSnapshotProvider: AgentSnapshotProviding {
   private let configuration: CloudKitSnapshotConfiguration
-  private let container: CKContainer
-  private let privateDatabase: CKDatabase
+  private let container: CKContainer?
+  private let privateDatabase: CKDatabase?
   private let cache: SyncedSnapshotStore
 
   public init(
@@ -77,17 +88,24 @@ public actor CloudKitSnapshotProvider: AgentSnapshotProviding {
   ) {
     self.configuration = configuration
     self.cache = cache
-    let resolvedContainer: CKContainer
-    if let containerIdentifier = configuration.containerIdentifier {
-      resolvedContainer = CKContainer(identifier: containerIdentifier)
+    if configuration.hasUsableContainerIdentifier,
+      let containerIdentifier = configuration.containerIdentifier
+    {
+      let resolvedContainer = CKContainer(identifier: containerIdentifier)
+      self.container = resolvedContainer
+      self.privateDatabase = resolvedContainer.privateCloudDatabase
     } else {
-      resolvedContainer = CKContainer.default()
+      self.container = nil
+      self.privateDatabase = nil
     }
-    self.container = resolvedContainer
-    self.privateDatabase = resolvedContainer.privateCloudDatabase
   }
 
   public func fetchSnapshot() async throws -> AgentIslandSnapshot {
+    // An unconfigured development build is a valid empty state, not a launch
+    // failure. A production archive is separately prevented from shipping an
+    // example identifier by the release-readiness gates.
+    guard let privateDatabase else { return .empty }
+
     // Resolve the signed-in account before touching disk. Cache files are keyed
     // by an irreversible digest of the CloudKit user record identifier, so an
     // iCloud account switch can never fall back to another user's snapshot.
@@ -154,6 +172,9 @@ public actor CloudKitSnapshotProvider: AgentSnapshotProviding {
   }
 
   private func resolvedAccountKey() async throws -> String {
+    guard let container else {
+      throw CloudKitSnapshotError.accountUnavailable
+    }
     let status = try await container.accountStatus()
     guard status == .available else {
       throw CloudKitSnapshotError.accountUnavailable

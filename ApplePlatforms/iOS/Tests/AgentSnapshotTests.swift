@@ -2,6 +2,30 @@ import XCTest
 @testable import AgentIslandMobile
 
 final class AgentSnapshotTests: XCTestCase {
+  func testExampleCloudKitContainerRemainsAnUnconfiguredEmptyState() async throws {
+    let configuration = CloudKitSnapshotConfiguration(
+      containerIdentifier: "iCloud.com.example.agentisland",
+      recordType: "AgentIslandSnapshot",
+      recordName: "latest",
+      payloadField: "payloadJSON"
+    )
+
+    XCTAssertFalse(configuration.hasUsableContainerIdentifier)
+    let snapshot = try await CloudKitSnapshotProvider(configuration: configuration).fetchSnapshot()
+    XCTAssertEqual(snapshot, .empty)
+  }
+
+  func testRegisteredCloudKitContainerIsRecognized() {
+    let configuration = CloudKitSnapshotConfiguration(
+      containerIdentifier: "iCloud.com.acme.agent-monitor",
+      recordType: "AgentIslandSnapshot",
+      recordName: "latest",
+      payloadField: "payloadJSON"
+    )
+
+    XCTAssertTrue(configuration.hasUsableContainerIdentifier)
+  }
+
   func testDefaultSyncRedactionRemovesFullTitlesButKeepsSafeSummaryAndUsage() {
     let source = SnapshotFixtures.titledSnapshot()
 
