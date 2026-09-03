@@ -1,6 +1,14 @@
 #!/bin/zsh
 set -euo pipefail
 
+# GitHub's macOS runners do not include ripgrep by default. Keep local runs fast
+# when it is available, while making the release checks portable to stock macOS.
+if ! command -v rg >/dev/null 2>&1; then
+  rg() {
+    /usr/bin/grep -E "$@"
+  }
+fi
+
 PROJECT_DIR="${0:A:h:h}"
 PUBLIC_DISPLAY_NAME="MAC版灵动岛--Agent运行监测"
 APP_PATH="$(LC_ALL=C AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" "$PROJECT_DIR/scripts/build-app.sh")"
