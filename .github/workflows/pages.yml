@@ -1,0 +1,53 @@
+name: Publish support site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/site/**"
+      - "docs/media/mac-agent-monitor-overview-zh.png"
+      - "docs/media/mac-agent-monitor-overview-en.png"
+      - "scripts/validate-pages-site.mjs"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+      - name: Validate public pages
+        run: node scripts/validate-pages-site.mjs
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+      - name: Stage static site
+        run: |
+          mkdir -p _site/media
+          cp -R docs/site/. _site/
+          cp docs/media/mac-agent-monitor-overview-zh.png _site/media/
+          cp docs/media/mac-agent-monitor-overview-en.png _site/media/
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
