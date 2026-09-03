@@ -112,6 +112,23 @@ valid_utc_timestamp() {
   /bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$value" '+%s' >/dev/null 2>&1
 }
 
+# App Store Connect snapshots use canonical ISO-8601 timestamps with
+# millisecond precision while the existing operator records use whole
+# seconds. Normalize both forms to epoch milliseconds before comparing them.
+utc_timestamp_milliseconds() {
+  local value="$1"
+  command -v node >/dev/null 2>&1 || return 1
+  node -e '
+    const value = process.argv[1];
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) process.exit(1);
+    const milliseconds = Date.parse(value);
+    if (!Number.isSafeInteger(milliseconds)) process.exit(1);
+    const canonical = new Date(milliseconds).toISOString();
+    if (value !== canonical && value !== canonical.replace(".000Z", "Z")) process.exit(1);
+    process.stdout.write(String(milliseconds));
+  ' "$value" 2>/dev/null
+}
+
 IOS_XCCONFIG_PATH="$PROJECT_DIR/ApplePlatforms/iOS/Config/Project.xcconfig"
 MAC_XCCONFIG_PATH="$PROJECT_DIR/ApplePlatforms/macOS/Config/Project.xcconfig"
 xcconfig_value() {
@@ -209,6 +226,16 @@ MAC_BUILD_NUMBER="$MAC_CONFIG_BUILD_NUMBER"
 IOS_TESTFLIGHT_VERIFICATION_EVIDENCE="${AGENT_ISLAND_IOS_TESTFLIGHT_VERIFICATION_EVIDENCE:-}"
 IOS_FUNCTIONAL_QA_EVIDENCE="${AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE:-}"
 MAC_APP_STORE_RECORD_MODE="${AGENT_ISLAND_APP_STORE_RECORD_MODE:-}"
+APP_STORE_SUBMISSION_MANIFEST_INPUT="${AGENT_ISLAND_APP_STORE_SUBMISSION:-.release/app-store-submission.json}"
+PUBLIC_PAGES_EVIDENCE_INPUT="${AGENT_ISLAND_PUBLIC_PAGES_EVIDENCE:-.release/public-pages-evidence.json}"
+MAC_ASC_BUILD_SNAPSHOT_INPUT="${AGENT_ISLAND_ASC_MAC_BUILD_SNAPSHOT:-}"
+IOS_ASC_BUILD_SNAPSHOT_INPUT="${AGENT_ISLAND_ASC_IOS_BUILD_SNAPSHOT:-}"
+ASC_SNAPSHOT_MAX_AGE_SECONDS="${AGENT_ISLAND_ASC_SNAPSHOT_MAX_AGE_SECONDS:-900}"
+ASC_SNAPSHOT_MAX_AGE_VALID=false
+if [[ "$ASC_SNAPSHOT_MAX_AGE_SECONDS" == <-> ]] && \
+    (( ASC_SNAPSHOT_MAX_AGE_SECONDS >= 1 && ASC_SNAPSHOT_MAX_AGE_SECONDS <= 900 )); then
+  ASC_SNAPSHOT_MAX_AGE_VALID=true
+fi
 RELEASE_IDENTITY_LOCK_PATH="$PROJECT_DIR/.release/identity.lock.json"
 RELEASE_IDENTITY_MAC_INFO_PATH="$PROJECT_DIR/Resources/Info.plist"
 
@@ -1278,6 +1305,235 @@ if /usr/bin/jq -e 'type == "object"' "$STORE_SUBMISSION_VALIDATION_RESULT" \
     "$STORE_SUBMISSION_VALIDATION_RESULT")"
 fi
 
+# Validate the finalized App Store submission decisions separately from the
+# generated store assets above. This validator is local-only: it reads the
+# manifest, the current identity lock, and the already-generated asset report.
+APP_STORE_SUBMISSION_MANIFEST_CONFIGURED=false
+APP_STORE_SUBMISSION_MANIFEST_READY=false
+MAC_APP_STORE_SUBMISSION_MANIFEST_READY=false
+IOS_APP_STORE_SUBMISSION_MANIFEST_READY=false
+APP_STORE_SUBMISSION_MANIFEST_PATH=""
+APP_STORE_SUBMISSION_MANIFEST_SHA256=""
+APP_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON="[]"
+APP_STORE_SUBMISSION_RELEASE_BLOCKERS_JSON="[]"
+MAC_APP_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON="[]"
+MAC_APP_STORE_SUBMISSION_RELEASE_BLOCKERS_JSON="[]"
+IOS_APP_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON="[]"
+IOS_APP_STORE_SUBMISSION_RELEASE_BLOCKERS_JSON="[]"
+MAC_APP_STORE_EXPECTED_APP_RESOURCE_ID=""
+MAC_APP_STORE_EXPECTED_SKU=""
+MAC_APP_STORE_EXPECTED_PRIMARY_LOCALE=""
+IOS_APP_STORE_EXPECTED_APP_RESOURCE_ID=""
+IOS_APP_STORE_EXPECTED_SKU=""
+IOS_APP_STORE_EXPECTED_PRIMARY_LOCALE=""
+APP_STORE_SUBMISSION_VALIDATOR="$PROJECT_DIR/scripts/validate-app-store-submission.mjs"
+APP_STORE_SUBMISSION_VALIDATION_RESULT="$READINESS_ROOT/app-store-submission-validation.json"
+APP_STORE_SUBMISSION_VALIDATION_LOG="$READINESS_ROOT/app-store-submission-validation.log"
+if command -v node >/dev/null 2>&1 && \
+    [[ -f "$APP_STORE_SUBMISSION_VALIDATOR" && ! -L "$APP_STORE_SUBMISSION_VALIDATOR" ]]; then
+  AGENT_ISLAND_APP_STORE_SUBMISSION="$APP_STORE_SUBMISSION_MANIFEST_INPUT" \
+    node "$APP_STORE_SUBMISSION_VALIDATOR" --release \
+      >"$APP_STORE_SUBMISSION_VALIDATION_RESULT" \
+      2>"$APP_STORE_SUBMISSION_VALIDATION_LOG" || true
+fi
+if /usr/bin/jq -e '
+    .schemaVersion == 1 and
+    .mode == "release" and
+    (.manifest | type == "object") and
+    (.manifest.path | type == "string") and
+    (.manifest.present | type == "boolean") and
+    (.manifest.finalizedLocation | type == "boolean") and
+    ((.manifest.sha256 == null) or (.manifest.sha256 | type == "string")) and
+    (.identityLock | type == "object") and
+    (.identityLock.bound | type == "boolean") and
+    (.candidates.macos | type == "object") and
+    (.candidates.ios | type == "object") and
+    .appStoreConnectComparison.verifiedByThisValidator == false and
+    .appStoreConnectComparison.requiredBeforeRemoteAction == true and
+    .submissionReadyForRemoteAction == false and
+    (.appStoreSubmissionManifestReady | type == "boolean") and
+    (.macAppStoreSubmissionManifestReady | type == "boolean") and
+    (.iosAppStoreSubmissionManifestReady | type == "boolean") and
+    (.structuralErrors | type == "array" and all(.[]; type == "string")) and
+    (.releaseBlockers | type == "array" and all(.[]; type == "string")) and
+    (.platforms.macos.structuralErrors | type == "array" and all(.[]; type == "string")) and
+    (.platforms.macos.releaseBlockers | type == "array" and all(.[]; type == "string")) and
+    (.platforms.ios.structuralErrors | type == "array" and all(.[]; type == "string")) and
+    (.platforms.ios.releaseBlockers | type == "array" and all(.[]; type == "string")) and
+    (.appStoreConnectComparison.expected.macos.appResourceId | type == "string" or . == null) and
+    (.appStoreConnectComparison.expected.macos.sku | type == "string" or . == null) and
+    (.appStoreConnectComparison.expected.macos.primaryLocale | type == "string" or . == null) and
+    (.appStoreConnectComparison.expected.ios.appResourceId | type == "string" or . == null) and
+    (.appStoreConnectComparison.expected.ios.sku | type == "string" or . == null) and
+    (.appStoreConnectComparison.expected.ios.primaryLocale | type == "string" or . == null)
+  ' "$APP_STORE_SUBMISSION_VALIDATION_RESULT" >/dev/null 2>&1; then
+  APP_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON="$(/usr/bin/jq -c \
+    '.structuralErrors | unique' "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+  APP_STORE_SUBMISSION_RELEASE_BLOCKERS_JSON="$(/usr/bin/jq -c \
+    '.releaseBlockers | unique' "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+  MAC_APP_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON="$(/usr/bin/jq -c \
+    '.platforms.macos.structuralErrors | unique' "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+  MAC_APP_STORE_SUBMISSION_RELEASE_BLOCKERS_JSON="$(/usr/bin/jq -c \
+    '.platforms.macos.releaseBlockers | unique' "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+  IOS_APP_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON="$(/usr/bin/jq -c \
+    '.platforms.ios.structuralErrors | unique' "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+  IOS_APP_STORE_SUBMISSION_RELEASE_BLOCKERS_JSON="$(/usr/bin/jq -c \
+    '.platforms.ios.releaseBlockers | unique' "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+
+  APP_STORE_SUBMISSION_REPORTED_PATH="$(/usr/bin/jq -r '.manifest.path' \
+    "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+  APP_STORE_SUBMISSION_REPORTED_SHA256="$(/usr/bin/jq -r '.manifest.sha256 // ""' \
+    "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+  APP_STORE_SUBMISSION_CANDIDATE_PATH="$PROJECT_DIR/$APP_STORE_SUBMISSION_REPORTED_PATH"
+  if [[ "$(/usr/bin/jq -r '.manifest.present' \
+        "$APP_STORE_SUBMISSION_VALIDATION_RESULT")" == true && \
+      "$APP_STORE_SUBMISSION_REPORTED_PATH" == ".release/app-store-submission.json" && \
+      "$APP_STORE_SUBMISSION_REPORTED_PATH" != /* && \
+      "$APP_STORE_SUBMISSION_REPORTED_PATH" != "" && \
+      -f "$APP_STORE_SUBMISSION_CANDIDATE_PATH" && \
+      ! -L "$APP_STORE_SUBMISSION_CANDIDATE_PATH" && \
+      "${APP_STORE_SUBMISSION_CANDIDATE_PATH:A}" == \
+        "$APP_STORE_SUBMISSION_CANDIDATE_PATH" && \
+      "$APP_STORE_SUBMISSION_CANDIDATE_PATH" == "$PROJECT_DIR"/* && \
+      "$APP_STORE_SUBMISSION_REPORTED_SHA256" == [0-9a-f]## && \
+      ${#APP_STORE_SUBMISSION_REPORTED_SHA256} -eq 64 && \
+      "$(file_sha256 "$APP_STORE_SUBMISSION_CANDIDATE_PATH")" == \
+        "$APP_STORE_SUBMISSION_REPORTED_SHA256" ]]; then
+    APP_STORE_SUBMISSION_MANIFEST_CONFIGURED=true
+    APP_STORE_SUBMISSION_MANIFEST_PATH="$APP_STORE_SUBMISSION_CANDIDATE_PATH"
+    APP_STORE_SUBMISSION_MANIFEST_SHA256="$APP_STORE_SUBMISSION_REPORTED_SHA256"
+    MAC_APP_STORE_EXPECTED_APP_RESOURCE_ID="$(/usr/bin/jq -r \
+      '.appStoreConnectComparison.expected.macos.appResourceId // ""' \
+      "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+    MAC_APP_STORE_EXPECTED_SKU="$(/usr/bin/jq -r \
+      '.appStoreConnectComparison.expected.macos.sku // ""' \
+      "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+    MAC_APP_STORE_EXPECTED_PRIMARY_LOCALE="$(/usr/bin/jq -r \
+      '.appStoreConnectComparison.expected.macos.primaryLocale // ""' \
+      "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+    IOS_APP_STORE_EXPECTED_APP_RESOURCE_ID="$(/usr/bin/jq -r \
+      '.appStoreConnectComparison.expected.ios.appResourceId // ""' \
+      "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+    IOS_APP_STORE_EXPECTED_SKU="$(/usr/bin/jq -r \
+      '.appStoreConnectComparison.expected.ios.sku // ""' \
+      "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+    IOS_APP_STORE_EXPECTED_PRIMARY_LOCALE="$(/usr/bin/jq -r \
+      '.appStoreConnectComparison.expected.ios.primaryLocale // ""' \
+      "$APP_STORE_SUBMISSION_VALIDATION_RESULT")"
+    if [[ "$RELEASE_IDENTITY_LOCK_READY" == true ]] && \
+        /usr/bin/jq -e \
+          --arg identityPath ".release/identity.lock.json" \
+          --arg identitySHA "$RELEASE_IDENTITY_LOCK_SHA256" \
+          --arg recordMode "$MAC_APP_STORE_RECORD_MODE" \
+          --arg macBundle "$MAC_BUNDLE_ID" \
+          --arg macVersion "$MAC_MARKETING_VERSION" \
+          --arg macBuild "$MAC_BUILD_NUMBER" \
+          --arg iosBundle "$IOS_APP_BUNDLE_ID" \
+          --arg iosWidget "$IOS_WIDGET_BUNDLE_ID" \
+          --arg iosVersion "$IOS_MARKETING_VERSION" \
+          --arg iosBuild "$IOS_BUILD_NUMBER" '
+            .mode == "release" and .manifest.finalizedLocation == true and
+            .identityLock.bound == true and
+            .identityLock.path == $identityPath and
+            .identityLock.sha256 == $identitySHA and
+            .recordMode == $recordMode and
+            .candidates.macos.bundleIdentifier == $macBundle and
+            .candidates.macos.version == $macVersion and
+            .candidates.macos.build == $macBuild and
+            .candidates.ios.bundleIdentifier == $iosBundle and
+            .candidates.ios.widgetBundleIdentifier == $iosWidget and
+            .candidates.ios.version == $iosVersion and
+            .candidates.ios.build == $iosBuild and
+            .appStoreConnectComparison.expected.macos.bundleIdentifier == $macBundle and
+            .appStoreConnectComparison.expected.ios.bundleIdentifier == $iosBundle and
+            .appStoreConnectComparison.verifiedByThisValidator == false and
+            .appStoreConnectComparison.requiredBeforeRemoteAction == true and
+            .submissionReadyForRemoteAction == false
+          ' "$APP_STORE_SUBMISSION_VALIDATION_RESULT" >/dev/null 2>&1; then
+      [[ "$(/usr/bin/jq -r '.appStoreSubmissionManifestReady' \
+        "$APP_STORE_SUBMISSION_VALIDATION_RESULT")" == true ]] && \
+        APP_STORE_SUBMISSION_MANIFEST_READY=true
+      [[ "$(/usr/bin/jq -r '.macAppStoreSubmissionManifestReady' \
+        "$APP_STORE_SUBMISSION_VALIDATION_RESULT")" == true ]] && \
+        MAC_APP_STORE_SUBMISSION_MANIFEST_READY=true
+      [[ "$(/usr/bin/jq -r '.iosAppStoreSubmissionManifestReady' \
+        "$APP_STORE_SUBMISSION_VALIDATION_RESULT")" == true ]] && \
+        IOS_APP_STORE_SUBMISSION_MANIFEST_READY=true
+    fi
+  fi
+fi
+
+# This is intentionally verification-only. Capturing public-page evidence is a
+# separate, explicit network operation; readiness never fetches the web.
+PUBLIC_PAGES_EVIDENCE_CONFIGURED=false
+PUBLIC_PAGES_EVIDENCE_READY=false
+PUBLIC_PAGES_EVIDENCE_BOUND_TO_SUBMISSION_MANIFEST=false
+PUBLIC_PAGES_EVIDENCE_PATH=""
+PUBLIC_PAGES_EVIDENCE_SHA256=""
+PUBLIC_PAGES_EVIDENCE_BINDING_TYPE=""
+PUBLIC_PAGES_EVIDENCE_BINDING_PATH=""
+PUBLIC_PAGES_EVIDENCE_BINDING_SHA256=""
+PUBLIC_PAGES_EVIDENCE_OLDEST_CHECKED_AT=""
+PUBLIC_PAGES_EVIDENCE_NEWEST_CHECKED_AT=""
+PUBLIC_PAGES_EVIDENCE_MAX_AGE_SECONDS=86400
+PUBLIC_PAGES_CANDIDATE_PATH="$PUBLIC_PAGES_EVIDENCE_INPUT"
+[[ "$PUBLIC_PAGES_CANDIDATE_PATH" == /* ]] || \
+  PUBLIC_PAGES_CANDIDATE_PATH="$PROJECT_DIR/$PUBLIC_PAGES_CANDIDATE_PATH"
+if [[ -n "$PUBLIC_PAGES_EVIDENCE_INPUT" && \
+    -f "$PUBLIC_PAGES_CANDIDATE_PATH" && \
+    ! -L "$PUBLIC_PAGES_CANDIDATE_PATH" && \
+    "${PUBLIC_PAGES_CANDIDATE_PATH:A}" == "$PUBLIC_PAGES_CANDIDATE_PATH" && \
+    "$PUBLIC_PAGES_CANDIDATE_PATH" == "$PROJECT_DIR"/* ]]; then
+  PUBLIC_PAGES_EVIDENCE_CONFIGURED=true
+  PUBLIC_PAGES_EVIDENCE_PATH="$PUBLIC_PAGES_CANDIDATE_PATH"
+fi
+PUBLIC_PAGES_EVIDENCE_VALIDATOR="$PROJECT_DIR/scripts/capture-public-pages-evidence.mjs"
+PUBLIC_PAGES_EVIDENCE_VALIDATION_RESULT="$READINESS_ROOT/public-pages-evidence-validation.json"
+PUBLIC_PAGES_EVIDENCE_VALIDATION_LOG="$READINESS_ROOT/public-pages-evidence-validation.log"
+if [[ "$PUBLIC_PAGES_EVIDENCE_CONFIGURED" == true ]] && \
+    command -v node >/dev/null 2>&1 && \
+    [[ -f "$PUBLIC_PAGES_EVIDENCE_VALIDATOR" && ! -L "$PUBLIC_PAGES_EVIDENCE_VALIDATOR" ]] && \
+    node "$PUBLIC_PAGES_EVIDENCE_VALIDATOR" \
+      --verify "$PUBLIC_PAGES_EVIDENCE_PATH" \
+      --max-age-seconds "$PUBLIC_PAGES_EVIDENCE_MAX_AGE_SECONDS" \
+      >"$PUBLIC_PAGES_EVIDENCE_VALIDATION_RESULT" \
+      2>"$PUBLIC_PAGES_EVIDENCE_VALIDATION_LOG" && \
+    /usr/bin/jq -e \
+      --arg evidencePath "$PUBLIC_PAGES_EVIDENCE_PATH" \
+      --argjson maxAge "$PUBLIC_PAGES_EVIDENCE_MAX_AGE_SECONDS" '
+        .valid == true and .evidencePath == $evidencePath and
+        (.evidenceSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
+        (.binding | type == "object") and
+        (.binding.type == "submission-manifest" or .binding.type == "identity-lock") and
+        (.binding.path | type == "string" and length > 0) and
+        (.binding.sha256 | type == "string" and test("^[0-9a-f]{64}$")) and
+        (.oldestCheckedAt | type == "string" and length > 0) and
+        (.newestCheckedAt | type == "string" and length > 0) and
+        .maxAgeSeconds == $maxAge
+      ' "$PUBLIC_PAGES_EVIDENCE_VALIDATION_RESULT" >/dev/null 2>&1; then
+  PUBLIC_PAGES_EVIDENCE_READY=true
+  PUBLIC_PAGES_EVIDENCE_SHA256="$(/usr/bin/jq -r '.evidenceSHA256' \
+    "$PUBLIC_PAGES_EVIDENCE_VALIDATION_RESULT")"
+  PUBLIC_PAGES_EVIDENCE_BINDING_TYPE="$(/usr/bin/jq -r '.binding.type' \
+    "$PUBLIC_PAGES_EVIDENCE_VALIDATION_RESULT")"
+  PUBLIC_PAGES_EVIDENCE_BINDING_PATH="$(/usr/bin/jq -r '.binding.path' \
+    "$PUBLIC_PAGES_EVIDENCE_VALIDATION_RESULT")"
+  PUBLIC_PAGES_EVIDENCE_BINDING_SHA256="$(/usr/bin/jq -r '.binding.sha256' \
+    "$PUBLIC_PAGES_EVIDENCE_VALIDATION_RESULT")"
+  PUBLIC_PAGES_EVIDENCE_OLDEST_CHECKED_AT="$(/usr/bin/jq -r '.oldestCheckedAt' \
+    "$PUBLIC_PAGES_EVIDENCE_VALIDATION_RESULT")"
+  PUBLIC_PAGES_EVIDENCE_NEWEST_CHECKED_AT="$(/usr/bin/jq -r '.newestCheckedAt' \
+    "$PUBLIC_PAGES_EVIDENCE_VALIDATION_RESULT")"
+  if [[ "$APP_STORE_SUBMISSION_MANIFEST_READY" == true && \
+      "$PUBLIC_PAGES_EVIDENCE_BINDING_TYPE" == "submission-manifest" && \
+      "$PUBLIC_PAGES_EVIDENCE_BINDING_PATH" == \
+        "$APP_STORE_SUBMISSION_MANIFEST_PATH" && \
+      "$PUBLIC_PAGES_EVIDENCE_BINDING_SHA256" == \
+        "$APP_STORE_SUBMISSION_MANIFEST_SHA256" ]]; then
+    PUBLIC_PAGES_EVIDENCE_BOUND_TO_SUBMISSION_MANIFEST=true
+  fi
+fi
+
 # Bind every macOS release state to one exact locally exported candidate. A
 # local preflight, an accepted upload, App Store Connect processing, functional
 # QA, and App Review submission are deliberately separate states. This script
@@ -1588,6 +1844,266 @@ if [[ "$MAC_APP_STORE_DELIVERY_EVIDENCE_READY" == true && \
     '.appStoreConnectBuildID' "$MAC_PROCESSING_VALIDATION_RESULT")"
 fi
 
+# App Store Connect is queried only by the explicit capture command. Readiness
+# consumes its sealed build snapshots with the verifier's offline --verify mode
+# and binds them back to the exact local artifacts and identity lock.
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_CONFIGURED=false
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_READY=false
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_PATH=""
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_SHA256=""
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_EVIDENCE_SHA256=""
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_CAPTURED_AT=""
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_EXPIRES_AT=""
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_APP_RESOURCE_ID=""
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_RESOURCE_ID=""
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNINGS_PRESENT=""
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_SUBMISSION_APP_IDENTITY=false
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_OPERATOR_EVIDENCE=false
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNING_REVIEW_CURRENT=false
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_EXPORT_COMPLIANCE_REQUIRED=""
+MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_UPLOAD_ERROR_FREE=""
+MAC_APP_STORE_CONNECT_REMOTE_METADATA_COMPARISON_COMPLETE=false
+
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_CONFIGURED=false
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_READY=false
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_PATH=""
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_SHA256=""
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_EVIDENCE_SHA256=""
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_CAPTURED_AT=""
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_EXPIRES_AT=""
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_APP_RESOURCE_ID=""
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_RESOURCE_ID=""
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNINGS_PRESENT=""
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_SUBMISSION_APP_IDENTITY=false
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_OPERATOR_EVIDENCE=false
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNING_REVIEW_CURRENT=false
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_EXPORT_COMPLIANCE_REQUIRED=""
+IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_UPLOAD_ERROR_FREE=""
+IOS_APP_STORE_CONNECT_REMOTE_METADATA_COMPARISON_COMPLETE=false
+
+ASC_BUILD_SNAPSHOT_VERIFIER="$PROJECT_DIR/scripts/capture-asc-build-snapshot.mjs"
+MAC_ASC_BUILD_SNAPSHOT_RESULT="$READINESS_ROOT/macos-asc-build-snapshot.json"
+MAC_ASC_BUILD_SNAPSHOT_LOG="$READINESS_ROOT/macos-asc-build-snapshot.log"
+IOS_ASC_BUILD_SNAPSHOT_RESULT="$READINESS_ROOT/ios-asc-build-snapshot.json"
+IOS_ASC_BUILD_SNAPSHOT_LOG="$READINESS_ROOT/ios-asc-build-snapshot.log"
+
+if [[ -n "$MAC_ASC_BUILD_SNAPSHOT_INPUT" && \
+    "$MAC_ASC_BUILD_SNAPSHOT_INPUT" == /* && \
+    -f "$MAC_ASC_BUILD_SNAPSHOT_INPUT" && \
+    ! -L "$MAC_ASC_BUILD_SNAPSHOT_INPUT" && \
+    "${MAC_ASC_BUILD_SNAPSHOT_INPUT:A}" == "$MAC_ASC_BUILD_SNAPSHOT_INPUT" ]]; then
+  MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_CONFIGURED=true
+  MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_PATH="$MAC_ASC_BUILD_SNAPSHOT_INPUT"
+fi
+if [[ "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_CONFIGURED" == true && \
+    "$ASC_SNAPSHOT_MAX_AGE_VALID" == true && \
+    "$MAC_APP_STORE_EXACT_CANDIDATE_EVIDENCE_READY" == true && \
+    "$RELEASE_IDENTITY_LOCK_READY" == true ]] && \
+    command -v node >/dev/null 2>&1 && \
+    [[ -f "$ASC_BUILD_SNAPSHOT_VERIFIER" && ! -L "$ASC_BUILD_SNAPSHOT_VERIFIER" ]] && \
+    node "$ASC_BUILD_SNAPSHOT_VERIFIER" \
+      --verify "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_PATH" \
+      --bundle-id "$MAC_BUNDLE_ID" \
+      --platform macOS \
+      --version "$MAC_MARKETING_VERSION" \
+      --build "$MAC_BUILD_NUMBER" \
+      --artifact "$MAC_CANDIDATE_PACKAGE" \
+      --identity-lock "$RELEASE_IDENTITY_LOCK_PATH" \
+      --max-age-seconds "$ASC_SNAPSHOT_MAX_AGE_SECONDS" \
+      >"$MAC_ASC_BUILD_SNAPSHOT_RESULT" 2>"$MAC_ASC_BUILD_SNAPSHOT_LOG" && \
+    /usr/bin/jq -e \
+      --arg path "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_PATH" \
+      --arg bundle "$MAC_BUNDLE_ID" \
+      --arg version "$MAC_MARKETING_VERSION" \
+      --arg build "$MAC_BUILD_NUMBER" \
+      --arg artifact "$MAC_CANDIDATE_PACKAGE" \
+      --arg identity "$RELEASE_IDENTITY_LOCK_PATH" '
+        .verified == true and
+        .kind == "app-store-connect-build-snapshot" and
+        .snapshotPath == $path and
+        (.snapshotSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
+        (.evidenceSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
+        (.capturedAt | type == "string" and length > 0) and
+        (.expiresAt | type == "string" and length > 0) and
+        .query.bundleID == $bundle and .query.platform == "MAC_OS" and
+        .query.version == $version and .query.build == $build and
+        .candidate.artifactPath == $artifact and
+        .candidate.releaseIdentityLockPath == $identity and
+        .app.bundleID == $bundle and
+        .app.resourceID == .resourceIDs.app and
+        .build.resourceID == .resourceIDs.build and
+        (.app.resourceID | type == "string" and length > 0) and
+        (.build.resourceID | type == "string" and length > 0) and
+        (.app.sku | type == "string" and length > 0) and
+        (.app.primaryLocale | type == "string" and length > 0) and
+        (.readiness.snapshotReady | type == "boolean") and
+        (.readiness.exportComplianceRequired | type == "boolean") and
+        (.readiness.buildUploadErrorFree | type == "boolean") and
+        (.readiness.warningsPresent | type == "boolean")
+      ' "$MAC_ASC_BUILD_SNAPSHOT_RESULT" >/dev/null 2>&1; then
+  MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_SHA256="$(/usr/bin/jq -r \
+    '.snapshotSHA256' "$MAC_ASC_BUILD_SNAPSHOT_RESULT")"
+  MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_EVIDENCE_SHA256="$(/usr/bin/jq -r \
+    '.evidenceSHA256' "$MAC_ASC_BUILD_SNAPSHOT_RESULT")"
+  MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_CAPTURED_AT="$(/usr/bin/jq -r \
+    '.capturedAt' "$MAC_ASC_BUILD_SNAPSHOT_RESULT")"
+  MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_EXPIRES_AT="$(/usr/bin/jq -r \
+    '.expiresAt' "$MAC_ASC_BUILD_SNAPSHOT_RESULT")"
+  MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_APP_RESOURCE_ID="$(/usr/bin/jq -r \
+    '.resourceIDs.app' "$MAC_ASC_BUILD_SNAPSHOT_RESULT")"
+  MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_RESOURCE_ID="$(/usr/bin/jq -r \
+    '.resourceIDs.build' "$MAC_ASC_BUILD_SNAPSHOT_RESULT")"
+  MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNINGS_PRESENT="$(/usr/bin/jq -r \
+    '.readiness.warningsPresent' "$MAC_ASC_BUILD_SNAPSHOT_RESULT")"
+  MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_EXPORT_COMPLIANCE_REQUIRED="$(/usr/bin/jq -r \
+    '.readiness.exportComplianceRequired' "$MAC_ASC_BUILD_SNAPSHOT_RESULT")"
+  MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_UPLOAD_ERROR_FREE="$(/usr/bin/jq -r \
+    '.readiness.buildUploadErrorFree' "$MAC_ASC_BUILD_SNAPSHOT_RESULT")"
+  [[ "$(/usr/bin/jq -r '.readiness.snapshotReady' \
+    "$MAC_ASC_BUILD_SNAPSHOT_RESULT")" == true ]] && \
+    MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_READY=true
+  if [[ "$MAC_APP_STORE_SUBMISSION_MANIFEST_READY" == true ]] && \
+      /usr/bin/jq -e \
+        --arg appResourceID "$MAC_APP_STORE_EXPECTED_APP_RESOURCE_ID" \
+        --arg sku "$MAC_APP_STORE_EXPECTED_SKU" \
+        --arg primaryLocale "$MAC_APP_STORE_EXPECTED_PRIMARY_LOCALE" '
+          .app.resourceID == $appResourceID and
+          .app.sku == $sku and .app.primaryLocale == $primaryLocale
+        ' "$MAC_ASC_BUILD_SNAPSHOT_RESULT" >/dev/null 2>&1; then
+    MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_SUBMISSION_APP_IDENTITY=true
+  fi
+  if [[ "$MAC_APP_STORE_PROCESSING_EVIDENCE_READY" == true && \
+      -n "$MAC_APP_STORE_CONNECT_BUILD_ID" && \
+      "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_RESOURCE_ID" == \
+        "$MAC_APP_STORE_CONNECT_BUILD_ID" ]]; then
+    MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_OPERATOR_EVIDENCE=true
+  fi
+  if [[ "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNINGS_PRESENT" == false ]]; then
+    MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNING_REVIEW_CURRENT=true
+  elif [[ "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_OPERATOR_EVIDENCE" == true && \
+      "$MAC_APP_STORE_WARNINGS_REVIEWED" == true ]]; then
+    MAC_ASC_CAPTURED_AT_MILLISECONDS="$(utc_timestamp_milliseconds \
+      "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_CAPTURED_AT" || true)"
+    MAC_ASC_WARNINGS_REVIEWED_AT_MILLISECONDS="$(utc_timestamp_milliseconds \
+      "$MAC_APP_STORE_WARNINGS_REVIEWED_AT" || true)"
+    if [[ "$MAC_ASC_CAPTURED_AT_MILLISECONDS" == <-> && \
+        "$MAC_ASC_WARNINGS_REVIEWED_AT_MILLISECONDS" == <-> ]] && \
+        (( MAC_ASC_WARNINGS_REVIEWED_AT_MILLISECONDS >= \
+          MAC_ASC_CAPTURED_AT_MILLISECONDS )); then
+      MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNING_REVIEW_CURRENT=true
+    fi
+  fi
+fi
+
+IOS_ASC_ARTIFACT_PATH="${IOS_EVIDENCE_IPA_PATH:-}"
+if [[ -n "$IOS_ASC_BUILD_SNAPSHOT_INPUT" && \
+    "$IOS_ASC_BUILD_SNAPSHOT_INPUT" == /* && \
+    -f "$IOS_ASC_BUILD_SNAPSHOT_INPUT" && \
+    ! -L "$IOS_ASC_BUILD_SNAPSHOT_INPUT" && \
+    "${IOS_ASC_BUILD_SNAPSHOT_INPUT:A}" == "$IOS_ASC_BUILD_SNAPSHOT_INPUT" ]]; then
+  IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_CONFIGURED=true
+  IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_PATH="$IOS_ASC_BUILD_SNAPSHOT_INPUT"
+fi
+if [[ "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_CONFIGURED" == true && \
+    "$ASC_SNAPSHOT_MAX_AGE_VALID" == true && \
+    "$IOS_TESTFLIGHT_EXACT_BUILD_EVIDENCE_READY" == true && \
+    "$RELEASE_IDENTITY_LOCK_READY" == true ]] && \
+    command -v node >/dev/null 2>&1 && \
+    [[ -f "$ASC_BUILD_SNAPSHOT_VERIFIER" && ! -L "$ASC_BUILD_SNAPSHOT_VERIFIER" ]] && \
+    node "$ASC_BUILD_SNAPSHOT_VERIFIER" \
+      --verify "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_PATH" \
+      --bundle-id "$IOS_APP_BUNDLE_ID" \
+      --platform iOS \
+      --version "$IOS_MARKETING_VERSION" \
+      --build "$IOS_BUILD_NUMBER" \
+      --artifact "$IOS_ASC_ARTIFACT_PATH" \
+      --identity-lock "$RELEASE_IDENTITY_LOCK_PATH" \
+      --max-age-seconds "$ASC_SNAPSHOT_MAX_AGE_SECONDS" \
+      >"$IOS_ASC_BUILD_SNAPSHOT_RESULT" 2>"$IOS_ASC_BUILD_SNAPSHOT_LOG" && \
+    /usr/bin/jq -e \
+      --arg path "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_PATH" \
+      --arg bundle "$IOS_APP_BUNDLE_ID" \
+      --arg version "$IOS_MARKETING_VERSION" \
+      --arg build "$IOS_BUILD_NUMBER" \
+      --arg artifact "$IOS_ASC_ARTIFACT_PATH" \
+      --arg identity "$RELEASE_IDENTITY_LOCK_PATH" '
+        .verified == true and
+        .kind == "app-store-connect-build-snapshot" and
+        .snapshotPath == $path and
+        (.snapshotSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
+        (.evidenceSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
+        (.capturedAt | type == "string" and length > 0) and
+        (.expiresAt | type == "string" and length > 0) and
+        .query.bundleID == $bundle and .query.platform == "IOS" and
+        .query.version == $version and .query.build == $build and
+        .candidate.artifactPath == $artifact and
+        .candidate.releaseIdentityLockPath == $identity and
+        .app.bundleID == $bundle and
+        .app.resourceID == .resourceIDs.app and
+        .build.resourceID == .resourceIDs.build and
+        (.app.resourceID | type == "string" and length > 0) and
+        (.build.resourceID | type == "string" and length > 0) and
+        (.app.sku | type == "string" and length > 0) and
+        (.app.primaryLocale | type == "string" and length > 0) and
+        (.readiness.snapshotReady | type == "boolean") and
+        (.readiness.exportComplianceRequired | type == "boolean") and
+        (.readiness.buildUploadErrorFree | type == "boolean") and
+        (.readiness.warningsPresent | type == "boolean")
+      ' "$IOS_ASC_BUILD_SNAPSHOT_RESULT" >/dev/null 2>&1; then
+  IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_SHA256="$(/usr/bin/jq -r \
+    '.snapshotSHA256' "$IOS_ASC_BUILD_SNAPSHOT_RESULT")"
+  IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_EVIDENCE_SHA256="$(/usr/bin/jq -r \
+    '.evidenceSHA256' "$IOS_ASC_BUILD_SNAPSHOT_RESULT")"
+  IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_CAPTURED_AT="$(/usr/bin/jq -r \
+    '.capturedAt' "$IOS_ASC_BUILD_SNAPSHOT_RESULT")"
+  IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_EXPIRES_AT="$(/usr/bin/jq -r \
+    '.expiresAt' "$IOS_ASC_BUILD_SNAPSHOT_RESULT")"
+  IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_APP_RESOURCE_ID="$(/usr/bin/jq -r \
+    '.resourceIDs.app' "$IOS_ASC_BUILD_SNAPSHOT_RESULT")"
+  IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_RESOURCE_ID="$(/usr/bin/jq -r \
+    '.resourceIDs.build' "$IOS_ASC_BUILD_SNAPSHOT_RESULT")"
+  IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNINGS_PRESENT="$(/usr/bin/jq -r \
+    '.readiness.warningsPresent' "$IOS_ASC_BUILD_SNAPSHOT_RESULT")"
+  IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_EXPORT_COMPLIANCE_REQUIRED="$(/usr/bin/jq -r \
+    '.readiness.exportComplianceRequired' "$IOS_ASC_BUILD_SNAPSHOT_RESULT")"
+  IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_UPLOAD_ERROR_FREE="$(/usr/bin/jq -r \
+    '.readiness.buildUploadErrorFree' "$IOS_ASC_BUILD_SNAPSHOT_RESULT")"
+  [[ "$(/usr/bin/jq -r '.readiness.snapshotReady' \
+    "$IOS_ASC_BUILD_SNAPSHOT_RESULT")" == true ]] && \
+    IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_READY=true
+  if [[ "$IOS_APP_STORE_SUBMISSION_MANIFEST_READY" == true ]] && \
+      /usr/bin/jq -e \
+        --arg appResourceID "$IOS_APP_STORE_EXPECTED_APP_RESOURCE_ID" \
+        --arg sku "$IOS_APP_STORE_EXPECTED_SKU" \
+        --arg primaryLocale "$IOS_APP_STORE_EXPECTED_PRIMARY_LOCALE" '
+          .app.resourceID == $appResourceID and
+          .app.sku == $sku and .app.primaryLocale == $primaryLocale
+        ' "$IOS_ASC_BUILD_SNAPSHOT_RESULT" >/dev/null 2>&1; then
+    IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_SUBMISSION_APP_IDENTITY=true
+  fi
+  if [[ "$IOS_TESTFLIGHT_EXACT_BUILD_EVIDENCE_READY" == true && \
+      -n "$IOS_TESTFLIGHT_APP_STORE_CONNECT_BUILD_ID" && \
+      "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_RESOURCE_ID" == \
+        "$IOS_TESTFLIGHT_APP_STORE_CONNECT_BUILD_ID" ]]; then
+    IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_OPERATOR_EVIDENCE=true
+  fi
+  if [[ "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNINGS_PRESENT" == false ]]; then
+    IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNING_REVIEW_CURRENT=true
+  elif [[ "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_OPERATOR_EVIDENCE" == true && \
+      "$IOS_TESTFLIGHT_WARNINGS_REVIEWED" == true ]]; then
+    IOS_ASC_CAPTURED_AT_MILLISECONDS="$(utc_timestamp_milliseconds \
+      "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_CAPTURED_AT" || true)"
+    IOS_ASC_WARNINGS_REVIEWED_AT_MILLISECONDS="$(utc_timestamp_milliseconds \
+      "$IOS_TESTFLIGHT_WARNINGS_REVIEWED_AT" || true)"
+    if [[ "$IOS_ASC_CAPTURED_AT_MILLISECONDS" == <-> && \
+        "$IOS_ASC_WARNINGS_REVIEWED_AT_MILLISECONDS" == <-> ]] && \
+        (( IOS_ASC_WARNINGS_REVIEWED_AT_MILLISECONDS >= \
+          IOS_ASC_CAPTURED_AT_MILLISECONDS )); then
+      IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNING_REVIEW_CURRENT=true
+    fi
+  fi
+fi
+
 NOTARY_PROFILE_CONFIGURED=false
 [[ -n "$NOTARY_PROFILE" ]] && NOTARY_PROFILE_CONFIGURED=true
 MAC_DEVELOPER_ID_TOOLCHAIN=false
@@ -1661,12 +2177,21 @@ if [[ "$READY_IOS_ARCHIVE" == true && "$IOS_SYNC_IMPLEMENTED" == true && \
   READY_FUNCTIONAL_IOS_TESTFLIGHT=true
 fi
 
-# This state means the exact, functionally verified TestFlight build and the
-# iOS-only store materials are ready for a human to select in App Store Connect.
-# It does not claim that the build was selected, added for review, or submitted.
+# This state stays closed until a trusted integration compares the full remote
+# App Store metadata, not just the App identity returned with a Build snapshot.
+# Even then it only permits a human selection step; it never records a remote
+# selection, Add for Review, or Submit for Review action.
 READY_IOS_APP_STORE_REVIEW_SELECTION=false
 if [[ "$READY_FUNCTIONAL_IOS_TESTFLIGHT" == true && \
     "$IOS_STORE_SUBMISSION_ASSETS_READY" == true && \
+    "$IOS_APP_STORE_SUBMISSION_MANIFEST_READY" == true && \
+    "$PUBLIC_PAGES_EVIDENCE_READY" == true && \
+    "$PUBLIC_PAGES_EVIDENCE_BOUND_TO_SUBMISSION_MANIFEST" == true && \
+    "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_READY" == true && \
+    "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_SUBMISSION_APP_IDENTITY" == true && \
+    "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_OPERATOR_EVIDENCE" == true && \
+    "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNING_REVIEW_CURRENT" == true && \
+    "$IOS_APP_STORE_CONNECT_REMOTE_METADATA_COMPARISON_COMPLETE" == true && \
     "$MAC_APP_STORE_RECORD_MODE_READY" == true && \
     "$MAC_APP_STORE_RECORD_MODE_BUNDLE_IDS_VALID" == true && \
     "$IOS_TESTFLIGHT_WARNINGS_REVIEWED" == true && \
@@ -1710,9 +2235,18 @@ fi
 
 # A processed build may be selected while preparing App Review only after the
 # independently verified delivery and processing records bind the same exact
-# upload. This does not claim that the build has been selected or submitted.
+# upload and a trusted integration compares the full remote App metadata. This
+# does not claim that the build has been selected or submitted.
 READY_MAC_APP_STORE_REVIEW_SELECTION=false
 if [[ "$READY_MAC_APP_STORE_UPLOAD" == true && \
+    "$MAC_APP_STORE_SUBMISSION_MANIFEST_READY" == true && \
+    "$PUBLIC_PAGES_EVIDENCE_READY" == true && \
+    "$PUBLIC_PAGES_EVIDENCE_BOUND_TO_SUBMISSION_MANIFEST" == true && \
+    "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_READY" == true && \
+    "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_SUBMISSION_APP_IDENTITY" == true && \
+    "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_OPERATOR_EVIDENCE" == true && \
+    "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNING_REVIEW_CURRENT" == true && \
+    "$MAC_APP_STORE_CONNECT_REMOTE_METADATA_COMPARISON_COMPLETE" == true && \
     "$MAC_APP_STORE_DELIVERY_EVIDENCE_READY" == true && \
     "$MAC_APP_STORE_DELIVERY_BOUND_TO_CANDIDATE" == true && \
     "$MAC_APP_STORE_UPLOAD_ACCEPTED" == true && \
@@ -1792,6 +2326,40 @@ READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false
   --arg macAppStoreWarningsReviewedAt "$MAC_APP_STORE_WARNINGS_REVIEWED_AT" \
   --arg macAppStoreConnectBuildID "$MAC_APP_STORE_CONNECT_BUILD_ID" \
   --arg appStoreRecordMode "$MAC_APP_STORE_RECORD_MODE" \
+  --arg appStoreSubmissionManifestPath "$APP_STORE_SUBMISSION_MANIFEST_PATH" \
+  --arg appStoreSubmissionManifestSHA256 "$APP_STORE_SUBMISSION_MANIFEST_SHA256" \
+  --arg macAppStoreExpectedAppResourceID "$MAC_APP_STORE_EXPECTED_APP_RESOURCE_ID" \
+  --arg macAppStoreExpectedSKU "$MAC_APP_STORE_EXPECTED_SKU" \
+  --arg macAppStoreExpectedPrimaryLocale "$MAC_APP_STORE_EXPECTED_PRIMARY_LOCALE" \
+  --arg iosAppStoreExpectedAppResourceID "$IOS_APP_STORE_EXPECTED_APP_RESOURCE_ID" \
+  --arg iosAppStoreExpectedSKU "$IOS_APP_STORE_EXPECTED_SKU" \
+  --arg iosAppStoreExpectedPrimaryLocale "$IOS_APP_STORE_EXPECTED_PRIMARY_LOCALE" \
+  --arg publicPagesEvidencePath "$PUBLIC_PAGES_EVIDENCE_PATH" \
+  --arg publicPagesEvidenceSHA256 "$PUBLIC_PAGES_EVIDENCE_SHA256" \
+  --arg publicPagesEvidenceBindingType "$PUBLIC_PAGES_EVIDENCE_BINDING_TYPE" \
+  --arg publicPagesEvidenceBindingPath "$PUBLIC_PAGES_EVIDENCE_BINDING_PATH" \
+  --arg publicPagesEvidenceBindingSHA256 "$PUBLIC_PAGES_EVIDENCE_BINDING_SHA256" \
+  --arg publicPagesEvidenceOldestCheckedAt "$PUBLIC_PAGES_EVIDENCE_OLDEST_CHECKED_AT" \
+  --arg publicPagesEvidenceNewestCheckedAt "$PUBLIC_PAGES_EVIDENCE_NEWEST_CHECKED_AT" \
+  --arg appStoreConnectSnapshotMaxAgeSeconds "$ASC_SNAPSHOT_MAX_AGE_SECONDS" \
+  --arg macAppStoreConnectBuildSnapshotPath "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_PATH" \
+  --arg macAppStoreConnectBuildSnapshotSHA256 "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_SHA256" \
+  --arg macAppStoreConnectEvidenceSHA256 "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_EVIDENCE_SHA256" \
+  --arg macAppStoreConnectBuildSnapshotCapturedAt "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_CAPTURED_AT" \
+  --arg macAppStoreConnectBuildSnapshotExpiresAt "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_EXPIRES_AT" \
+  --arg macAppStoreConnectBuildSnapshotAppResourceID "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_APP_RESOURCE_ID" \
+  --arg macAppStoreConnectBuildSnapshotBuildResourceID "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_RESOURCE_ID" \
+  --arg macAppStoreConnectBuildSnapshotExportComplianceRequired "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_EXPORT_COMPLIANCE_REQUIRED" \
+  --arg macAppStoreConnectBuildSnapshotBuildUploadErrorFree "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_UPLOAD_ERROR_FREE" \
+  --arg iosAppStoreConnectBuildSnapshotPath "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_PATH" \
+  --arg iosAppStoreConnectBuildSnapshotSHA256 "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_SHA256" \
+  --arg iosAppStoreConnectEvidenceSHA256 "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_EVIDENCE_SHA256" \
+  --arg iosAppStoreConnectBuildSnapshotCapturedAt "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_CAPTURED_AT" \
+  --arg iosAppStoreConnectBuildSnapshotExpiresAt "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_EXPIRES_AT" \
+  --arg iosAppStoreConnectBuildSnapshotAppResourceID "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_APP_RESOURCE_ID" \
+  --arg iosAppStoreConnectBuildSnapshotBuildResourceID "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_RESOURCE_ID" \
+  --arg iosAppStoreConnectBuildSnapshotExportComplianceRequired "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_EXPORT_COMPLIANCE_REQUIRED" \
+  --arg iosAppStoreConnectBuildSnapshotBuildUploadErrorFree "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_BUILD_UPLOAD_ERROR_FREE" \
   --argjson fullXcode "$FULL_XCODE" \
   --argjson minimumRequiredXcodeMajor "$MINIMUM_IOS_XCODE_MAJOR" \
   --argjson minimumRequiredMacAppStoreXcodeMajor "$MINIMUM_MAC_APP_STORE_XCODE_MAJOR" \
@@ -1887,6 +2455,35 @@ READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false
   --argjson iosStoreSubmissionBlockers "$IOS_STORE_SUBMISSION_BLOCKERS_JSON" \
   --argjson macStoreSubmissionStructuralErrors "$MAC_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON" \
   --argjson iosStoreSubmissionStructuralErrors "$IOS_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON" \
+  --argjson appStoreSubmissionManifestConfigured "$APP_STORE_SUBMISSION_MANIFEST_CONFIGURED" \
+  --argjson appStoreSubmissionManifestReady "$APP_STORE_SUBMISSION_MANIFEST_READY" \
+  --argjson macAppStoreSubmissionManifestReady "$MAC_APP_STORE_SUBMISSION_MANIFEST_READY" \
+  --argjson iosAppStoreSubmissionManifestReady "$IOS_APP_STORE_SUBMISSION_MANIFEST_READY" \
+  --argjson appStoreSubmissionStructuralErrors "$APP_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON" \
+  --argjson appStoreSubmissionReleaseBlockers "$APP_STORE_SUBMISSION_RELEASE_BLOCKERS_JSON" \
+  --argjson macAppStoreSubmissionStructuralErrors "$MAC_APP_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON" \
+  --argjson macAppStoreSubmissionReleaseBlockers "$MAC_APP_STORE_SUBMISSION_RELEASE_BLOCKERS_JSON" \
+  --argjson iosAppStoreSubmissionStructuralErrors "$IOS_APP_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON" \
+  --argjson iosAppStoreSubmissionReleaseBlockers "$IOS_APP_STORE_SUBMISSION_RELEASE_BLOCKERS_JSON" \
+  --argjson publicPagesEvidenceConfigured "$PUBLIC_PAGES_EVIDENCE_CONFIGURED" \
+  --argjson publicPagesEvidenceReady "$PUBLIC_PAGES_EVIDENCE_READY" \
+  --argjson publicPagesEvidenceBoundToSubmissionManifest "$PUBLIC_PAGES_EVIDENCE_BOUND_TO_SUBMISSION_MANIFEST" \
+  --argjson publicPagesEvidenceMaxAgeSeconds "$PUBLIC_PAGES_EVIDENCE_MAX_AGE_SECONDS" \
+  --argjson appStoreConnectSnapshotMaxAgeValid "$ASC_SNAPSHOT_MAX_AGE_VALID" \
+  --argjson macAppStoreConnectBuildSnapshotConfigured "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_CONFIGURED" \
+  --argjson macAppStoreConnectBuildSnapshotReady "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_READY" \
+  --arg macAppStoreConnectBuildSnapshotWarningsPresent "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNINGS_PRESENT" \
+  --argjson macAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_SUBMISSION_APP_IDENTITY" \
+  --argjson macAppStoreConnectBuildSnapshotMatchesOperatorEvidence "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_OPERATOR_EVIDENCE" \
+  --argjson macAppStoreConnectBuildSnapshotWarningReviewCurrent "$MAC_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNING_REVIEW_CURRENT" \
+  --argjson macAppStoreConnectRemoteMetadataComparisonComplete "$MAC_APP_STORE_CONNECT_REMOTE_METADATA_COMPARISON_COMPLETE" \
+  --argjson iosAppStoreConnectBuildSnapshotConfigured "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_CONFIGURED" \
+  --argjson iosAppStoreConnectBuildSnapshotReady "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_READY" \
+  --arg iosAppStoreConnectBuildSnapshotWarningsPresent "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNINGS_PRESENT" \
+  --argjson iosAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_SUBMISSION_APP_IDENTITY" \
+  --argjson iosAppStoreConnectBuildSnapshotMatchesOperatorEvidence "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_MATCHES_OPERATOR_EVIDENCE" \
+  --argjson iosAppStoreConnectBuildSnapshotWarningReviewCurrent "$IOS_APP_STORE_CONNECT_BUILD_SNAPSHOT_WARNING_REVIEW_CURRENT" \
+  --argjson iosAppStoreConnectRemoteMetadataComparisonComplete "$IOS_APP_STORE_CONNECT_REMOTE_METADATA_COMPARISON_COMPLETE" \
   --argjson macAppStoreReleaseMetadataConfigured "$MAC_APP_STORE_RELEASE_METADATA_CONFIGURED" \
   --argjson macAppStoreExactCandidateEvidenceReady "$MAC_APP_STORE_EXACT_CANDIDATE_EVIDENCE_READY" \
   --argjson macAppStoreLocalPreflightPassed "$MAC_APP_STORE_LOCAL_PREFLIGHT_PASSED" \
@@ -2095,6 +2692,69 @@ READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false
     iosStoreSubmissionBlockerCount: ($iosStoreSubmissionBlockers | length),
     iosStoreSubmissionBlockers: $iosStoreSubmissionBlockers,
     iosStoreSubmissionStructuralErrors: $iosStoreSubmissionStructuralErrors,
+    appStoreSubmissionManifestConfigured: $appStoreSubmissionManifestConfigured,
+    appStoreSubmissionManifestReady: $appStoreSubmissionManifestReady,
+    macAppStoreSubmissionManifestReady: $macAppStoreSubmissionManifestReady,
+    iosAppStoreSubmissionManifestReady: $iosAppStoreSubmissionManifestReady,
+    appStoreSubmissionManifestPath: (if $appStoreSubmissionManifestPath == "" then null else $appStoreSubmissionManifestPath end),
+    appStoreSubmissionManifestSHA256: (if $appStoreSubmissionManifestSHA256 == "" then null else $appStoreSubmissionManifestSHA256 end),
+    appStoreSubmissionStructuralErrors: $appStoreSubmissionStructuralErrors,
+    appStoreSubmissionReleaseBlockers: $appStoreSubmissionReleaseBlockers,
+    macAppStoreSubmissionStructuralErrors: $macAppStoreSubmissionStructuralErrors,
+    macAppStoreSubmissionReleaseBlockers: $macAppStoreSubmissionReleaseBlockers,
+    iosAppStoreSubmissionStructuralErrors: $iosAppStoreSubmissionStructuralErrors,
+    iosAppStoreSubmissionReleaseBlockers: $iosAppStoreSubmissionReleaseBlockers,
+    macAppStoreExpectedAppResourceID: (if $macAppStoreExpectedAppResourceID == "" then null else $macAppStoreExpectedAppResourceID end),
+    macAppStoreExpectedSKU: (if $macAppStoreExpectedSKU == "" then null else $macAppStoreExpectedSKU end),
+    macAppStoreExpectedPrimaryLocale: (if $macAppStoreExpectedPrimaryLocale == "" then null else $macAppStoreExpectedPrimaryLocale end),
+    iosAppStoreExpectedAppResourceID: (if $iosAppStoreExpectedAppResourceID == "" then null else $iosAppStoreExpectedAppResourceID end),
+    iosAppStoreExpectedSKU: (if $iosAppStoreExpectedSKU == "" then null else $iosAppStoreExpectedSKU end),
+    iosAppStoreExpectedPrimaryLocale: (if $iosAppStoreExpectedPrimaryLocale == "" then null else $iosAppStoreExpectedPrimaryLocale end),
+    publicPagesEvidenceConfigured: $publicPagesEvidenceConfigured,
+    publicPagesEvidenceReady: $publicPagesEvidenceReady,
+    publicPagesEvidenceBoundToSubmissionManifest: $publicPagesEvidenceBoundToSubmissionManifest,
+    publicPagesEvidencePath: (if $publicPagesEvidencePath == "" then null else $publicPagesEvidencePath end),
+    publicPagesEvidenceSHA256: (if $publicPagesEvidenceSHA256 == "" then null else $publicPagesEvidenceSHA256 end),
+    publicPagesEvidenceBindingType: (if $publicPagesEvidenceBindingType == "" then null else $publicPagesEvidenceBindingType end),
+    publicPagesEvidenceBindingPath: (if $publicPagesEvidenceBindingPath == "" then null else $publicPagesEvidenceBindingPath end),
+    publicPagesEvidenceBindingSHA256: (if $publicPagesEvidenceBindingSHA256 == "" then null else $publicPagesEvidenceBindingSHA256 end),
+    publicPagesEvidenceOldestCheckedAt: (if $publicPagesEvidenceOldestCheckedAt == "" then null else $publicPagesEvidenceOldestCheckedAt end),
+    publicPagesEvidenceNewestCheckedAt: (if $publicPagesEvidenceNewestCheckedAt == "" then null else $publicPagesEvidenceNewestCheckedAt end),
+    publicPagesEvidenceMaxAgeSeconds: $publicPagesEvidenceMaxAgeSeconds,
+    appStoreConnectSnapshotMaxAgeValid: $appStoreConnectSnapshotMaxAgeValid,
+    appStoreConnectSnapshotMaxAgeSeconds: (if $appStoreConnectSnapshotMaxAgeValid then ($appStoreConnectSnapshotMaxAgeSeconds | tonumber) else null end),
+    macAppStoreConnectBuildSnapshotConfigured: $macAppStoreConnectBuildSnapshotConfigured,
+    macAppStoreConnectBuildSnapshotReady: $macAppStoreConnectBuildSnapshotReady,
+    macAppStoreConnectBuildSnapshotPath: (if $macAppStoreConnectBuildSnapshotPath == "" then null else $macAppStoreConnectBuildSnapshotPath end),
+    macAppStoreConnectBuildSnapshotSHA256: (if $macAppStoreConnectBuildSnapshotSHA256 == "" then null else $macAppStoreConnectBuildSnapshotSHA256 end),
+    macAppStoreConnectEvidenceSHA256: (if $macAppStoreConnectEvidenceSHA256 == "" then null else $macAppStoreConnectEvidenceSHA256 end),
+    macAppStoreConnectBuildSnapshotCapturedAt: (if $macAppStoreConnectBuildSnapshotCapturedAt == "" then null else $macAppStoreConnectBuildSnapshotCapturedAt end),
+    macAppStoreConnectBuildSnapshotExpiresAt: (if $macAppStoreConnectBuildSnapshotExpiresAt == "" then null else $macAppStoreConnectBuildSnapshotExpiresAt end),
+    macAppStoreConnectBuildSnapshotAppResourceID: (if $macAppStoreConnectBuildSnapshotAppResourceID == "" then null else $macAppStoreConnectBuildSnapshotAppResourceID end),
+    macAppStoreConnectBuildSnapshotBuildResourceID: (if $macAppStoreConnectBuildSnapshotBuildResourceID == "" then null else $macAppStoreConnectBuildSnapshotBuildResourceID end),
+    macAppStoreConnectBuildSnapshotWarningsPresent: (if $macAppStoreConnectBuildSnapshotWarningsPresent == "" then null else ($macAppStoreConnectBuildSnapshotWarningsPresent == "true") end),
+    macAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity: $macAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity,
+    macAppStoreConnectBuildSnapshotMatchesOperatorEvidence: $macAppStoreConnectBuildSnapshotMatchesOperatorEvidence,
+    macAppStoreConnectBuildSnapshotWarningReviewCurrent: $macAppStoreConnectBuildSnapshotWarningReviewCurrent,
+    macAppStoreConnectRemoteMetadataComparisonComplete: $macAppStoreConnectRemoteMetadataComparisonComplete,
+    macAppStoreConnectBuildSnapshotExportComplianceRequired: (if $macAppStoreConnectBuildSnapshotExportComplianceRequired == "" then null else ($macAppStoreConnectBuildSnapshotExportComplianceRequired == "true") end),
+    macAppStoreConnectBuildSnapshotBuildUploadErrorFree: (if $macAppStoreConnectBuildSnapshotBuildUploadErrorFree == "" then null else ($macAppStoreConnectBuildSnapshotBuildUploadErrorFree == "true") end),
+    iosAppStoreConnectBuildSnapshotConfigured: $iosAppStoreConnectBuildSnapshotConfigured,
+    iosAppStoreConnectBuildSnapshotReady: $iosAppStoreConnectBuildSnapshotReady,
+    iosAppStoreConnectBuildSnapshotPath: (if $iosAppStoreConnectBuildSnapshotPath == "" then null else $iosAppStoreConnectBuildSnapshotPath end),
+    iosAppStoreConnectBuildSnapshotSHA256: (if $iosAppStoreConnectBuildSnapshotSHA256 == "" then null else $iosAppStoreConnectBuildSnapshotSHA256 end),
+    iosAppStoreConnectEvidenceSHA256: (if $iosAppStoreConnectEvidenceSHA256 == "" then null else $iosAppStoreConnectEvidenceSHA256 end),
+    iosAppStoreConnectBuildSnapshotCapturedAt: (if $iosAppStoreConnectBuildSnapshotCapturedAt == "" then null else $iosAppStoreConnectBuildSnapshotCapturedAt end),
+    iosAppStoreConnectBuildSnapshotExpiresAt: (if $iosAppStoreConnectBuildSnapshotExpiresAt == "" then null else $iosAppStoreConnectBuildSnapshotExpiresAt end),
+    iosAppStoreConnectBuildSnapshotAppResourceID: (if $iosAppStoreConnectBuildSnapshotAppResourceID == "" then null else $iosAppStoreConnectBuildSnapshotAppResourceID end),
+    iosAppStoreConnectBuildSnapshotBuildResourceID: (if $iosAppStoreConnectBuildSnapshotBuildResourceID == "" then null else $iosAppStoreConnectBuildSnapshotBuildResourceID end),
+    iosAppStoreConnectBuildSnapshotWarningsPresent: (if $iosAppStoreConnectBuildSnapshotWarningsPresent == "" then null else ($iosAppStoreConnectBuildSnapshotWarningsPresent == "true") end),
+    iosAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity: $iosAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity,
+    iosAppStoreConnectBuildSnapshotMatchesOperatorEvidence: $iosAppStoreConnectBuildSnapshotMatchesOperatorEvidence,
+    iosAppStoreConnectBuildSnapshotWarningReviewCurrent: $iosAppStoreConnectBuildSnapshotWarningReviewCurrent,
+    iosAppStoreConnectRemoteMetadataComparisonComplete: $iosAppStoreConnectRemoteMetadataComparisonComplete,
+    iosAppStoreConnectBuildSnapshotExportComplianceRequired: (if $iosAppStoreConnectBuildSnapshotExportComplianceRequired == "" then null else ($iosAppStoreConnectBuildSnapshotExportComplianceRequired == "true") end),
+    iosAppStoreConnectBuildSnapshotBuildUploadErrorFree: (if $iosAppStoreConnectBuildSnapshotBuildUploadErrorFree == "" then null else ($iosAppStoreConnectBuildSnapshotBuildUploadErrorFree == "true") end),
     appStoreRecordModeConfigured: $appStoreRecordModeConfigured,
     appStoreRecordMode: (if $appStoreRecordMode == "" then null else $appStoreRecordMode end),
     universalPurchaseBundleIDsMatch: $universalPurchaseBundleIDsMatch,

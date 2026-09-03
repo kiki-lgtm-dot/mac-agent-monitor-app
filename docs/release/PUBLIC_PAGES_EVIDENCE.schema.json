@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/schemas/public-pages-evidence.schema.json",
+  "title": "MAC版灵动岛--Agent运行监测 public privacy and support page evidence",
+  "description": "A local fail-closed release guardrail snapshot with static HTML renderability screening. The screen does not execute CSS layout or evaluate selector rules from embedded/external stylesheets, so browser-visible presentation still requires manual review. Mode 0444 and SHA-256 fields detect accidental drift but are not a trusted signature or independent remote attestation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "evidenceType",
+    "productName",
+    "configuredURLs",
+    "allowedOrigins",
+    "binding",
+    "pages",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "evidenceType": {
+      "const": "public-pages"
+    },
+    "productName": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 100
+    },
+    "configuredURLs": {
+      "type": "object",
+      "description": "The distinct, query-free privacy and support URLs resolved from the current iOS release xcconfig. Distinctness is enforced by capture and offline verification.",
+      "additionalProperties": false,
+      "required": ["privacy", "support"],
+      "properties": {
+        "privacy": {
+          "$ref": "#/$defs/httpsURL"
+        },
+        "support": {
+          "$ref": "#/$defs/httpsURL"
+        }
+      }
+    },
+    "allowedOrigins": {
+      "type": "array",
+      "description": "The complete sorted origin allowlist used by capture and required again by offline verification.",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/httpsOrigin"
+      }
+    },
+    "binding": {
+      "description": "SHA-256 binding to one semantically validated canonical release file and its dependent release state.",
+      "$ref": "#/$defs/binding"
+    },
+    "pages": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/privacyPage"
+        },
+        {
+          "$ref": "#/$defs/supportPage"
+        }
+      ],
+      "items": false
+    },
+    "createdAt": {
+      "$ref": "#/$defs/utcTimestamp"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "httpsURL": {
+      "type": "string",
+      "description": "Absolute credential-free HTTPS URL without query or fragment. Runtime validation additionally enforces a public DNS hostname and origin policy.",
+      "pattern": "^https://(?=[A-Za-z0-9.-]*\\.)[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]{1,5})?(?:/[^\\s?#]*)?$"
+    },
+    "httpsOrigin": {
+      "type": "string",
+      "pattern": "^https://(?=[A-Za-z0-9.-]*\\.)[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]{1,5})?$"
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "path", "sha256"],
+      "properties": {
+        "type": {
+          "enum": ["identity-lock", "submission-manifest"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "identity-lock"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "const": ".release/identity.lock.json"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "submission-manifest"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "const": ".release/app-store-submission.json"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "validations": {
+      "type": "object",
+      "description": "Static visible-HTML-structure checks only. They exclude HTML semantic hiding and recognized inline hiding, but do not execute CSS layout or evaluate selector rules from embedded/external stylesheets; true is not proof of actual browser visibility.",
+      "additionalProperties": false,
+      "required": [
+        "productName",
+        "bilingualLanguages",
+        "pagePurpose",
+        "contactOrDeletionPath"
+      ],
+      "properties": {
+        "productName": {
+          "description": "The configured name occurred in the visible HTML structure under the static renderability screen.",
+          "const": true
+        },
+        "bilingualLanguages": {
+          "description": "Chinese and English language markup occurred in the visible HTML structure under the static renderability screen.",
+          "const": true
+        },
+        "pagePurpose": {
+          "description": "Kind-specific Chinese and English privacy or support purpose text occurred in the visible HTML structure under the static renderability screen.",
+          "const": true
+        },
+        "contactOrDeletionPath": {
+          "description": "The visible HTML structure had an exact delete-data target for privacy, or a real mailto/HTTPS contact link for support, under the static renderability screen.",
+          "const": true
+        }
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "configuredURL",
+        "finalURL",
+        "status",
+        "contentType",
+        "bodySizeBytes",
+        "bodySHA256",
+        "redirectCount",
+        "checkedAt",
+        "validations"
+      ],
+      "properties": {
+        "kind": {
+          "enum": ["privacy", "support"]
+        },
+        "configuredURL": {
+          "$ref": "#/$defs/httpsURL"
+        },
+        "finalURL": {
+          "$ref": "#/$defs/httpsURL"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 200,
+          "maximum": 299
+        },
+        "contentType": {
+          "type": "string",
+          "pattern": "^[Tt][Ee][Xx][Tt]/[Hh][Tt][Mm][Ll](?:\\s*;|$)"
+        },
+        "bodySizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "bodySHA256": {
+          "description": "SHA-256 of exact received entity bytes. This local observation is not a server signature and the response body is intentionally omitted.",
+          "$ref": "#/$defs/sha256"
+        },
+        "redirectCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "checkedAt": {
+          "$ref": "#/$defs/utcTimestamp"
+        },
+        "validations": {
+          "$ref": "#/$defs/validations"
+        }
+      }
+    },
+    "privacyPage": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/page"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "privacy"
+            }
+          }
+        }
+      ]
+    },
+    "supportPage": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/page"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "support"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

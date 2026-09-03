@@ -1,0 +1,623 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/schemas/app-store-submission.schema.json",
+  "title": "MAC版灵动岛--Agent运行监测 App Store submission manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "productName",
+    "recordMode",
+    "identityLockSHA256",
+    "screenshotEvidencePath",
+    "screenshotEvidenceSHA256",
+    "records"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "productName": {
+      "const": "MAC版灵动岛--Agent运行监测"
+    },
+    "recordMode": {
+      "enum": [
+        "universal-purchase",
+        "separate-records"
+      ]
+    },
+    "identityLockSHA256": {
+      "$ref": "#/$defs/sha256OrPlaceholder"
+    },
+    "screenshotEvidencePath": {
+      "$ref": "#/$defs/repositoryPath"
+    },
+    "screenshotEvidenceSHA256": {
+      "$ref": "#/$defs/sha256OrPlaceholder"
+    },
+    "records": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "macos",
+        "ios"
+      ],
+      "properties": {
+        "macos": {
+          "$ref": "#/$defs/macosRecord"
+        },
+        "ios": {
+          "$ref": "#/$defs/iosRecord"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "nullableString": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 4000
+    },
+    "sha256OrPlaceholder": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[^/]+(?:/[^/]+)*$"
+    },
+    "contact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "firstName",
+        "lastName",
+        "email",
+        "phone"
+      ],
+      "properties": {
+        "firstName": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "lastName": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "email": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "phone": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "login": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy",
+        "credentialsSecretReference",
+        "instructions"
+      ],
+      "properties": {
+        "strategy": {
+          "enum": [
+            "no-login",
+            "review-account",
+            "custom-instructions"
+          ]
+        },
+        "credentialsSecretReference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 300
+        },
+        "instructions": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contact",
+        "login",
+        "notes"
+      ],
+      "properties": {
+        "contact": {
+          "$ref": "#/$defs/contact"
+        },
+        "login": {
+          "$ref": "#/$defs/login"
+        },
+        "notes": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "versionString",
+        "buildNumber",
+        "releaseMode",
+        "scheduledReleaseAt",
+        "copyright"
+      ],
+      "properties": {
+        "versionString": {
+          "type": "string",
+          "pattern": "^[0-9]+(?:\\.[0-9]+){1,2}$"
+        },
+        "buildNumber": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "releaseMode": {
+          "enum": [
+            "manual",
+            "automatic",
+            "scheduled"
+          ]
+        },
+        "scheduledReleaseAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "copyright": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "ageRating": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "questionnaireStatus",
+        "declaredRating"
+      ],
+      "properties": {
+        "questionnaireStatus": {
+          "enum": [
+            "complete",
+            "incomplete"
+          ]
+        },
+        "declaredRating": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "contentRights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "notes"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "notes": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "eula": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "customText",
+        "territories"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "apple-standard",
+            "custom"
+          ]
+        },
+        "customText": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "territories": {
+          "type": "array",
+          "maxItems": 175,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          }
+        }
+      }
+    },
+    "digitalServicesAct": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "traderStatus",
+        "verificationStatus"
+      ],
+      "properties": {
+        "traderStatus": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "verificationStatus": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "pricing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "pricePointReference",
+        "taxCategory",
+        "availableTerritories"
+      ],
+      "properties": {
+        "model": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "pricePointReference": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "taxCategory": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "availableTerritories": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 80
+          }
+        }
+      }
+    },
+    "exportCompliance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "usesNonExemptEncryption",
+        "status",
+        "documentationReference"
+      ],
+      "properties": {
+        "usesNonExemptEncryption": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "documentationReference": {
+          "$ref": "#/$defs/nullableString"
+        }
+      }
+    },
+    "commerce": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ageRating",
+        "madeForKids",
+        "contentRights",
+        "eula",
+        "digitalServicesAct",
+        "pricing",
+        "exportCompliance"
+      ],
+      "properties": {
+        "ageRating": {
+          "$ref": "#/$defs/ageRating"
+        },
+        "madeForKids": {
+          "type": "boolean"
+        },
+        "contentRights": {
+          "$ref": "#/$defs/contentRights"
+        },
+        "eula": {
+          "$ref": "#/$defs/eula"
+        },
+        "digitalServicesAct": {
+          "$ref": "#/$defs/digitalServicesAct"
+        },
+        "pricing": {
+          "$ref": "#/$defs/pricing"
+        },
+        "exportCompliance": {
+          "$ref": "#/$defs/exportCompliance"
+        }
+      }
+    },
+    "categories": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary",
+        "secondary"
+      ],
+      "properties": {
+        "primary": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "secondary": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80
+        }
+      }
+    },
+    "localization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "locale",
+        "name",
+        "subtitle",
+        "promotionalText",
+        "description",
+        "keywords",
+        "whatsNew",
+        "privacyPolicyURL",
+        "supportURL",
+        "marketingURL"
+      ],
+      "properties": {
+        "locale": {
+          "enum": [
+            "zh-Hans",
+            "en-US"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 30
+        },
+        "subtitle": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "promotionalText": {
+          "type": "string",
+          "maxLength": 170
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "keywords": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "whatsNew": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "privacyPolicyURL": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "supportURL": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "marketingURL": {
+          "$ref": "#/$defs/nullableString"
+        }
+      }
+    },
+    "screenshotSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "locale",
+        "device",
+        "orderedPaths"
+      ],
+      "properties": {
+        "locale": {
+          "enum": [
+            "zh-Hans",
+            "en-US"
+          ]
+        },
+        "device": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "orderedPaths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/repositoryPath"
+          }
+        }
+      }
+    },
+    "commonRecordProperties": {
+      "type": "object",
+      "required": [
+        "appResourceId",
+        "bundleIdentifier",
+        "sku",
+        "primaryLocale",
+        "version",
+        "categories",
+        "commerce",
+        "review",
+        "localizations",
+        "screenshotSets"
+      ],
+      "properties": {
+        "appResourceId": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "bundleIdentifier": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "sku": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "primaryLocale": {
+          "enum": [
+            "zh-Hans",
+            "en-US"
+          ]
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        },
+        "categories": {
+          "$ref": "#/$defs/categories"
+        },
+        "commerce": {
+          "$ref": "#/$defs/commerce"
+        },
+        "review": {
+          "$ref": "#/$defs/review"
+        },
+        "localizations": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/localization"
+          }
+        },
+        "screenshotSets": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/screenshotSet"
+          }
+        }
+      }
+    },
+    "macosRecord": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/commonRecordProperties"
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "testFlightLocalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "locale",
+        "betaAppDescription",
+        "whatToTest"
+      ],
+      "properties": {
+        "locale": {
+          "enum": [
+            "zh-Hans",
+            "en-US"
+          ]
+        },
+        "betaAppDescription": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "whatToTest": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        }
+      }
+    },
+    "testFlight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "distribution",
+        "feedbackEmail",
+        "betaReviewContact",
+        "login",
+        "localizations"
+      ],
+      "properties": {
+        "distribution": {
+          "enum": [
+            "internal-only",
+            "external"
+          ]
+        },
+        "feedbackEmail": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "betaReviewContact": {
+          "$ref": "#/$defs/contact"
+        },
+        "login": {
+          "$ref": "#/$defs/login"
+        },
+        "localizations": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/testFlightLocalization"
+          }
+        }
+      }
+    },
+    "iosRecord": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/commonRecordProperties"
+        },
+        {
+          "type": "object",
+          "required": [
+            "widgetBundleIdentifier",
+            "testFlight"
+          ],
+          "properties": {
+            "widgetBundleIdentifier": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "testFlight": {
+              "$ref": "#/$defs/testFlight"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}

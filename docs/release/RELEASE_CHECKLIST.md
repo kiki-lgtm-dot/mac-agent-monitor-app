@@ -43,6 +43,48 @@
 - [ ] 在翻译页首次使用前提供清楚的离机传输提示，显示目标服务，并让用户主动提交。
 - [ ] 确认隐私遮罩、删除网站/备忘录/学习条目、清除 API Key 和移除数据源均可正常工作。
 
+## 2A. App Store 提交清单与远端只读快照
+
+- [ ] 在真实 `.release/identity.lock.json` 和精确候选包已就绪后，由授权人显式运行 `capture-asc-app-snapshot.mjs`，联网只读查询每个 App Store Connect 记录的唯一 App resource ID、SKU 和 primary locale；`separate-records` 需对 Mac/iOS 两个 Bundle ID 分别采集。这一步只接受 Team API key，Key ID/Issuer ID 应仅放在当前受控 shell，私钥只放在 `~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8`；不得写入 `Config/Release.example.env`、仓库或日志。
+
+  ```sh
+  node scripts/capture-asc-app-snapshot.mjs \
+    --bundle-id "$AGENT_ISLAND_BUNDLE_ID" \
+    --artifact "/absolute/path/to/exact-candidate.pkg" \
+    --identity-lock "$PWD/.release/identity.lock.json" \
+    --output "$PWD/dist/macos-app-store/<version-build-timestamp>/asc-app-snapshot.json"
+  ```
+
+- [ ] 以 `Config/AppStoreSubmission.example.json` 为起点生成固定路径 `.release/app-store-submission.json`，填入已人工确认的 App resource ID、SKU、主语言、版本/构建、分类、年龄分级、Made for Kids、Content Rights、EULA、DSA、价格/税类/地区、出口合规、审核联系与登录方案、中英文本地化、TestFlight 说明和候选绑定；不得在 manifest 中写密码或 API 密钥。设为只读后运行 `AGENT_ISLAND_APP_STORE_SUBMISSION=.release/app-store-submission.json node scripts/validate-app-store-submission.mjs --release`，两端全部 `ready` 才能继续。自定义 manifest 路径只可用于草案/本地诊断，最终 readiness、公开页绑定与 review-selection 证据链不接受其作为发布别名。
+- [ ] 在 submission manifest 已封存后，显式执行下列联网 HTTPS GET 采集；确认输出绑定类型是 `submission-manifest`，而不是仅绑定 identity lock。该记录只是防混包的本地断言，不是服务器签名或独立远端证明。
+
+  ```sh
+  node scripts/capture-public-pages-evidence.mjs \
+    --submission-manifest .release/app-store-submission.json \
+    --output .release/public-pages-evidence.json
+  ```
+
+- [ ] 精确 Build 已上传且 Apple 处理完成后，在进入最终审核选择前由授权人显式执行两次联网只读采集。`--artifact`、Bundle ID、platform、version 和 build 必须分别绑定本次 Mac PKG 与 iOS IPA；不得用另一构建的快照复用。
+
+  ```sh
+  node scripts/capture-asc-build-snapshot.mjs \
+    --bundle-id "$AGENT_ISLAND_BUNDLE_ID" --platform macOS \
+    --version "$AGENT_ISLAND_VERSION" --build "$AGENT_ISLAND_BUILD_NUMBER" \
+    --artifact "/absolute/path/to/exact-candidate.pkg" \
+    --identity-lock "$PWD/.release/identity.lock.json" \
+    --output "$PWD/dist/macos-app-store/<version-build-timestamp>/asc-build-snapshot.json"
+
+  node scripts/capture-asc-build-snapshot.mjs \
+    --bundle-id "$AGENT_ISLAND_IOS_BUNDLE_ID" --platform iOS \
+    --version "$AGENT_ISLAND_VERSION" --build "$AGENT_ISLAND_BUILD_NUMBER" \
+    --artifact "/absolute/path/to/exact-candidate.ipa" \
+    --identity-lock "$PWD/.release/identity.lock.json" \
+    --output "$PWD/dist/ios/<version-build-timestamp>/asc-build-snapshot.json"
+  ```
+
+- [ ] 将 submission manifest、public-pages evidence、Mac/iOS Build snapshot 路径和不超过 `900` 秒的 ASC 最大年龄写入当前受控 shell，然后运行 `scripts/release-readiness.sh --json`。确认报告中 `appStoreConnectSnapshotMaxAgeValid: true` 且 `appStoreConnectSnapshotMaxAgeSeconds` 精确等于本次配置；未配置或验证失败的 ASC 快照必须将 `*BuildSnapshotWarningsPresent` 报告为 `null`（未知），不得误报为 `false`。readiness 只调用 `validate-app-store-submission.mjs --release`、`capture-public-pages-evidence.mjs --verify` 和 `capture-asc-build-snapshot.mjs --verify`；它不访问网站或 App Store Connect，也不读取 ASC 凭据。证据过期或候选/identity/manifest 变化时必须重新采集，不得手工改 JSON 或放宽时间伪装通过。
+- [ ] 快照中 `*BuildSnapshotMatchesSubmissionAppIdentity` 只表示 App resource ID、SKU 和 primary locale 与 manifest 一致，不代表整份 manifest 已在远端核验。在可信集成能对比税类/价格、地区、Made for Kids、Content Rights 和加密回答等全量元数据之前，`macAppStoreConnectRemoteMetadataComparisonComplete` / `iosAppStoreConnectRemoteMetadataComparisonComplete` 必须保持 `false`，两个 `readyFor*AppStoreReviewSelection` 也必须失败关闭。未来选择门禁通过仍不表示 Apple 端已选择 Build、Add for Review 或 Submit for Review；这些远端操作必须由账号授权人另行复核并手动执行。
+
 ## 3A. Developer ID 官网分发
 
 - [ ] 在新用户偏好环境首次 GUI 启动：确认原生说明出现前没有 Agent 日志扫描或刷新定时器；选择“暂不开始”后保持无扫描。
@@ -93,7 +135,8 @@
 - [ ] 设置候选级 App Privacy 证据后运行 `scripts/release-readiness.sh --json`；确认 `macStoreSubmissionAssetsReady: true`。Mac 门禁只依赖 Mac 中英文元数据/截图和两端共用隐私、支持材料，不得因 iOS 独有素材未完成而失败。只有 `readyForMacAppStoreUpload: true` 才表示本地精确候选已通过上传前门禁，不表示已上传、已处理或已提审。
 - [ ] 完整核对四段式确认值后显式执行 `submit-macos-app-store.sh --upload`，再用 `verify-macos-app-store-delivery.sh` 复验它生成的只读、不覆盖 delivery record，并将路径填入 `AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE`。`uploadAccepted: true` 只表示上传命令被接受，不表示 Apple 已处理或已提审。
 - [ ] 在 App Store Connect 人工确认该精确 Build 为 `Complete`、复核全部 errors/warnings/information 并记录 Build ID/UTC 时间后，用 `confirm-macos-app-store-evidence.sh` 生成 processing record，以 `verify-macos-app-store-evidence.sh` 复验，并将路径填入 `AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE`。这份处理完成记录只是人工观察的本地证据：脚本不会回查 Apple，也不能证明已选择构建或已提交审核。
-- [ ] 生成最新 readiness 报告并运行 `scripts/assert-release-preflight.sh mac-app-store-review /absolute/path/readiness.json`；只在命令通过且 `readyForMacAppStoreReviewSelection: true` 时进入人工选择步骤。该门禁会复验精确候选、交付/处理记录、时间顺序、警告复核、Build ID、记录模式、隐私与 Mac 商店材料，但不表示 Build 已被选中或 App Review 已提交。账号授权人仍需在 App Store Connect 中选择该 Build、复核元数据/App Privacy，并分别执行 Add for Review 与 Submit for Review；已废弃的 `readyForFunctionalMacAppStoreSubmission` 保持 `false`。
+- [ ] 在 App Store Connect processing 人工记录之后采集同一 PKG 的新鲜 ASC Build 只读快照，确认 App/Build resource ID 与 submission manifest、processing record 一致；若快照含 warning，`macAppStoreWarningsReviewedAt` 必须不早于快照采集时间。
+- [ ] 当前全量 ASC 远端元数据比对尚未接入，因此 `readyForMacAppStoreReviewSelection` 和 `scripts/assert-release-preflight.sh mac-app-store-review /absolute/path/readiness.json` 必须保持失败关闭；不得手改报告绕过。完成可信远端对比后，该门禁仍只是进入人工选择前的本地允许，不表示 Build 已被选中或 App Review 已提交。账号授权人仍需在 App Store Connect 中选择该 Build、复核元数据/App Privacy，并分别执行 Add for Review 与 Submit for Review；已废弃的 `readyForFunctionalMacAppStoreSubmission` 保持 `false`。
 
 ## 3C. iOS TestFlight 与 App Store 专项
 
@@ -127,7 +170,8 @@
 - [ ] App Store 提交前使用 `IOS_APP_REVIEW_NOTES.md` 提供无需审核员自行搭建开发环境的可审核路径。
 - [ ] iOS 最终 App Store 提审前确认 readiness 中 `iosStoreSubmissionAssetsReady: true`；它只依赖 iOS 中英文元数据/iPhone 截图/App Icon 和两端共用隐私、支持材料。TestFlight 上传本身不要求商店截图，macOS 独有素材也不得阻断 iOS 门禁。
 - [ ] 仅在 Production CloudKit schema、同账号 Mac→iPhone 真机同步、Live Activity 真机表现和审核演示路径都针对同一个 TestFlight 安装包验收后，使用 `confirm-functional-qa-evidence.sh` 将设备型号、iOS 版本、测试时间和四份不同附件写入不可覆盖的只读记录，并把 `AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE` 指向该文件。`readyForFunctionalIOSTestFlight` 必须重新校验整条 delivery/metadata/IPA/TestFlight/QA 证据链，并要求 `iosPrivacyReleaseEvidenceReady=true`；不接受其他平台证据、复制的 IPA 哈希或独立布尔值冒充验收状态。
-- [ ] 生成最新 `release-readiness.sh --json` 报告并运行 `scripts/assert-release-preflight.sh ios-app-store-review /absolute/path/readiness.json`；只有 `readyForIOSAppStoreReviewSelection: true` 才进入人工选择 Build 的步骤。该字段会将功能验收与 `iosStoreSubmissionAssetsReady`、记录模式和精确 App Store Connect Build ID 合并校验，但不表示 Build 已选中、已 Add for Review 或已 Submit for Review。
+- [ ] 在 TestFlight processing/安装/功能验收记录后采集同一 IPA 的新鲜 ASC Build 只读快照，确认 App/Build resource ID 与 submission manifest、TestFlight record 一致；若快照含 warning，`iosTestFlightWarningsReviewedAt` 必须不早于快照采集时间。
+- [ ] 生成最新 `release-readiness.sh --json` 报告并运行 `scripts/assert-release-preflight.sh ios-app-store-review /absolute/path/readiness.json`。当前全量 ASC 远端元数据比对尚未接入，因此 `readyForIOSAppStoreReviewSelection` 必须保持 `false`；不得手改报告绕过。未来该字段只能在功能验收、`iosStoreSubmissionAssetsReady`、记录模式、精确 App Store Connect Build ID、提交 manifest、公开页证据、新鲜 ASC Build 快照与全量远端元数据同时通过时为 `true`，且仍不表示 Build 已选中、已 Add for Review 或已 Submit for Review。
 - [ ] 账号授权人在 App Store Connect 中选择该精确 Build、发布最终 App Privacy 回答、补齐所有必填属性并复核后先 Add for Review；再单独执行 Submit for Review。不要从本地 `readyForIOSAppStoreReviewSelection` 推断任何远程动作已经发生。
 
 ## 4. 功能与隐私 QA
@@ -191,8 +235,8 @@
 ## 5. 构建与安全检查
 
 - [ ] 运行 `./scripts/test.sh` 全部通过。
-- [ ] 运行 `node scripts/validate-store-submission.mjs --release` 和 `node scripts/validate-app-privacy.mjs --release`。双平台一起提交时要求汇总 `storeSubmissionAssetsReady: true`；单平台发布时分别核对 `macStoreSubmissionAssetsReady` / `iosStoreSubmissionAssetsReady`，确认该平台元数据、截图和共用双语政策、App Privacy、支持材料无占位符或发布阻断项。
-- [ ] 运行 `./scripts/release-readiness.sh --json`，将输出与候选构建证据一起留档；不得把源码字符串命中当成功能已验收。
+- [ ] 运行 `node scripts/validate-store-submission.mjs --release`、`node scripts/validate-app-privacy.mjs --release` 和 `AGENT_ISLAND_APP_STORE_SUBMISSION=.release/app-store-submission.json node scripts/validate-app-store-submission.mjs --release`。双平台一起提交时要求汇总 `storeSubmissionAssetsReady: true`；单平台发布时分别核对 `macStoreSubmissionAssetsReady` / `iosStoreSubmissionAssetsReady`，确认该平台元数据、截图和共用双语政策、App Privacy、支持材料无占位符或发布阻断项；同时确认账号级提交决策与候选绑定都已封存。
+- [ ] 运行 `./scripts/release-readiness.sh --json`，将输出与候选构建证据一起留档；readiness 只离线验证已采集的 public-pages/ASC JSON，不发起网络请求或远端变更；不得把源码字符串命中当成功能已验收。
 - [ ] 运行 iOS `validate-project.sh` 静态检查；在完整 Xcode 环境运行 `validate-project.sh --build` 并 Archive。
 - [ ] 运行 iOS `scripts/release-ios.sh`，确认它验证 App/Widget 嵌入、Bundle ID、签名、provisioning profile、App CloudKit entitlement 和 Widget 无 iCloud entitlement；如使用 `--export`，确认只本地导出 IPA 和 SHA-256，metadata 中 `uploaded` 仍为 false。
 - [ ] 在干净 checkout 重建并记录 commit、构建时间、Xcode/SDK 版本和依赖清单。

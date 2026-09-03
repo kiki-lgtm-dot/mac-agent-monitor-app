@@ -1,0 +1,250 @@
+{
+  "schemaVersion": 1,
+  "productName": "MAC版灵动岛--Agent运行监测",
+  "recordMode": "universal-purchase",
+  "identityLockSHA256": "[IDENTITY LOCK SHA-256]",
+  "screenshotEvidencePath": ".release/store-screenshot-evidence.json",
+  "screenshotEvidenceSHA256": "[SCREENSHOT EVIDENCE SHA-256]",
+  "records": {
+    "macos": {
+      "appResourceId": "[APP STORE CONNECT APP RESOURCE ID]",
+      "bundleIdentifier": "com.example.agentisland",
+      "sku": "[APP SKU]",
+      "primaryLocale": "zh-Hans",
+      "version": {
+        "versionString": "0.6.1",
+        "buildNumber": "8",
+        "releaseMode": "manual",
+        "scheduledReleaseAt": null,
+        "copyright": "[YEAR] [LEGAL RIGHTS HOLDER]"
+      },
+      "categories": {
+        "primary": "developer-tools",
+        "secondary": "productivity"
+      },
+      "commerce": {
+        "ageRating": {
+          "questionnaireStatus": "incomplete",
+          "declaredRating": "[FINAL AGE RATING]"
+        },
+        "madeForKids": false,
+        "contentRights": {
+          "status": "[CONTENT RIGHTS DECISION]",
+          "notes": "Confirm rights for the product name, tool names, synchronized user content, and every submitted asset."
+        },
+        "eula": {
+          "type": "apple-standard",
+          "customText": null,
+          "territories": []
+        },
+        "digitalServicesAct": {
+          "traderStatus": "[DSA TRADER STATUS]",
+          "verificationStatus": "[DSA VERIFICATION STATUS]"
+        },
+        "pricing": {
+          "model": "[PRICING MODEL]",
+          "pricePointReference": "[PRICE POINT REFERENCE OR null]",
+          "taxCategory": "[TAX CATEGORY]",
+          "availableTerritories": [
+            "[TERRITORY CODE]"
+          ]
+        },
+        "exportCompliance": {
+          "usesNonExemptEncryption": false,
+          "status": "[EXPORT COMPLIANCE STATUS]",
+          "documentationReference": null
+        }
+      },
+      "review": {
+        "contact": {
+          "firstName": "[REVIEW CONTACT FIRST NAME]",
+          "lastName": "[REVIEW CONTACT LAST NAME]",
+          "email": "[REVIEW CONTACT EMAIL]",
+          "phone": "[REVIEW CONTACT PHONE IN E.164 FORMAT]"
+        },
+        "login": {
+          "strategy": "no-login",
+          "credentialsSecretReference": null,
+          "instructions": "No application account is required. Use the visibly labelled, bundled offline example mode to review the interface without accessing local Agent logs, CloudKit, or a network service."
+        },
+        "notes": "Review the sandbox file-authorization flow, the clearly labelled offline example, private CloudKit opt-in, token-source limitations, and translation-provider disclosure using the final submitted build."
+      },
+      "localizations": [
+        {
+          "locale": "zh-Hans",
+          "name": "MAC版灵动岛--Agent运行监测",
+          "subtitle": "Mac AI Agent 运行看板",
+          "promotionalText": "在 Mac 菜单栏和灵动岛风格面板中，查看本地 AI Agent 的运行状态、活跃对话、工作时长与可验证 Token 摘要。",
+          "description": "MAC版灵动岛--Agent运行监测是一款隐私优先的 macOS 本地工作看板。它展示相关 Agent、活跃对话、工作时长与来自可验证本地来源的 Token 摘要，并提供常用网站、备忘录和可选翻译学习工具。本地 Agent 数据不等于服务商账单，翻译内容只在用户明确发送时离开设备。",
+          "keywords": "AI Agent,Token,本地监测,灵动岛,工作看板,开发工具",
+          "whatsNew": "首次发布：查看本地 Agent 状态、活跃对话、工作时长和 Token 摘要，并支持常用网站、备忘录与可选翻译。",
+          "privacyPolicyURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/",
+          "supportURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/",
+          "marketingURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/"
+        },
+        {
+          "locale": "en-US",
+          "name": "MAC版灵动岛--Agent运行监测",
+          "subtitle": "AI Agent Monitor for Mac",
+          "promotionalText": "See local AI-agent status, active conversations, working time, and verifiable token summaries in a focused Mac panel.",
+          "description": "MAC版灵动岛--Agent运行监测 is a privacy-first local workspace for macOS. It presents relevant agents, active conversations, working time, and token summaries from verifiable local sources, alongside bookmarks, notes, and an optional translation-learning tool. Local token totals are not provider billing totals. Translation text leaves the device only when the user explicitly sends it.",
+          "keywords": "AI agents,token usage,local monitor,productivity,developer tools",
+          "whatsNew": "Initial release with local agent status, active conversations, working time, token summaries, bookmarks, notes, and optional translation.",
+          "privacyPolicyURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/",
+          "supportURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/",
+          "marketingURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/"
+        }
+      ],
+      "screenshotSets": [
+        {
+          "locale": "zh-Hans",
+          "device": "macOS",
+          "orderedPaths": [
+            "docs/release-assets/macos/zh-Hans/01-dashboard.png"
+          ]
+        },
+        {
+          "locale": "en-US",
+          "device": "macOS",
+          "orderedPaths": [
+            "docs/release-assets/macos/en-US/01-dashboard.png"
+          ]
+        }
+      ]
+    },
+    "ios": {
+      "appResourceId": "[APP STORE CONNECT APP RESOURCE ID]",
+      "bundleIdentifier": "com.example.agentisland",
+      "widgetBundleIdentifier": "com.example.agentisland.liveactivity",
+      "sku": "[APP SKU]",
+      "primaryLocale": "zh-Hans",
+      "version": {
+        "versionString": "0.6.1",
+        "buildNumber": "8",
+        "releaseMode": "manual",
+        "scheduledReleaseAt": null,
+        "copyright": "[YEAR] [LEGAL RIGHTS HOLDER]"
+      },
+      "categories": {
+        "primary": "developer-tools",
+        "secondary": "productivity"
+      },
+      "commerce": {
+        "ageRating": {
+          "questionnaireStatus": "incomplete",
+          "declaredRating": "[FINAL AGE RATING]"
+        },
+        "madeForKids": false,
+        "contentRights": {
+          "status": "[CONTENT RIGHTS DECISION]",
+          "notes": "Confirm rights for the product name, tool names, synchronized user content, and every submitted asset."
+        },
+        "eula": {
+          "type": "apple-standard",
+          "customText": null,
+          "territories": []
+        },
+        "digitalServicesAct": {
+          "traderStatus": "[DSA TRADER STATUS]",
+          "verificationStatus": "[DSA VERIFICATION STATUS]"
+        },
+        "pricing": {
+          "model": "[PRICING MODEL]",
+          "pricePointReference": "[PRICE POINT REFERENCE OR null]",
+          "taxCategory": "[TAX CATEGORY]",
+          "availableTerritories": [
+            "[TERRITORY CODE]"
+          ]
+        },
+        "exportCompliance": {
+          "usesNonExemptEncryption": false,
+          "status": "[EXPORT COMPLIANCE STATUS]",
+          "documentationReference": null
+        }
+      },
+      "review": {
+        "contact": {
+          "firstName": "[REVIEW CONTACT FIRST NAME]",
+          "lastName": "[REVIEW CONTACT LAST NAME]",
+          "email": "[REVIEW CONTACT EMAIL]",
+          "phone": "[REVIEW CONTACT PHONE IN E.164 FORMAT]"
+        },
+        "login": {
+          "strategy": "no-login",
+          "credentialsSecretReference": null,
+          "instructions": "No application account is required. Use the visibly labelled, bundled offline example mode before separately reviewing the same-account private CloudKit path."
+        },
+        "notes": "Review the bundled example first, then verify the optional same-account private CloudKit path, title-visibility consent, Live Activity, Lock Screen, Dynamic Island, and cache isolation with the final submitted build."
+      },
+      "localizations": [
+        {
+          "locale": "zh-Hans",
+          "name": "MAC版灵动岛--Agent运行监测",
+          "subtitle": "Mac AI Agent 运行看板",
+          "promotionalText": "在 Mac 明确启用私有同步后，于 iPhone 刷新查看 AI Agent、活跃对话、时长与 Token 摘要，并把最近状态带到锁屏和灵动岛。",
+          "description": "MAC版灵动岛--Agent运行监测的 iPhone 伴侣版是一款隐私优先看板。在 Mac 与 iPhone 使用同一 iCloud 账户并明确启用私有同步后，可查看经过精简的 Agent 状态、活跃对话数、工作时长和 Token 摘要。它支持锁屏 Live Activity 与灵动岛，不直接浏览 Mac 文件，并在未配置同步时显示明确空状态。",
+          "keywords": "智能体,令牌用量,开发工具,实时活动,效率工具,状态看板",
+          "whatsNew": "首次发布：在 iPhone、锁屏与灵动岛查看 Mac Agent 的隐私化状态摘要，并提供明确标识的离线审核示例。",
+          "privacyPolicyURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/",
+          "supportURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/",
+          "marketingURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/"
+        },
+        {
+          "locale": "en-US",
+          "name": "MAC版灵动岛--Agent运行监测",
+          "subtitle": "AI Agent Monitor for Mac",
+          "promotionalText": "Enable private sync on Mac, then refresh iPhone to see agents, conversations, time, and tokens on the Lock Screen and Dynamic Island.",
+          "description": "The iPhone companion for MAC版灵动岛--Agent运行监测 is a privacy-first dashboard. After explicit private sync under the same iCloud account is enabled on both devices, it shows a minimized summary of agent status, active conversations, working time, and token usage. It supports Lock Screen Live Activities and Dynamic Island, never browses Mac files directly, and presents a clear empty state when sync is not configured.",
+          "keywords": "AI monitor,token usage,developer tools,Live Activity,Mac companion",
+          "whatsNew": "Initial release with private Mac status summaries on iPhone, Lock Screen, and Dynamic Island, plus a visibly labelled offline review example.",
+          "privacyPolicyURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/",
+          "supportURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/",
+          "marketingURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/"
+        }
+      ],
+      "screenshotSets": [
+        {
+          "locale": "zh-Hans",
+          "device": "iPhone 6.9-inch Display",
+          "orderedPaths": [
+            "docs/release-assets/ios/zh-Hans/01-dashboard.png"
+          ]
+        },
+        {
+          "locale": "en-US",
+          "device": "iPhone 6.9-inch Display",
+          "orderedPaths": [
+            "docs/release-assets/ios/en-US/01-dashboard.png"
+          ]
+        }
+      ],
+      "testFlight": {
+        "distribution": "external",
+        "feedbackEmail": "[TESTFLIGHT FEEDBACK EMAIL]",
+        "betaReviewContact": {
+          "firstName": "[BETA REVIEW CONTACT FIRST NAME]",
+          "lastName": "[BETA REVIEW CONTACT LAST NAME]",
+          "email": "[BETA REVIEW CONTACT EMAIL]",
+          "phone": "[BETA REVIEW CONTACT PHONE IN E.164 FORMAT]"
+        },
+        "login": {
+          "strategy": "no-login",
+          "credentialsSecretReference": null,
+          "instructions": "No application account is required. The bundled offline example works without CloudKit, a Mac, a paid AI service, credentials, or network access."
+        },
+        "localizations": [
+          {
+            "locale": "zh-Hans",
+            "betaAppDescription": "在 iPhone 查看 Mac 产生的隐私化 Agent 状态摘要，并验证锁屏 Live Activity 与灵动岛展示。",
+            "whatToTest": "先使用明确标识的离线示例验证看板、锁屏和灵动岛；再按审核说明验证同 iCloud 账户的私有同步、标题隐藏和账户隔离。"
+          },
+          {
+            "locale": "en-US",
+            "betaAppDescription": "View privacy-minimized Mac agent status on iPhone and verify the Lock Screen Live Activity and Dynamic Island presentation.",
+            "whatToTest": "First use the visibly labelled offline example to verify the dashboard, Lock Screen, and Dynamic Island. Then follow the review notes to verify same-account private CloudKit sync, title hiding, and account isolation."
+          }
+        ]
+      }
+    }
+  }
+}

@@ -67,6 +67,9 @@ fi
   "$PROJECT_DIR/scripts/render-app-icons.sh" \
   "$PROJECT_DIR/scripts/apply-release-identity.sh" "$PROJECT_DIR/Tests/test-release-identity.sh" \
   "$PROJECT_DIR/Tests/test-release-entrypoint-hardening.sh" \
+  "$PROJECT_DIR/Tests/test-app-store-submission.sh" \
+  "$PROJECT_DIR/Tests/test-public-pages-evidence.sh" \
+  "$PROJECT_DIR/Tests/test-asc-readonly-snapshot.sh" \
   "$PROJECT_DIR/ApplePlatforms/iOS/scripts/confirm-functional-qa-evidence.sh" \
   "$PROJECT_DIR/ApplePlatforms/iOS/scripts/validate-functional-qa-evidence.sh" \
   "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh" \
@@ -82,12 +85,25 @@ fi
   "$PROJECT_DIR/Tests/test-macos-app-store-delivery.sh" \
   "$PROJECT_DIR/Tests/test-macos-functional-qa-evidence.sh"
 /bin/bash -n "$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-project.sh"
+node --check "$PROJECT_DIR/scripts/validate-app-store-submission.mjs"
+node --check "$PROJECT_DIR/scripts/capture-public-pages-evidence.mjs"
+node --check "$PROJECT_DIR/scripts/app-store-connect-api.mjs"
+node --check "$PROJECT_DIR/scripts/capture-asc-app-snapshot.mjs"
+node --check "$PROJECT_DIR/scripts/capture-asc-build-snapshot.mjs"
 [[ -x "$PROJECT_DIR/scripts/release-macos.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/release-readiness.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/assert-release-preflight.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/apply-release-identity.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-release-identity.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-release-entrypoint-hardening.sh" ]]
+[[ -x "$PROJECT_DIR/scripts/validate-app-store-submission.mjs" ]]
+[[ -x "$PROJECT_DIR/scripts/capture-public-pages-evidence.mjs" ]]
+[[ -x "$PROJECT_DIR/scripts/app-store-connect-api.mjs" ]]
+[[ -x "$PROJECT_DIR/scripts/capture-asc-app-snapshot.mjs" ]]
+[[ -x "$PROJECT_DIR/scripts/capture-asc-build-snapshot.mjs" ]]
+[[ -x "$PROJECT_DIR/Tests/test-app-store-submission.sh" ]]
+[[ -x "$PROJECT_DIR/Tests/test-public-pages-evidence.sh" ]]
+[[ -x "$PROJECT_DIR/Tests/test-asc-readonly-snapshot.sh" ]]
 [[ -x "$PROJECT_DIR/ApplePlatforms/iOS/scripts/confirm-functional-qa-evidence.sh" ]]
 [[ -x "$PROJECT_DIR/ApplePlatforms/iOS/scripts/validate-functional-qa-evidence.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh" ]]
@@ -139,6 +155,34 @@ rg -q --fixed-strings 'Unexpected arguments: --json extra' \
     payloadField: "payloadJSON"
   }
 ' "$PROJECT_DIR/Config/ReleaseIdentity.example.json" >/dev/null
+/usr/bin/jq -e '
+  ."$schema" == "https://json-schema.org/draft/2020-12/schema" and
+  .type == "object" and .additionalProperties == false and
+  .required == [
+    "schemaVersion", "productName", "recordMode", "identityLockSHA256",
+    "screenshotEvidencePath", "screenshotEvidenceSHA256", "records"
+  ] and
+  (.properties.records.required | sort) == ["ios", "macos"] and
+  (."$defs".macosRecord | type == "object") and
+  (."$defs".iosRecord | type == "object")
+' "$PROJECT_DIR/docs/release/APP_STORE_SUBMISSION.schema.json" >/dev/null
+/usr/bin/jq -e '
+  ."$schema" == "https://json-schema.org/draft/2020-12/schema" and
+  .type == "object" and .additionalProperties == false and
+  .required == [
+    "schemaVersion", "evidenceType", "productName", "configuredURLs",
+    "allowedOrigins", "binding", "pages", "createdAt"
+  ] and
+  (."$defs".binding.properties.type.enum | sort) == ["identity-lock", "submission-manifest"] and
+  (."$defs".validations.required | sort) ==
+    ["bilingualLanguages", "contactOrDeletionPath", "pagePurpose", "productName"] and
+  (.properties.pages.minItems == 2 and .properties.pages.maxItems == 2)
+' "$PROJECT_DIR/docs/release/PUBLIC_PAGES_EVIDENCE.schema.json" >/dev/null
+/usr/bin/jq -e '
+  .schemaVersion == 1 and
+  .productName == "MAC版灵动岛--Agent运行监测" and
+  (.records | keys | sort) == ["ios", "macos"]
+' "$PROJECT_DIR/Config/AppStoreSubmission.example.json" >/dev/null
 for marker in '--check' '--apply' 'identity.lock.json' 'identity-backup' \
   'com.apple.application-identifier' 'ProvisionsAllDevices' \
   'appIDPrefixGuessed: false' \
@@ -150,6 +194,9 @@ done
 "$PROJECT_DIR/Tests/test-release-identity.sh"
 "$PROJECT_DIR/Tests/test-release-entrypoint-hardening.sh"
 "$PROJECT_DIR/Tests/test-store-submission.sh"
+"$PROJECT_DIR/Tests/test-app-store-submission.sh"
+"$PROJECT_DIR/Tests/test-public-pages-evidence.sh"
+"$PROJECT_DIR/Tests/test-asc-readonly-snapshot.sh"
 "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh"
 "$PROJECT_DIR/Tests/test-ios-entitlements-contract.sh"
 node "$PROJECT_DIR/Tests/test-ios-build-settings.mjs"
@@ -539,6 +586,49 @@ for READINESS_GATE in \
   'macStoreSubmissionStructuralErrors' \
   'iosStoreSubmissionAssetsReady' 'iosStoreSubmissionBlockers' \
   'iosStoreSubmissionStructuralErrors' 'iosProjectReleaseValidationMessages' \
+  'appStoreSubmissionManifestConfigured' 'appStoreSubmissionManifestReady' \
+  'macAppStoreSubmissionManifestReady' 'iosAppStoreSubmissionManifestReady' \
+  'appStoreSubmissionManifestPath' 'appStoreSubmissionManifestSHA256' \
+  'appStoreSubmissionStructuralErrors' 'appStoreSubmissionReleaseBlockers' \
+  'macAppStoreSubmissionStructuralErrors' 'macAppStoreSubmissionReleaseBlockers' \
+  'iosAppStoreSubmissionStructuralErrors' 'iosAppStoreSubmissionReleaseBlockers' \
+  'macAppStoreExpectedAppResourceID' 'macAppStoreExpectedSKU' \
+  'macAppStoreExpectedPrimaryLocale' 'iosAppStoreExpectedAppResourceID' \
+  'iosAppStoreExpectedSKU' 'iosAppStoreExpectedPrimaryLocale' \
+  'publicPagesEvidenceConfigured' 'publicPagesEvidenceReady' \
+  'publicPagesEvidenceBoundToSubmissionManifest' 'publicPagesEvidencePath' \
+  'publicPagesEvidenceSHA256' 'publicPagesEvidenceBindingType' \
+  'publicPagesEvidenceBindingPath' 'publicPagesEvidenceBindingSHA256' \
+  'publicPagesEvidenceOldestCheckedAt' 'publicPagesEvidenceNewestCheckedAt' \
+  'publicPagesEvidenceMaxAgeSeconds' 'appStoreConnectSnapshotMaxAgeValid' \
+  'appStoreConnectSnapshotMaxAgeSeconds' \
+  'macAppStoreConnectBuildSnapshotConfigured' 'macAppStoreConnectBuildSnapshotReady' \
+  'macAppStoreConnectBuildSnapshotPath' 'macAppStoreConnectBuildSnapshotSHA256' \
+  'macAppStoreConnectEvidenceSHA256' 'macAppStoreConnectBuildSnapshotCapturedAt' \
+  'macAppStoreConnectBuildSnapshotExpiresAt' 'macAppStoreConnectBuildSnapshotAppResourceID' \
+  'macAppStoreConnectBuildSnapshotBuildResourceID' 'macAppStoreConnectBuildSnapshotWarningsPresent' \
+  'macAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity' \
+  'macAppStoreConnectBuildSnapshotMatchesOperatorEvidence' \
+  'macAppStoreConnectBuildSnapshotWarningReviewCurrent' \
+  'macAppStoreConnectRemoteMetadataComparisonComplete' \
+  'macAppStoreConnectBuildSnapshotExportComplianceRequired' \
+  'macAppStoreConnectBuildSnapshotBuildUploadErrorFree' \
+  'iosAppStoreConnectBuildSnapshotConfigured' 'iosAppStoreConnectBuildSnapshotReady' \
+  'iosAppStoreConnectBuildSnapshotPath' 'iosAppStoreConnectBuildSnapshotSHA256' \
+  'iosAppStoreConnectEvidenceSHA256' 'iosAppStoreConnectBuildSnapshotCapturedAt' \
+  'iosAppStoreConnectBuildSnapshotExpiresAt' 'iosAppStoreConnectBuildSnapshotAppResourceID' \
+  'iosAppStoreConnectBuildSnapshotBuildResourceID' 'iosAppStoreConnectBuildSnapshotWarningsPresent' \
+  'iosAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity' \
+  'iosAppStoreConnectBuildSnapshotMatchesOperatorEvidence' \
+  'iosAppStoreConnectBuildSnapshotWarningReviewCurrent' \
+  'iosAppStoreConnectRemoteMetadataComparisonComplete' \
+  'iosAppStoreConnectBuildSnapshotExportComplianceRequired' \
+  'iosAppStoreConnectBuildSnapshotBuildUploadErrorFree' \
+  'AGENT_ISLAND_APP_STORE_SUBMISSION' 'AGENT_ISLAND_PUBLIC_PAGES_EVIDENCE' \
+  'AGENT_ISLAND_ASC_MAC_BUILD_SNAPSHOT' 'AGENT_ISLAND_ASC_IOS_BUILD_SNAPSHOT' \
+  'AGENT_ISLAND_ASC_SNAPSHOT_MAX_AGE_SECONDS' \
+  'validate-app-store-submission.mjs' 'capture-public-pages-evidence.mjs' \
+  'capture-asc-build-snapshot.mjs' '--verify' \
   'macAppStoreReleaseMetadataConfigured' 'macAppStoreExactCandidateEvidenceReady' \
   'releaseIdentityLockConfigured' 'releaseIdentityLockValid' \
   'releaseIdentityAppliedFilesMatch' 'releaseIdentityMatchesConfiguration' \
@@ -639,6 +729,7 @@ for UNSAFE_RELEASE_BOOLEAN in \
   fi
 done
 
+CLEAN_READINESS_RESULT="$VERIFY_ROOT/release-readiness-clean.json"
 /usr/bin/env \
   -u AGENT_ISLAND_BUNDLE_ID \
   -u AGENT_ISLAND_IOS_BUNDLE_ID \
@@ -661,6 +752,13 @@ done
   -u AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE \
   -u AGENT_ISLAND_APP_PRIVACY_EVIDENCE \
   -u AGENT_ISLAND_STORE_SCREENSHOT_EVIDENCE \
+  -u AGENT_ISLAND_APP_STORE_SUBMISSION \
+  -u AGENT_ISLAND_PUBLIC_PAGES_EVIDENCE \
+  -u AGENT_ISLAND_ASC_MAC_BUILD_SNAPSHOT \
+  -u AGENT_ISLAND_ASC_IOS_BUILD_SNAPSHOT \
+  -u AGENT_ISLAND_ASC_SNAPSHOT_MAX_AGE_SECONDS \
+  -u AGENT_ISLAND_ASC_API_KEY_ID \
+  -u AGENT_ISLAND_ASC_API_ISSUER_ID \
   -u AGENT_ISLAND_MAC_APP_STORE_PROJECT \
   -u AGENT_ISLAND_MAC_APP_STORE_SCHEME \
   -u AGENT_ISLAND_APP_STORE_RECORD_MODE \
@@ -675,7 +773,8 @@ done
   -u AGENT_ISLAND_MAC_APP_STORE_PROFILE_CERTIFICATE_VERIFIED \
   -u AGENT_ISLAND_MAC_APP_STORE_PRIVACY_REPORT_VERIFIED \
   -u AGENT_ISLAND_MAC_APP_STORE_REVIEW_PATH_VERIFIED \
-  "$PROJECT_DIR/scripts/release-readiness.sh" | jq -e '
+  "$PROJECT_DIR/scripts/release-readiness.sh" | \
+  /usr/bin/tee "$CLEAN_READINESS_RESULT" | jq -e '
   ((.hostMacOSVersion == null) or (.hostMacOSVersion | type == "string" and test("^[0-9]+(\\.[0-9]+){1,2}$"))) and
   (.minimumHostMacOSForXcode26 == "15.6") and
   (.minimumRequiredXcodeMajor == 26) and
@@ -1040,6 +1139,231 @@ done
   (.readyForFunctionalIOSTestFlight == false) and
   (.readyForIOSAppStoreReviewSelection == false)
 ' >/dev/null
+
+# The no-evidence baseline must expose a closed, fail-closed contract for the
+# finalized submission manifest, public-page assertion, and exact ASC build
+# snapshots. In particular, release readiness must not infer remote state from
+# credentials or from older operator evidence.
+/usr/bin/jq -e '
+  (.appStoreSubmissionManifestConfigured | type == "boolean") and
+  (.appStoreSubmissionManifestReady | type == "boolean") and
+  (.macAppStoreSubmissionManifestReady | type == "boolean") and
+  (.iosAppStoreSubmissionManifestReady | type == "boolean") and
+  ((.appStoreSubmissionManifestPath == null) or
+    (.appStoreSubmissionManifestPath | type == "string" and startswith("/"))) and
+  ((.appStoreSubmissionManifestSHA256 == null) or
+    (.appStoreSubmissionManifestSHA256 | test("^[0-9a-f]{64}$"))) and
+  (.appStoreSubmissionStructuralErrors | type == "array") and
+  (.appStoreSubmissionReleaseBlockers | type == "array") and
+  (.macAppStoreSubmissionStructuralErrors | type == "array") and
+  (.macAppStoreSubmissionReleaseBlockers | type == "array") and
+  (.iosAppStoreSubmissionStructuralErrors | type == "array") and
+  (.iosAppStoreSubmissionReleaseBlockers | type == "array") and
+  ((.macAppStoreExpectedAppResourceID == null) or (.macAppStoreExpectedAppResourceID | type == "string" and length > 0)) and
+  ((.macAppStoreExpectedSKU == null) or (.macAppStoreExpectedSKU | type == "string" and length > 0)) and
+  ((.macAppStoreExpectedPrimaryLocale == null) or (.macAppStoreExpectedPrimaryLocale | type == "string" and length > 0)) and
+  ((.iosAppStoreExpectedAppResourceID == null) or (.iosAppStoreExpectedAppResourceID | type == "string" and length > 0)) and
+  ((.iosAppStoreExpectedSKU == null) or (.iosAppStoreExpectedSKU | type == "string" and length > 0)) and
+  ((.iosAppStoreExpectedPrimaryLocale == null) or (.iosAppStoreExpectedPrimaryLocale | type == "string" and length > 0)) and
+  ((.appStoreSubmissionManifestReady | not) or (
+    .appStoreSubmissionManifestConfigured and
+    .macAppStoreSubmissionManifestReady and .iosAppStoreSubmissionManifestReady and
+    (.appStoreSubmissionStructuralErrors | length) == 0 and
+    (.appStoreSubmissionReleaseBlockers | length) == 0 and
+    (.appStoreSubmissionManifestPath | type == "string" and startswith("/")) and
+    (.appStoreSubmissionManifestSHA256 | test("^[0-9a-f]{64}$"))
+  )) and
+  (.publicPagesEvidenceConfigured | type == "boolean") and
+  (.publicPagesEvidenceReady | type == "boolean") and
+  (.publicPagesEvidenceBoundToSubmissionManifest | type == "boolean") and
+  ((.publicPagesEvidencePath == null) or (.publicPagesEvidencePath | type == "string" and startswith("/"))) and
+  ((.publicPagesEvidenceSHA256 == null) or (.publicPagesEvidenceSHA256 | test("^[0-9a-f]{64}$"))) and
+  ((.publicPagesEvidenceBindingType == null) or
+    (.publicPagesEvidenceBindingType == "identity-lock" or .publicPagesEvidenceBindingType == "submission-manifest")) and
+  ((.publicPagesEvidenceBindingPath == null) or (.publicPagesEvidenceBindingPath | type == "string" and startswith("/"))) and
+  ((.publicPagesEvidenceBindingSHA256 == null) or (.publicPagesEvidenceBindingSHA256 | test("^[0-9a-f]{64}$"))) and
+  ((.publicPagesEvidenceOldestCheckedAt == null) or (.publicPagesEvidenceOldestCheckedAt | type == "string" and test("Z$"))) and
+  ((.publicPagesEvidenceNewestCheckedAt == null) or (.publicPagesEvidenceNewestCheckedAt | type == "string" and test("Z$"))) and
+  (.publicPagesEvidenceMaxAgeSeconds | type == "number") and
+  (.appStoreConnectSnapshotMaxAgeValid | type == "boolean") and
+  ((.appStoreConnectSnapshotMaxAgeSeconds == null) or
+    (.appStoreConnectSnapshotMaxAgeSeconds | type == "number" and . >= 1 and . <= 900 and floor == .)) and
+  (.appStoreConnectSnapshotMaxAgeValid ==
+    (.appStoreConnectSnapshotMaxAgeSeconds != null)) and
+  ((.publicPagesEvidenceReady | not) or (
+    .publicPagesEvidenceConfigured and
+    (.publicPagesEvidencePath | type == "string" and startswith("/")) and
+    (.publicPagesEvidenceSHA256 | test("^[0-9a-f]{64}$")) and
+    (.publicPagesEvidenceOldestCheckedAt | type == "string") and
+    (.publicPagesEvidenceNewestCheckedAt | type == "string")
+  )) and
+  ((.publicPagesEvidenceBoundToSubmissionManifest | not) or (
+    .publicPagesEvidenceReady and .publicPagesEvidenceBindingType == "submission-manifest" and
+    .publicPagesEvidenceBindingPath == .appStoreSubmissionManifestPath and
+    .publicPagesEvidenceBindingSHA256 == .appStoreSubmissionManifestSHA256
+  )) and
+  (.macAppStoreConnectBuildSnapshotConfigured | type == "boolean") and
+  (.macAppStoreConnectBuildSnapshotReady | type == "boolean") and
+  ((.macAppStoreConnectBuildSnapshotPath == null) or (.macAppStoreConnectBuildSnapshotPath | type == "string" and startswith("/"))) and
+  ((.macAppStoreConnectBuildSnapshotSHA256 == null) or (.macAppStoreConnectBuildSnapshotSHA256 | test("^[0-9a-f]{64}$"))) and
+  ((.macAppStoreConnectEvidenceSHA256 == null) or (.macAppStoreConnectEvidenceSHA256 | test("^[0-9a-f]{64}$"))) and
+  ((.macAppStoreConnectBuildSnapshotCapturedAt == null) or (.macAppStoreConnectBuildSnapshotCapturedAt | type == "string" and test("Z$"))) and
+  ((.macAppStoreConnectBuildSnapshotExpiresAt == null) or (.macAppStoreConnectBuildSnapshotExpiresAt | type == "string" and test("Z$"))) and
+  ((.macAppStoreConnectBuildSnapshotAppResourceID == null) or (.macAppStoreConnectBuildSnapshotAppResourceID | type == "string" and length > 0)) and
+  ((.macAppStoreConnectBuildSnapshotBuildResourceID == null) or (.macAppStoreConnectBuildSnapshotBuildResourceID | type == "string" and length > 0)) and
+  ((.macAppStoreConnectBuildSnapshotWarningsPresent == null) or
+    (.macAppStoreConnectBuildSnapshotWarningsPresent | type == "boolean")) and
+  (.macAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity | type == "boolean") and
+  (has("macAppStoreConnectBuildSnapshotMatchesSubmissionManifest") | not) and
+  (.macAppStoreConnectBuildSnapshotMatchesOperatorEvidence | type == "boolean") and
+  (.macAppStoreConnectBuildSnapshotWarningReviewCurrent | type == "boolean") and
+  (.macAppStoreConnectRemoteMetadataComparisonComplete | type == "boolean") and
+  ((.macAppStoreConnectBuildSnapshotExportComplianceRequired == null) or
+    (.macAppStoreConnectBuildSnapshotExportComplianceRequired | type == "boolean")) and
+  ((.macAppStoreConnectBuildSnapshotBuildUploadErrorFree == null) or
+    (.macAppStoreConnectBuildSnapshotBuildUploadErrorFree | type == "boolean")) and
+  ((.macAppStoreConnectBuildSnapshotReady | not) or (
+    .macAppStoreConnectBuildSnapshotConfigured and
+    (.macAppStoreConnectBuildSnapshotPath | type == "string" and startswith("/")) and
+    (.macAppStoreConnectBuildSnapshotSHA256 | test("^[0-9a-f]{64}$")) and
+    (.macAppStoreConnectEvidenceSHA256 | test("^[0-9a-f]{64}$")) and
+    (.macAppStoreConnectBuildSnapshotCapturedAt | type == "string") and
+    (.macAppStoreConnectBuildSnapshotExpiresAt | type == "string") and
+    (.macAppStoreConnectBuildSnapshotAppResourceID | type == "string" and length > 0) and
+    (.macAppStoreConnectBuildSnapshotBuildResourceID | type == "string" and length > 0) and
+    (.macAppStoreConnectBuildSnapshotWarningsPresent | type == "boolean") and
+    (.macAppStoreConnectBuildSnapshotExportComplianceRequired | not) and
+    .macAppStoreConnectBuildSnapshotBuildUploadErrorFree
+  )) and
+  (.iosAppStoreConnectBuildSnapshotConfigured | type == "boolean") and
+  (.iosAppStoreConnectBuildSnapshotReady | type == "boolean") and
+  ((.iosAppStoreConnectBuildSnapshotPath == null) or (.iosAppStoreConnectBuildSnapshotPath | type == "string" and startswith("/"))) and
+  ((.iosAppStoreConnectBuildSnapshotSHA256 == null) or (.iosAppStoreConnectBuildSnapshotSHA256 | test("^[0-9a-f]{64}$"))) and
+  ((.iosAppStoreConnectEvidenceSHA256 == null) or (.iosAppStoreConnectEvidenceSHA256 | test("^[0-9a-f]{64}$"))) and
+  ((.iosAppStoreConnectBuildSnapshotCapturedAt == null) or (.iosAppStoreConnectBuildSnapshotCapturedAt | type == "string" and test("Z$"))) and
+  ((.iosAppStoreConnectBuildSnapshotExpiresAt == null) or (.iosAppStoreConnectBuildSnapshotExpiresAt | type == "string" and test("Z$"))) and
+  ((.iosAppStoreConnectBuildSnapshotAppResourceID == null) or (.iosAppStoreConnectBuildSnapshotAppResourceID | type == "string" and length > 0)) and
+  ((.iosAppStoreConnectBuildSnapshotBuildResourceID == null) or (.iosAppStoreConnectBuildSnapshotBuildResourceID | type == "string" and length > 0)) and
+  ((.iosAppStoreConnectBuildSnapshotWarningsPresent == null) or
+    (.iosAppStoreConnectBuildSnapshotWarningsPresent | type == "boolean")) and
+  (.iosAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity | type == "boolean") and
+  (has("iosAppStoreConnectBuildSnapshotMatchesSubmissionManifest") | not) and
+  (.iosAppStoreConnectBuildSnapshotMatchesOperatorEvidence | type == "boolean") and
+  (.iosAppStoreConnectBuildSnapshotWarningReviewCurrent | type == "boolean") and
+  (.iosAppStoreConnectRemoteMetadataComparisonComplete | type == "boolean") and
+  ((.iosAppStoreConnectBuildSnapshotExportComplianceRequired == null) or
+    (.iosAppStoreConnectBuildSnapshotExportComplianceRequired | type == "boolean")) and
+  ((.iosAppStoreConnectBuildSnapshotBuildUploadErrorFree == null) or
+    (.iosAppStoreConnectBuildSnapshotBuildUploadErrorFree | type == "boolean")) and
+  ((.iosAppStoreConnectBuildSnapshotReady | not) or (
+    .iosAppStoreConnectBuildSnapshotConfigured and
+    (.iosAppStoreConnectBuildSnapshotPath | type == "string" and startswith("/")) and
+    (.iosAppStoreConnectBuildSnapshotSHA256 | test("^[0-9a-f]{64}$")) and
+    (.iosAppStoreConnectEvidenceSHA256 | test("^[0-9a-f]{64}$")) and
+    (.iosAppStoreConnectBuildSnapshotCapturedAt | type == "string") and
+    (.iosAppStoreConnectBuildSnapshotExpiresAt | type == "string") and
+    (.iosAppStoreConnectBuildSnapshotAppResourceID | type == "string" and length > 0) and
+    (.iosAppStoreConnectBuildSnapshotBuildResourceID | type == "string" and length > 0) and
+    (.iosAppStoreConnectBuildSnapshotWarningsPresent | type == "boolean") and
+    (.iosAppStoreConnectBuildSnapshotExportComplianceRequired | not) and
+    .iosAppStoreConnectBuildSnapshotBuildUploadErrorFree
+  )) and
+  ((.readyForMacAppStoreReviewSelection | not) or (
+    .macAppStoreSubmissionManifestReady and
+    .publicPagesEvidenceReady and .publicPagesEvidenceBoundToSubmissionManifest and
+    .macAppStoreConnectBuildSnapshotReady and
+    .macAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity and
+    .macAppStoreConnectBuildSnapshotMatchesOperatorEvidence and
+    .macAppStoreConnectBuildSnapshotWarningReviewCurrent and
+    .macAppStoreConnectRemoteMetadataComparisonComplete and
+    (.macAppStoreConnectBuildSnapshotExportComplianceRequired | not) and
+    .macAppStoreConnectBuildSnapshotBuildUploadErrorFree
+  )) and
+  ((.readyForIOSAppStoreReviewSelection | not) or (
+    .iosAppStoreSubmissionManifestReady and
+    .publicPagesEvidenceReady and .publicPagesEvidenceBoundToSubmissionManifest and
+    .iosAppStoreConnectBuildSnapshotReady and
+    .iosAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity and
+    .iosAppStoreConnectBuildSnapshotMatchesOperatorEvidence and
+    .iosAppStoreConnectBuildSnapshotWarningReviewCurrent and
+    .iosAppStoreConnectRemoteMetadataComparisonComplete and
+    (.iosAppStoreConnectBuildSnapshotExportComplianceRequired | not) and
+    .iosAppStoreConnectBuildSnapshotBuildUploadErrorFree
+  )) and
+  (.appStoreSubmissionManifestConfigured == false) and
+  (.appStoreSubmissionManifestReady == false) and
+  (.macAppStoreSubmissionManifestReady == false) and
+  (.iosAppStoreSubmissionManifestReady == false) and
+  (.appStoreSubmissionManifestPath == null) and
+  (.appStoreSubmissionManifestSHA256 == null) and
+  (.macAppStoreExpectedAppResourceID == null) and
+  (.macAppStoreExpectedSKU == null) and
+  (.macAppStoreExpectedPrimaryLocale == null) and
+  (.iosAppStoreExpectedAppResourceID == null) and
+  (.iosAppStoreExpectedSKU == null) and
+  (.iosAppStoreExpectedPrimaryLocale == null) and
+  (.publicPagesEvidenceConfigured == false) and
+  (.publicPagesEvidenceReady == false) and
+  (.publicPagesEvidenceBoundToSubmissionManifest == false) and
+  (.publicPagesEvidencePath == null) and
+  (.publicPagesEvidenceSHA256 == null) and
+  (.publicPagesEvidenceBindingType == null) and
+  (.publicPagesEvidenceBindingPath == null) and
+  (.publicPagesEvidenceBindingSHA256 == null) and
+  (.publicPagesEvidenceOldestCheckedAt == null) and
+  (.publicPagesEvidenceNewestCheckedAt == null) and
+  (.publicPagesEvidenceMaxAgeSeconds == 86400) and
+  (.appStoreConnectSnapshotMaxAgeValid == true) and
+  (.appStoreConnectSnapshotMaxAgeSeconds == 900) and
+  (.macAppStoreConnectBuildSnapshotConfigured == false) and
+  (.macAppStoreConnectBuildSnapshotReady == false) and
+  (.macAppStoreConnectBuildSnapshotPath == null) and
+  (.macAppStoreConnectBuildSnapshotSHA256 == null) and
+  (.macAppStoreConnectEvidenceSHA256 == null) and
+  (.macAppStoreConnectBuildSnapshotCapturedAt == null) and
+  (.macAppStoreConnectBuildSnapshotExpiresAt == null) and
+  (.macAppStoreConnectBuildSnapshotAppResourceID == null) and
+  (.macAppStoreConnectBuildSnapshotBuildResourceID == null) and
+  (.macAppStoreConnectBuildSnapshotWarningsPresent == null) and
+  (.macAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity == false) and
+  (.macAppStoreConnectBuildSnapshotMatchesOperatorEvidence == false) and
+  (.macAppStoreConnectBuildSnapshotWarningReviewCurrent == false) and
+  (.macAppStoreConnectRemoteMetadataComparisonComplete == false) and
+  (.macAppStoreConnectBuildSnapshotExportComplianceRequired == null) and
+  (.macAppStoreConnectBuildSnapshotBuildUploadErrorFree == null) and
+  (.iosAppStoreConnectBuildSnapshotConfigured == false) and
+  (.iosAppStoreConnectBuildSnapshotReady == false) and
+  (.iosAppStoreConnectBuildSnapshotPath == null) and
+  (.iosAppStoreConnectBuildSnapshotSHA256 == null) and
+  (.iosAppStoreConnectEvidenceSHA256 == null) and
+  (.iosAppStoreConnectBuildSnapshotCapturedAt == null) and
+  (.iosAppStoreConnectBuildSnapshotExpiresAt == null) and
+  (.iosAppStoreConnectBuildSnapshotAppResourceID == null) and
+  (.iosAppStoreConnectBuildSnapshotBuildResourceID == null) and
+  (.iosAppStoreConnectBuildSnapshotWarningsPresent == null) and
+  (.iosAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity == false) and
+  (.iosAppStoreConnectBuildSnapshotMatchesOperatorEvidence == false) and
+  (.iosAppStoreConnectBuildSnapshotWarningReviewCurrent == false) and
+  (.iosAppStoreConnectRemoteMetadataComparisonComplete == false) and
+  (.iosAppStoreConnectBuildSnapshotExportComplianceRequired == null) and
+  (.iosAppStoreConnectBuildSnapshotBuildUploadErrorFree == null)
+' "$CLEAN_READINESS_RESULT" >/dev/null
+
+# Preserve the exact ASC snapshot freshness policy in the report so a later
+# preflight can enforce the same verifier boundary. Invalid policies remain
+# visible as invalid and cannot unlock either review-selection gate.
+AGENT_ISLAND_ASC_SNAPSHOT_MAX_AGE_SECONDS=300 \
+  "$PROJECT_DIR/scripts/release-readiness.sh" | /usr/bin/jq -e '
+    .appStoreConnectSnapshotMaxAgeValid == true and
+    .appStoreConnectSnapshotMaxAgeSeconds == 300
+  ' >/dev/null
+AGENT_ISLAND_ASC_SNAPSHOT_MAX_AGE_SECONDS=901 \
+  "$PROJECT_DIR/scripts/release-readiness.sh" | /usr/bin/jq -e '
+    .appStoreConnectSnapshotMaxAgeValid == false and
+    .appStoreConnectSnapshotMaxAgeSeconds == null and
+    .readyForMacAppStoreReviewSelection == false and
+    .readyForIOSAppStoreReviewSelection == false
+  ' >/dev/null
 
 RECORD_FIXTURE_ROOT="$VERIFY_ROOT/release-readiness-record-fixture"
 /bin/mkdir -p "$RECORD_FIXTURE_ROOT/scripts" "$RECORD_FIXTURE_ROOT/ApplePlatforms" \

@@ -20,6 +20,18 @@ fail() {
   exit 1
 }
 
+sha256_file() {
+  LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$1" | /usr/bin/awk '{print $1}'
+}
+
+iso_utc_seconds() {
+  /bin/date -u -r "$1" '+%Y-%m-%dT%H:%M:%SZ'
+}
+
+iso_utc_milliseconds() {
+  /bin/date -u -r "$1" '+%Y-%m-%dT%H:%M:%S.123Z'
+}
+
 contains() {
   local needle="$1"
   local path="$2"
@@ -163,10 +175,205 @@ for field in \
     "$PREFLIGHT" mac-app-store-upload "$INVALID_REPORT"
 done
 
+RELEASE_FIXTURE_ROOT="$TEST_ROOT/release-project"
+/bin/mkdir -p "$RELEASE_FIXTURE_ROOT/.release"
+FIXTURE_NOW_EPOCH="$(/bin/date -u '+%s')"
+FIXTURE_CAPTURE_EPOCH="$(( FIXTURE_NOW_EPOCH - 60 ))"
+FIXTURE_EXPIRES_EPOCH="$(( FIXTURE_CAPTURE_EPOCH + 900 ))"
+FIXTURE_REVIEW_EPOCH="$(( FIXTURE_CAPTURE_EPOCH + 60 ))"
+MAC_UPLOAD_SUBMITTED_AT="$(iso_utc_seconds "$(( FIXTURE_CAPTURE_EPOCH - 120 ))")"
+MAC_PROCESSING_VERIFIED_AT="$(iso_utc_seconds "$FIXTURE_REVIEW_EPOCH")"
+PUBLIC_OLDEST_CHECKED_AT="$(iso_utc_seconds "$FIXTURE_CAPTURE_EPOCH")"
+PUBLIC_NEWEST_CHECKED_AT="$(iso_utc_seconds "$(( FIXTURE_CAPTURE_EPOCH + 1 ))")"
+SUBMISSION_MANIFEST="$RELEASE_FIXTURE_ROOT/.release/app-store-submission.json"
+MAC_APP_RESOURCE_ID="1234567890"
+IOS_APP_RESOURCE_ID="1234567891"
+MAC_APP_SKU="agent-island-macos"
+IOS_APP_SKU="agent-island-ios"
+APP_PRIMARY_LOCALE="zh-Hans"
+/usr/bin/jq -n \
+  --arg identitySHA "$IDENTITY_LOCK_SHA256" \
+  --arg macAppID "$MAC_APP_RESOURCE_ID" \
+  --arg iosAppID "$IOS_APP_RESOURCE_ID" \
+  --arg macSKU "$MAC_APP_SKU" \
+  --arg iosSKU "$IOS_APP_SKU" \
+  --arg locale "$APP_PRIMARY_LOCALE" '{
+  schemaVersion: 1,
+  identityLockSHA256: $identitySHA,
+  records: {
+    macos: {appResourceId: $macAppID, sku: $macSKU, primaryLocale: $locale},
+    ios: {appResourceId: $iosAppID, sku: $iosSKU, primaryLocale: $locale}
+  }
+}' >"$SUBMISSION_MANIFEST"
+/bin/chmod 0444 "$SUBMISSION_MANIFEST"
+SUBMISSION_MANIFEST_SHA256="$(sha256_file "$SUBMISSION_MANIFEST")"
+
+PUBLIC_PAGES_EVIDENCE="$RELEASE_FIXTURE_ROOT/.release/public-pages-evidence.json"
+/usr/bin/jq -n \
+  --arg manifestSHA "$SUBMISSION_MANIFEST_SHA256" \
+  --arg oldest "$PUBLIC_OLDEST_CHECKED_AT" \
+  --arg newest "$PUBLIC_NEWEST_CHECKED_AT" '{
+  schemaVersion: 1,
+  evidenceType: "public-pages",
+  productName: "MAC版灵动岛--Agent运行监测",
+  configuredURLs: {
+    privacy: "https://example.com/privacy/",
+    support: "https://example.com/support/"
+  },
+  allowedOrigins: ["https://example.com"],
+  binding: {
+    type: "submission-manifest",
+    path: ".release/app-store-submission.json",
+    sha256: $manifestSHA
+  },
+  pages: [
+    {
+      kind: "privacy",
+      configuredURL: "https://example.com/privacy/",
+      finalURL: "https://example.com/privacy/",
+      status: 200,
+      contentType: "text/html; charset=utf-8",
+      bodySizeBytes: 1024,
+      bodySHA256: ("a" * 64),
+      redirectCount: 0,
+      checkedAt: $oldest,
+      validations: {
+        productName: true,
+        bilingualLanguages: true,
+        pagePurpose: true,
+        contactOrDeletionPath: true
+      }
+    },
+    {
+      kind: "support",
+      configuredURL: "https://example.com/support/",
+      finalURL: "https://example.com/support/",
+      status: 200,
+      contentType: "text/html; charset=utf-8",
+      bodySizeBytes: 2048,
+      bodySHA256: ("b" * 64),
+      redirectCount: 0,
+      checkedAt: $newest,
+      validations: {
+        productName: true,
+        bilingualLanguages: true,
+        pagePurpose: true,
+        contactOrDeletionPath: true
+      }
+    }
+  ],
+  createdAt: $newest
+}' >"$PUBLIC_PAGES_EVIDENCE"
+/bin/chmod 0444 "$PUBLIC_PAGES_EVIDENCE"
+PUBLIC_PAGES_EVIDENCE_SHA256="$(sha256_file "$PUBLIC_PAGES_EVIDENCE")"
+
+MAC_ASC_SNAPSHOT="$RELEASE_FIXTURE_ROOT/.release/mac-asc-build-snapshot.json"
+MAC_ASC_EVIDENCE_SHA256="$(printf 'a%.0s' {1..64})"
+MAC_ASC_CAPTURED_AT="$(iso_utc_milliseconds "$FIXTURE_CAPTURE_EPOCH")"
+MAC_ASC_EXPIRES_AT="$(iso_utc_milliseconds "$FIXTURE_EXPIRES_EPOCH")"
+MAC_ASC_BUILD_ID="fixture-mac-build-id"
+MAC_BUNDLE_ID="com.agentisland.release"
+MAC_MARKETING_VERSION="1.0.0"
+MAC_BUILD_NUMBER="1"
+/usr/bin/jq -n \
+  --arg appID "$MAC_APP_RESOURCE_ID" \
+  --arg sku "$MAC_APP_SKU" \
+  --arg locale "$APP_PRIMARY_LOCALE" \
+  --arg bundleID "$MAC_BUNDLE_ID" \
+  --arg version "$MAC_MARKETING_VERSION" \
+  --arg build "$MAC_BUILD_NUMBER" \
+  --arg buildID "$MAC_ASC_BUILD_ID" \
+  --arg evidenceSHA "$MAC_ASC_EVIDENCE_SHA256" \
+  --arg identityPath "$IDENTITY_LOCK" \
+  --arg identitySHA "$IDENTITY_LOCK_SHA256" \
+  --arg capturedAt "$MAC_ASC_CAPTURED_AT" \
+  --arg expiresAt "$MAC_ASC_EXPIRES_AT" '{
+  schemaVersion: 1,
+  kind: "app-store-connect-build-snapshot",
+  readOnly: true,
+  capturedAt: $capturedAt,
+  expiresAt: $expiresAt,
+  evidenceSHA256: $evidenceSHA,
+  candidate: {
+    releaseIdentityLockPath: $identityPath,
+    releaseIdentityLockSHA256: $identitySHA
+  },
+  query: {bundleID: $bundleID, platform: "MAC_OS", version: $version, build: $build},
+  resourceIDs: {
+    app: $appID,
+    preReleaseVersion: "fixture-mac-prerelease-id",
+    build: $buildID,
+    buildUpload: "fixture-mac-upload-id"
+  },
+  app: {resourceID: $appID, bundleID: $bundleID, sku: $sku, primaryLocale: $locale},
+  preReleaseVersion: {
+    resourceID: "fixture-mac-prerelease-id",
+    version: $version,
+    platform: "MAC_OS"
+  },
+  build: {
+    resourceID: $buildID,
+    buildNumber: $build,
+    processingState: "VALID",
+    expired: false,
+    buildAudienceType: "APP_STORE_ELIGIBLE",
+    usesNonExemptEncryption: false,
+    exportComplianceRequired: false
+  },
+  buildUpload: {
+    resourceID: "fixture-mac-upload-id",
+    cfBundleShortVersionString: $version,
+    cfBundleVersion: $build,
+    platform: "MAC_OS",
+    state: "COMPLETE",
+    errors: [],
+    warnings: [],
+    warningsPresent: false,
+    infos: []
+  },
+  readiness: {
+    candidateBindingsVerified: true,
+    appResourceUnique: true,
+    preReleaseVersionExact: true,
+    buildResourceUnique: true,
+    buildProcessingValid: true,
+    buildNotExpired: true,
+    appStoreEligible: true,
+    encryptionDeclarationResolved: true,
+    exportComplianceRequired: false,
+    buildUploadComplete: true,
+    buildUploadErrorFree: true,
+    warningsPresent: false,
+    snapshotReady: true
+  }
+}' >"$MAC_ASC_SNAPSHOT"
+/bin/chmod 0444 "$MAC_ASC_SNAPSHOT"
+MAC_ASC_SNAPSHOT_SHA256="$(sha256_file "$MAC_ASC_SNAPSHOT")"
+
 MAC_APP_STORE_REVIEW_REPORT="$TEST_ROOT/mac-app-store-review-ready.json"
 /usr/bin/jq \
   --arg deliveryPath "$TEST_ROOT/mac-app-store-delivery.json" \
-  --arg processingPath "$TEST_ROOT/mac-app-store-processing.json" '. + {
+  --arg processingPath "$TEST_ROOT/mac-app-store-processing.json" \
+  --arg manifestPath "$SUBMISSION_MANIFEST" \
+  --arg manifestSHA "$SUBMISSION_MANIFEST_SHA256" \
+  --arg publicPath "$PUBLIC_PAGES_EVIDENCE" \
+  --arg publicSHA "$PUBLIC_PAGES_EVIDENCE_SHA256" \
+  --arg publicOldest "$PUBLIC_OLDEST_CHECKED_AT" \
+  --arg publicNewest "$PUBLIC_NEWEST_CHECKED_AT" \
+  --arg appResourceID "$MAC_APP_RESOURCE_ID" \
+  --arg appSKU "$MAC_APP_SKU" \
+  --arg primaryLocale "$APP_PRIMARY_LOCALE" \
+  --arg ascPath "$MAC_ASC_SNAPSHOT" \
+  --arg ascSHA "$MAC_ASC_SNAPSHOT_SHA256" \
+  --arg ascEvidenceSHA "$MAC_ASC_EVIDENCE_SHA256" \
+  --arg ascCapturedAt "$MAC_ASC_CAPTURED_AT" \
+  --arg ascExpiresAt "$MAC_ASC_EXPIRES_AT" \
+  --arg ascBuildID "$MAC_ASC_BUILD_ID" \
+  --arg uploadSubmittedAt "$MAC_UPLOAD_SUBMITTED_AT" \
+  --arg processingVerifiedAt "$MAC_PROCESSING_VERIFIED_AT" '. + {
+  productionBundleID: "com.agentisland.release",
+  macMarketingVersion: "1.0.0",
+  macBuildNumber: "1",
   appStoreRecordModeConfigured: true,
   appStoreRecordModeBundleIDsValid: true,
   macAppStoreDeliveryEvidenceConfigured: true,
@@ -175,7 +382,7 @@ MAC_APP_STORE_REVIEW_REPORT="$TEST_ROOT/mac-app-store-review-ready.json"
   macAppStoreDeliveryEvidencePath: $deliveryPath,
   macAppStoreDeliveryEvidenceSHA256: ("d" * 64),
   macAppStoreUploadAccepted: true,
-  macAppStoreUploadSubmittedAt: "2026-09-04T00:00:00Z",
+  macAppStoreUploadSubmittedAt: $uploadSubmittedAt,
   macAppStoreProcessingEvidenceConfigured: true,
   macAppStoreProcessingEvidenceReady: true,
   macAppStoreProcessingBoundToDelivery: true,
@@ -183,14 +390,117 @@ MAC_APP_STORE_REVIEW_REPORT="$TEST_ROOT/mac-app-store-review-ready.json"
   macAppStoreProcessingEvidenceSHA256: ("e" * 64),
   macAppStoreProcessingState: "Complete",
   macAppStoreProcessingVerified: true,
-  macAppStoreProcessingVerifiedAt: "2026-09-04T00:05:00Z",
+  macAppStoreProcessingVerifiedAt: $processingVerifiedAt,
   macAppStoreWarningsReviewed: true,
-  macAppStoreWarningsReviewedAt: "2026-09-04T00:05:00Z",
-  macAppStoreConnectBuildID: "fixture-mac-build-id",
+  macAppStoreWarningsReviewedAt: $processingVerifiedAt,
+  macAppStoreConnectBuildID: $ascBuildID,
+  appStoreSubmissionManifestConfigured: true,
+  appStoreSubmissionManifestReady: true,
+  macAppStoreSubmissionManifestReady: true,
+  appStoreSubmissionManifestPath: $manifestPath,
+  appStoreSubmissionManifestSHA256: $manifestSHA,
+  macAppStoreExpectedAppResourceID: $appResourceID,
+  macAppStoreExpectedSKU: $appSKU,
+  macAppStoreExpectedPrimaryLocale: $primaryLocale,
+  publicPagesEvidenceConfigured: true,
+  publicPagesEvidenceReady: true,
+  publicPagesEvidenceBoundToSubmissionManifest: true,
+  publicPagesEvidencePath: $publicPath,
+  publicPagesEvidenceSHA256: $publicSHA,
+  publicPagesEvidenceBindingType: "submission-manifest",
+  publicPagesEvidenceBindingPath: $manifestPath,
+  publicPagesEvidenceBindingSHA256: $manifestSHA,
+  publicPagesEvidenceOldestCheckedAt: $publicOldest,
+  publicPagesEvidenceNewestCheckedAt: $publicNewest,
+  publicPagesEvidenceMaxAgeSeconds: 86400,
+  appStoreConnectSnapshotMaxAgeValid: true,
+  appStoreConnectSnapshotMaxAgeSeconds: 900,
+  macAppStoreConnectBuildSnapshotConfigured: true,
+  macAppStoreConnectBuildSnapshotReady: true,
+  macAppStoreConnectBuildSnapshotPath: $ascPath,
+  macAppStoreConnectBuildSnapshotSHA256: $ascSHA,
+  macAppStoreConnectEvidenceSHA256: $ascEvidenceSHA,
+  macAppStoreConnectBuildSnapshotCapturedAt: $ascCapturedAt,
+  macAppStoreConnectBuildSnapshotExpiresAt: $ascExpiresAt,
+  macAppStoreConnectBuildSnapshotAppResourceID: $appResourceID,
+  macAppStoreConnectBuildSnapshotBuildResourceID: $ascBuildID,
+  macAppStoreConnectBuildSnapshotWarningsPresent: false,
+  macAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity: true,
+  macAppStoreConnectBuildSnapshotMatchesOperatorEvidence: true,
+  macAppStoreConnectBuildSnapshotWarningReviewCurrent: true,
+  macAppStoreConnectRemoteMetadataComparisonComplete: true,
+  macAppStoreConnectBuildSnapshotExportComplianceRequired: false,
+  macAppStoreConnectBuildSnapshotBuildUploadErrorFree: true,
   macAppStoreAppReviewSubmissionRecorded: false,
   readyForMacAppStoreReviewSelection: true
 }' "$MAC_APP_STORE_UPLOAD_REPORT" >"$MAC_APP_STORE_REVIEW_REPORT"
 "$PREFLIGHT" mac-app-store-review "$MAC_APP_STORE_REVIEW_REPORT"
+
+/bin/chmod 0644 "$SUBMISSION_MANIFEST"
+expect_rejected "Mac App Store review with writable submission manifest" \
+  "$PREFLIGHT" mac-app-store-review "$MAC_APP_STORE_REVIEW_REPORT"
+/bin/chmod 0444 "$SUBMISSION_MANIFEST"
+/bin/chmod 0644 "$PUBLIC_PAGES_EVIDENCE"
+expect_rejected "Mac App Store review with writable public-pages evidence" \
+  "$PREFLIGHT" mac-app-store-review "$MAC_APP_STORE_REVIEW_REPORT"
+/bin/chmod 0444 "$PUBLIC_PAGES_EVIDENCE"
+/bin/chmod 0644 "$MAC_ASC_SNAPSHOT"
+expect_rejected "Mac App Store review with writable ASC snapshot" \
+  "$PREFLIGHT" mac-app-store-review "$MAC_APP_STORE_REVIEW_REPORT"
+/bin/chmod 0444 "$MAC_ASC_SNAPSHOT"
+
+INVALID_PUBLIC_EVIDENCE="$RELEASE_FIXTURE_ROOT/.release/public-pages-invalid.json"
+/usr/bin/jq '.pages[0].validations.productName = false' \
+  "$PUBLIC_PAGES_EVIDENCE" >"$INVALID_PUBLIC_EVIDENCE"
+/bin/chmod 0444 "$INVALID_PUBLIC_EVIDENCE"
+INVALID_PUBLIC_SHA="$(sha256_file "$INVALID_PUBLIC_EVIDENCE")"
+INVALID_REPORT="$TEST_ROOT/mac-app-store-review-invalid-public-semantics.json"
+/usr/bin/jq --arg path "$INVALID_PUBLIC_EVIDENCE" --arg sha "$INVALID_PUBLIC_SHA" '
+  .publicPagesEvidencePath = $path |
+  .publicPagesEvidenceSHA256 = $sha
+' "$MAC_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+expect_rejected "Mac App Store review with false public-page validation" \
+  "$PREFLIGHT" mac-app-store-review "$INVALID_REPORT"
+
+HIDDEN_ERROR_ASC="$RELEASE_FIXTURE_ROOT/.release/mac-asc-hidden-error.json"
+/usr/bin/jq '.buildUpload.errors = [{message: "hidden fixture error"}]' \
+  "$MAC_ASC_SNAPSHOT" >"$HIDDEN_ERROR_ASC"
+/bin/chmod 0444 "$HIDDEN_ERROR_ASC"
+HIDDEN_ERROR_ASC_SHA="$(sha256_file "$HIDDEN_ERROR_ASC")"
+INVALID_REPORT="$TEST_ROOT/mac-app-store-review-hidden-asc-error.json"
+/usr/bin/jq --arg path "$HIDDEN_ERROR_ASC" --arg sha "$HIDDEN_ERROR_ASC_SHA" '
+  .macAppStoreConnectBuildSnapshotPath = $path |
+  .macAppStoreConnectBuildSnapshotSHA256 = $sha
+' "$MAC_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+expect_rejected "Mac App Store review with a hidden ASC upload error" \
+  "$PREFLIGHT" mac-app-store-review "$INVALID_REPORT"
+
+HIDDEN_WARNING_ASC="$RELEASE_FIXTURE_ROOT/.release/mac-asc-hidden-warning.json"
+/usr/bin/jq '.buildUpload.warnings = [{message: "hidden fixture warning"}]' \
+  "$MAC_ASC_SNAPSHOT" >"$HIDDEN_WARNING_ASC"
+/bin/chmod 0444 "$HIDDEN_WARNING_ASC"
+HIDDEN_WARNING_ASC_SHA="$(sha256_file "$HIDDEN_WARNING_ASC")"
+INVALID_REPORT="$TEST_ROOT/mac-app-store-review-hidden-asc-warning.json"
+/usr/bin/jq --arg path "$HIDDEN_WARNING_ASC" --arg sha "$HIDDEN_WARNING_ASC_SHA" '
+  .macAppStoreConnectBuildSnapshotPath = $path |
+  .macAppStoreConnectBuildSnapshotSHA256 = $sha
+' "$MAC_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+expect_rejected "Mac App Store review with a hidden ASC warning" \
+  "$PREFLIGHT" mac-app-store-review "$INVALID_REPORT"
+
+MISMATCHED_ENCRYPTION_ASC="$RELEASE_FIXTURE_ROOT/.release/mac-asc-encryption-mismatch.json"
+/usr/bin/jq '.build.usesNonExemptEncryption = true' \
+  "$MAC_ASC_SNAPSHOT" >"$MISMATCHED_ENCRYPTION_ASC"
+/bin/chmod 0444 "$MISMATCHED_ENCRYPTION_ASC"
+MISMATCHED_ENCRYPTION_ASC_SHA="$(sha256_file "$MISMATCHED_ENCRYPTION_ASC")"
+INVALID_REPORT="$TEST_ROOT/mac-app-store-review-asc-encryption-mismatch.json"
+/usr/bin/jq --arg path "$MISMATCHED_ENCRYPTION_ASC" \
+  --arg sha "$MISMATCHED_ENCRYPTION_ASC_SHA" '
+  .macAppStoreConnectBuildSnapshotPath = $path |
+  .macAppStoreConnectBuildSnapshotSHA256 = $sha
+' "$MAC_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+expect_rejected "Mac App Store review with mismatched ASC encryption state" \
+  "$PREFLIGHT" mac-app-store-review "$INVALID_REPORT"
 
 for field in \
     releaseIdentityReady \
@@ -214,6 +524,20 @@ for field in \
     macAppStoreProcessingBoundToDelivery \
     macAppStoreProcessingVerified \
     macAppStoreWarningsReviewed \
+    appStoreSubmissionManifestConfigured \
+    appStoreSubmissionManifestReady \
+    macAppStoreSubmissionManifestReady \
+    publicPagesEvidenceConfigured \
+    publicPagesEvidenceReady \
+    publicPagesEvidenceBoundToSubmissionManifest \
+    appStoreConnectSnapshotMaxAgeValid \
+    macAppStoreConnectBuildSnapshotConfigured \
+    macAppStoreConnectBuildSnapshotReady \
+    macAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity \
+    macAppStoreConnectBuildSnapshotMatchesOperatorEvidence \
+    macAppStoreConnectBuildSnapshotWarningReviewCurrent \
+    macAppStoreConnectRemoteMetadataComparisonComplete \
+    macAppStoreConnectBuildSnapshotBuildUploadErrorFree \
     readyForMacAppStoreReviewSelection; do
   INVALID_REPORT="$TEST_ROOT/mac-app-store-review-$field-false.json"
   /usr/bin/jq --arg field "$field" '.[$field] = false' \
@@ -233,6 +557,31 @@ for expression in \
     '.macAppStoreUploadSubmittedAt = "not-a-time"' \
     '.macAppStoreProcessingVerifiedAt = "not-a-time"' \
     '.macAppStoreWarningsReviewedAt = "not-a-time"' \
+    '.appStoreSubmissionManifestPath = "relative.json"' \
+    '.appStoreSubmissionManifestSHA256 = ("0" * 64)' \
+    '.macAppStoreExpectedAppResourceID = "1234567899" | .macAppStoreConnectBuildSnapshotAppResourceID = "1234567899"' \
+    '.macAppStoreExpectedSKU = "other-sku"' \
+    '.macAppStoreExpectedPrimaryLocale = "en-US"' \
+    '.publicPagesEvidencePath = "relative.json"' \
+    '.publicPagesEvidenceSHA256 = ("0" * 64)' \
+    '.publicPagesEvidenceBindingType = "identity-lock"' \
+    '.publicPagesEvidenceBindingPath = "/wrong/app-store-submission.json"' \
+    '.publicPagesEvidenceBindingSHA256 = ("0" * 64)' \
+    '.publicPagesEvidenceOldestCheckedAt = "not-a-time"' \
+    '.publicPagesEvidenceNewestCheckedAt = "not-a-time"' \
+    '.publicPagesEvidenceMaxAgeSeconds = 1' \
+    '.appStoreConnectSnapshotMaxAgeValid = false' \
+    '.appStoreConnectSnapshotMaxAgeSeconds = 30' \
+    '.macAppStoreConnectBuildSnapshotPath = "relative.json"' \
+    '.macAppStoreConnectBuildSnapshotSHA256 = ("0" * 64)' \
+    '.macAppStoreConnectEvidenceSHA256 = ("0" * 64)' \
+    '.macAppStoreConnectBuildSnapshotAppResourceID = "1234567899"' \
+    '.macAppStoreConnectBuildSnapshotBuildResourceID = "other-build-id"' \
+    '.macAppStoreConnectBuildSnapshotWarningsPresent = true' \
+    '.macAppStoreConnectBuildSnapshotCapturedAt = "not-a-time"' \
+    '.macAppStoreConnectBuildSnapshotExpiresAt = "not-a-time"' \
+    '.macAppStoreConnectBuildSnapshotExpiresAt = .macAppStoreConnectBuildSnapshotCapturedAt' \
+    '.macAppStoreConnectBuildSnapshotExportComplianceRequired = true' \
     '.macAppStoreUploadSubmittedAt = "2026-09-04T00:06:00Z"' \
     '.macAppStoreWarningsReviewedAt = "2026-09-04T00:06:00Z"' \
     '.macAppStoreAppReviewSubmissionRecorded = true'; do
@@ -241,6 +590,23 @@ for expression in \
   expect_rejected "Mac App Store review report mutation: $expression" \
     "$PREFLIGHT" mac-app-store-review "$INVALID_REPORT"
 done
+
+SUBMISSION_MANIFEST_BASELINE="$TEST_ROOT/app-store-submission.baseline.json"
+/bin/cp "$SUBMISSION_MANIFEST" "$SUBMISSION_MANIFEST_BASELINE"
+/bin/chmod 0644 "$SUBMISSION_MANIFEST"
+print -r -- 'changed after readiness' >>"$SUBMISSION_MANIFEST"
+expect_rejected "Mac App Store review with changed submission manifest" \
+  "$PREFLIGHT" mac-app-store-review "$MAC_APP_STORE_REVIEW_REPORT"
+/bin/cp "$SUBMISSION_MANIFEST_BASELINE" "$SUBMISSION_MANIFEST"
+/bin/chmod 0444 "$SUBMISSION_MANIFEST"
+
+PUBLIC_PAGES_SYMLINK="$RELEASE_FIXTURE_ROOT/.release/public-pages-evidence-link.json"
+/bin/ln -s "$PUBLIC_PAGES_EVIDENCE" "$PUBLIC_PAGES_SYMLINK"
+INVALID_REPORT="$TEST_ROOT/mac-app-store-review-public-symlink.json"
+/usr/bin/jq --arg path "$PUBLIC_PAGES_SYMLINK" \
+  '.publicPagesEvidencePath = $path' "$MAC_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+expect_rejected "Mac App Store review with symlink public-pages evidence" \
+  "$PREFLIGHT" mac-app-store-review "$INVALID_REPORT"
 
 IOS_REPORT="$TEST_ROOT/ios-ready.json"
 /usr/bin/jq -n --arg lockPath "$IDENTITY_LOCK" \
@@ -325,8 +691,105 @@ for expression in \
     "$PREFLIGHT" ios-upload "$INVALID_REPORT"
 done
 
+IOS_ASC_SNAPSHOT="$RELEASE_FIXTURE_ROOT/.release/ios-asc-build-snapshot.json"
+IOS_ASC_EVIDENCE_SHA256="$(printf 'b%.0s' {1..64})"
+IOS_ASC_CAPTURED_AT="$(iso_utc_milliseconds "$FIXTURE_CAPTURE_EPOCH")"
+IOS_ASC_EXPIRES_AT="$(iso_utc_milliseconds "$FIXTURE_EXPIRES_EPOCH")"
+IOS_WARNINGS_REVIEWED_AT="$(iso_utc_seconds "$FIXTURE_REVIEW_EPOCH")"
+IOS_ASC_BUILD_ID="fixture-ios-build-id"
+/usr/bin/jq -n \
+  --arg appID "$IOS_APP_RESOURCE_ID" \
+  --arg sku "$IOS_APP_SKU" \
+  --arg locale "$APP_PRIMARY_LOCALE" \
+  --arg bundleID "com.agentisland.release" \
+  --arg version "1.0.0" \
+  --arg build "1" \
+  --arg buildID "$IOS_ASC_BUILD_ID" \
+  --arg evidenceSHA "$IOS_ASC_EVIDENCE_SHA256" \
+  --arg identityPath "$IDENTITY_LOCK" \
+  --arg identitySHA "$IDENTITY_LOCK_SHA256" \
+  --arg capturedAt "$IOS_ASC_CAPTURED_AT" \
+  --arg expiresAt "$IOS_ASC_EXPIRES_AT" '{
+  schemaVersion: 1,
+  kind: "app-store-connect-build-snapshot",
+  readOnly: true,
+  capturedAt: $capturedAt,
+  expiresAt: $expiresAt,
+  evidenceSHA256: $evidenceSHA,
+  candidate: {
+    releaseIdentityLockPath: $identityPath,
+    releaseIdentityLockSHA256: $identitySHA
+  },
+  query: {bundleID: $bundleID, platform: "IOS", version: $version, build: $build},
+  resourceIDs: {
+    app: $appID,
+    preReleaseVersion: "fixture-ios-prerelease-id",
+    build: $buildID,
+    buildUpload: "fixture-ios-upload-id"
+  },
+  app: {resourceID: $appID, bundleID: $bundleID, sku: $sku, primaryLocale: $locale},
+  preReleaseVersion: {
+    resourceID: "fixture-ios-prerelease-id",
+    version: $version,
+    platform: "IOS"
+  },
+  build: {
+    resourceID: $buildID,
+    buildNumber: $build,
+    processingState: "VALID",
+    expired: false,
+    buildAudienceType: "APP_STORE_ELIGIBLE",
+    usesNonExemptEncryption: false,
+    exportComplianceRequired: false
+  },
+  buildUpload: {
+    resourceID: "fixture-ios-upload-id",
+    cfBundleShortVersionString: $version,
+    cfBundleVersion: $build,
+    platform: "IOS",
+    state: "COMPLETE",
+    errors: [],
+    warnings: [{message: "fixture warning"}],
+    warningsPresent: true,
+    infos: []
+  },
+  readiness: {
+    candidateBindingsVerified: true,
+    appResourceUnique: true,
+    preReleaseVersionExact: true,
+    buildResourceUnique: true,
+    buildProcessingValid: true,
+    buildNotExpired: true,
+    appStoreEligible: true,
+    encryptionDeclarationResolved: true,
+    exportComplianceRequired: false,
+    buildUploadComplete: true,
+    buildUploadErrorFree: true,
+    warningsPresent: true,
+    snapshotReady: true
+  }
+}' >"$IOS_ASC_SNAPSHOT"
+/bin/chmod 0444 "$IOS_ASC_SNAPSHOT"
+IOS_ASC_SNAPSHOT_SHA256="$(sha256_file "$IOS_ASC_SNAPSHOT")"
+
 IOS_APP_STORE_REVIEW_REPORT="$TEST_ROOT/ios-app-store-review-ready.json"
-/usr/bin/jq '. + {
+/usr/bin/jq \
+  --arg manifestPath "$SUBMISSION_MANIFEST" \
+  --arg manifestSHA "$SUBMISSION_MANIFEST_SHA256" \
+  --arg publicPath "$PUBLIC_PAGES_EVIDENCE" \
+  --arg publicSHA "$PUBLIC_PAGES_EVIDENCE_SHA256" \
+  --arg publicOldest "$PUBLIC_OLDEST_CHECKED_AT" \
+  --arg publicNewest "$PUBLIC_NEWEST_CHECKED_AT" \
+  --arg appResourceID "$IOS_APP_RESOURCE_ID" \
+  --arg appSKU "$IOS_APP_SKU" \
+  --arg primaryLocale "$APP_PRIMARY_LOCALE" \
+  --arg ascPath "$IOS_ASC_SNAPSHOT" \
+  --arg ascSHA "$IOS_ASC_SNAPSHOT_SHA256" \
+  --arg ascEvidenceSHA "$IOS_ASC_EVIDENCE_SHA256" \
+  --arg ascCapturedAt "$IOS_ASC_CAPTURED_AT" \
+  --arg ascExpiresAt "$IOS_ASC_EXPIRES_AT" \
+  --arg ascBuildID "$IOS_ASC_BUILD_ID" \
+  --arg warningsReviewedAt "$IOS_WARNINGS_REVIEWED_AT" '. + {
   iosTestFlightExactBuildEvidenceReady: true,
   iosFunctionalQAEvidenceReady: true,
   iosFunctionalEvidenceBoundToCandidate: true,
@@ -335,14 +798,51 @@ IOS_APP_STORE_REVIEW_REPORT="$TEST_ROOT/ios-app-store-review-ready.json"
   iosTestFlightProcessingState: "VALID",
   iosTestFlightInstallVerified: true,
   iosTestFlightWarningsReviewed: true,
-  iosTestFlightWarningsReviewedAt: "2026-09-04T00:00:00Z",
+  iosTestFlightWarningsReviewedAt: $warningsReviewedAt,
   iosPrivacyReleaseEvidenceReady: true,
   iosStoreSubmissionAssetsReady: true,
   macStoreSubmissionAssetsReady: false,
   storeSubmissionAssetsReady: false,
   appStoreRecordModeConfigured: true,
   appStoreRecordModeBundleIDsValid: true,
-  iosTestFlightAppStoreConnectBuildID: "fixture-build-id",
+  iosTestFlightAppStoreConnectBuildID: $ascBuildID,
+  appStoreSubmissionManifestConfigured: true,
+  appStoreSubmissionManifestReady: true,
+  iosAppStoreSubmissionManifestReady: true,
+  appStoreSubmissionManifestPath: $manifestPath,
+  appStoreSubmissionManifestSHA256: $manifestSHA,
+  iosAppStoreExpectedAppResourceID: $appResourceID,
+  iosAppStoreExpectedSKU: $appSKU,
+  iosAppStoreExpectedPrimaryLocale: $primaryLocale,
+  publicPagesEvidenceConfigured: true,
+  publicPagesEvidenceReady: true,
+  publicPagesEvidenceBoundToSubmissionManifest: true,
+  publicPagesEvidencePath: $publicPath,
+  publicPagesEvidenceSHA256: $publicSHA,
+  publicPagesEvidenceBindingType: "submission-manifest",
+  publicPagesEvidenceBindingPath: $manifestPath,
+  publicPagesEvidenceBindingSHA256: $manifestSHA,
+  publicPagesEvidenceOldestCheckedAt: $publicOldest,
+  publicPagesEvidenceNewestCheckedAt: $publicNewest,
+  publicPagesEvidenceMaxAgeSeconds: 86400,
+  appStoreConnectSnapshotMaxAgeValid: true,
+  appStoreConnectSnapshotMaxAgeSeconds: 900,
+  iosAppStoreConnectBuildSnapshotConfigured: true,
+  iosAppStoreConnectBuildSnapshotReady: true,
+  iosAppStoreConnectBuildSnapshotPath: $ascPath,
+  iosAppStoreConnectBuildSnapshotSHA256: $ascSHA,
+  iosAppStoreConnectEvidenceSHA256: $ascEvidenceSHA,
+  iosAppStoreConnectBuildSnapshotCapturedAt: $ascCapturedAt,
+  iosAppStoreConnectBuildSnapshotExpiresAt: $ascExpiresAt,
+  iosAppStoreConnectBuildSnapshotAppResourceID: $appResourceID,
+  iosAppStoreConnectBuildSnapshotBuildResourceID: $ascBuildID,
+  iosAppStoreConnectBuildSnapshotWarningsPresent: true,
+  iosAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity: true,
+  iosAppStoreConnectBuildSnapshotMatchesOperatorEvidence: true,
+  iosAppStoreConnectBuildSnapshotWarningReviewCurrent: true,
+  iosAppStoreConnectRemoteMetadataComparisonComplete: true,
+  iosAppStoreConnectBuildSnapshotExportComplianceRequired: false,
+  iosAppStoreConnectBuildSnapshotBuildUploadErrorFree: true,
   readyForFunctionalIOSTestFlight: true,
   readyForIOSAppStoreReviewSelection: true
 }' "$IOS_REPORT" >"$IOS_APP_STORE_REVIEW_REPORT"
@@ -363,6 +863,20 @@ for field in \
     iosStoreSubmissionAssetsReady \
     appStoreRecordModeConfigured \
     appStoreRecordModeBundleIDsValid \
+    appStoreSubmissionManifestConfigured \
+    appStoreSubmissionManifestReady \
+    iosAppStoreSubmissionManifestReady \
+    publicPagesEvidenceConfigured \
+    publicPagesEvidenceReady \
+    publicPagesEvidenceBoundToSubmissionManifest \
+    appStoreConnectSnapshotMaxAgeValid \
+    iosAppStoreConnectBuildSnapshotConfigured \
+    iosAppStoreConnectBuildSnapshotReady \
+    iosAppStoreConnectBuildSnapshotMatchesSubmissionAppIdentity \
+    iosAppStoreConnectBuildSnapshotMatchesOperatorEvidence \
+    iosAppStoreConnectBuildSnapshotWarningReviewCurrent \
+    iosAppStoreConnectRemoteMetadataComparisonComplete \
+    iosAppStoreConnectBuildSnapshotBuildUploadErrorFree \
     readyForFunctionalIOSTestFlight \
     readyForIOSAppStoreReviewSelection; do
   INVALID_REPORT="$TEST_ROOT/ios-app-store-review-$field-false.json"
@@ -393,6 +907,48 @@ INVALID_REPORT="$TEST_ROOT/ios-app-store-review-warning-time-malformed.json"
   "$IOS_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
 expect_rejected "iOS App Store review report with malformed warning-review time" \
   "$PREFLIGHT" ios-app-store-review "$INVALID_REPORT"
+
+for expression in \
+    '.appStoreSubmissionManifestPath = "relative.json"' \
+    '.appStoreSubmissionManifestSHA256 = ("0" * 64)' \
+    '.iosAppStoreExpectedAppResourceID = "1234567899" | .iosAppStoreConnectBuildSnapshotAppResourceID = "1234567899"' \
+    '.iosAppStoreExpectedSKU = "other-sku"' \
+    '.iosAppStoreExpectedPrimaryLocale = "en-US"' \
+    '.publicPagesEvidencePath = "relative.json"' \
+    '.publicPagesEvidenceSHA256 = ("0" * 64)' \
+    '.publicPagesEvidenceBindingType = "identity-lock"' \
+    '.publicPagesEvidenceBindingPath = "/wrong/app-store-submission.json"' \
+    '.publicPagesEvidenceBindingSHA256 = ("0" * 64)' \
+    '.publicPagesEvidenceOldestCheckedAt = "not-a-time"' \
+    '.publicPagesEvidenceNewestCheckedAt = "not-a-time"' \
+    '.publicPagesEvidenceMaxAgeSeconds = 1' \
+    '.appStoreConnectSnapshotMaxAgeValid = false' \
+    '.appStoreConnectSnapshotMaxAgeSeconds = 30' \
+    '.iosAppStoreConnectBuildSnapshotPath = "relative.json"' \
+    '.iosAppStoreConnectBuildSnapshotSHA256 = ("0" * 64)' \
+    '.iosAppStoreConnectEvidenceSHA256 = ("0" * 64)' \
+    '.iosAppStoreConnectBuildSnapshotAppResourceID = "1234567899"' \
+    '.iosAppStoreConnectBuildSnapshotBuildResourceID = "other-build-id"' \
+    '.iosAppStoreConnectBuildSnapshotWarningsPresent = false' \
+    '.iosAppStoreConnectBuildSnapshotCapturedAt = "not-a-time"' \
+    '.iosAppStoreConnectBuildSnapshotExpiresAt = "not-a-time"' \
+    '.iosAppStoreConnectBuildSnapshotExpiresAt = .iosAppStoreConnectBuildSnapshotCapturedAt' \
+    '.iosAppStoreConnectBuildSnapshotExportComplianceRequired = true' \
+    '.iosTestFlightWarningsReviewedAt = "2000-01-01T00:00:00Z"'; do
+  INVALID_REPORT="$TEST_ROOT/ios-app-store-review-new-evidence-$RANDOM.json"
+  /usr/bin/jq "$expression" "$IOS_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+  expect_rejected "iOS App Store review report evidence mutation: $expression" \
+    "$PREFLIGHT" ios-app-store-review "$INVALID_REPORT"
+done
+
+IOS_ASC_BASELINE="$TEST_ROOT/ios-asc-build-snapshot.baseline.json"
+/bin/cp "$IOS_ASC_SNAPSHOT" "$IOS_ASC_BASELINE"
+/bin/chmod 0644 "$IOS_ASC_SNAPSHOT"
+print -r -- 'changed after readiness' >>"$IOS_ASC_SNAPSHOT"
+expect_rejected "iOS App Store review with changed ASC snapshot" \
+  "$PREFLIGHT" ios-app-store-review "$IOS_APP_STORE_REVIEW_REPORT"
+/bin/cp "$IOS_ASC_BASELINE" "$IOS_ASC_SNAPSHOT"
+/bin/chmod 0444 "$IOS_ASC_SNAPSHOT"
 
 # A report is only a snapshot. Every channel must independently reject lock
 # content drift, a replacement symlink, and a path that traverses a symlinked
@@ -428,6 +984,11 @@ expect_rejected "identity lock path traversing a symlink" \
 /bin/ln -s "$IOS_REPORT" "$TEST_ROOT/ios-ready-link.json"
 expect_rejected "symlink readiness report" \
   "$PREFLIGHT" ios "$TEST_ROOT/ios-ready-link.json"
+/bin/mkdir "$TEST_ROOT/readiness-parent"
+/bin/cp "$IOS_REPORT" "$TEST_ROOT/readiness-parent/ios-ready.json"
+/bin/ln -s "$TEST_ROOT/readiness-parent" "$TEST_ROOT/readiness-parent-link"
+expect_rejected "readiness report path traversing a symlink" \
+  "$PREFLIGHT" ios "$TEST_ROOT/readiness-parent-link/ios-ready.json"
 expect_rejected "unknown release channel" \
   "$PREFLIGHT" app-store "$IOS_REPORT"
 
