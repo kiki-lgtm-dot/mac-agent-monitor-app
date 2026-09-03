@@ -1,11 +1,19 @@
 #!/usr/bin/env node
 
-import { closeSync, existsSync, lstatSync, openSync, readFileSync, readSync } from 'node:fs';
+import {
+  closeSync,
+  existsSync,
+  lstatSync,
+  openSync,
+  readFileSync,
+  readSync,
+  realpathSync,
+} from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const projectRoot = realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const args = new Set(process.argv.slice(2));
 const knownArgs = new Set(['--release']);
 for (const argument of args) {
@@ -204,8 +212,26 @@ function projectFile(relativePath, label, blockers, maximumBytes = Number.POSITI
     blockers.push(`${label}.path does not exist: ${relativePath}`);
     return null;
   }
-  const stat = lstatSync(absolutePath);
-  if (stat.isSymbolicLink() || !stat.isFile()) {
+  // `path.resolve()` is only lexical: repo/link/file still looks repository-
+  // relative when `link` points outside. Reject a symlink in every component,
+  // then confirm the canonical file remains below the canonical repository.
+  let componentPath = projectRoot;
+  for (const component of projectRelative.split(path.sep).filter(Boolean)) {
+    componentPath = path.join(componentPath, component);
+    const componentStat = lstatSync(componentPath);
+    if (componentStat.isSymbolicLink()) {
+      blockers.push(`${label}.path must not contain a symbolic-link component`);
+      return null;
+    }
+  }
+  const canonicalPath = realpathSync(absolutePath);
+  const canonicalRelative = path.relative(projectRoot, canonicalPath);
+  if (canonicalRelative.startsWith('..') || path.isAbsolute(canonicalRelative)) {
+    blockers.push(`${label}.path real location must stay inside the repository`);
+    return null;
+  }
+  const stat = lstatSync(canonicalPath);
+  if (!stat.isFile()) {
     blockers.push(`${label}.path must be a regular file, not a directory or symlink`);
     return null;
   }
@@ -213,7 +239,7 @@ function projectFile(relativePath, label, blockers, maximumBytes = Number.POSITI
     blockers.push(`${label}.path exceeds the ${maximumBytes}-byte evidence-file limit`);
     return null;
   }
-  return absolutePath;
+  return canonicalPath;
 }
 
 function fileSHA256(absolutePath, label, blockers) {

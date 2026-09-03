@@ -109,6 +109,8 @@ required_files=(
   "scripts/privacy-manifest-contract.jq"
   "scripts/validate-build-settings.mjs"
   "scripts/release-ios.sh"
+  "scripts/submit-testflight.sh"
+  "scripts/confirm-testflight-evidence.sh"
 )
 
 for relative_path in "${required_files[@]}"; do
@@ -145,6 +147,22 @@ fi
 
 zsh -n "$project_root/scripts/release-ios.sh" \
   || fail "release-ios.sh has invalid zsh syntax"
+"$project_root/scripts/release-ios.sh" --help >"$work_dir/release-ios-help.txt" \
+  || fail "release-ios.sh help path failed"
+grep -Fq -- '--allow-provisioning-updates' "$work_dir/release-ios-help.txt" \
+  || fail "release-ios.sh must disclose the opt-in provisioning-update mode"
+zsh -n "$project_root/scripts/submit-testflight.sh" \
+  || fail "submit-testflight.sh has invalid zsh syntax"
+zsh -n "$project_root/scripts/confirm-testflight-evidence.sh" \
+  || fail "confirm-testflight-evidence.sh has invalid zsh syntax"
+"$project_root/scripts/submit-testflight.sh" --help >/dev/null \
+  || fail "submit-testflight.sh help path failed"
+"$project_root/scripts/confirm-testflight-evidence.sh" --help >/dev/null \
+  || fail "confirm-testflight-evidence.sh help path failed"
+if "$project_root/scripts/submit-testflight.sh" --validate --upload /tmp \
+    >/dev/null 2>&1; then
+  fail "submit-testflight.sh must reject ambiguous delivery modes"
+fi
 if command -v node >/dev/null 2>&1; then
   node --check "$build_settings_validator" \
     || fail "validate-build-settings.mjs has invalid JavaScript syntax"
@@ -168,6 +186,14 @@ for release_marker in \
   'privacy-manifest-contract.jq' \
   'privacyManifestSHA256' \
   'extract_profile_entitlements_json' \
+  'profile_authorizes_certificate_sha1' \
+  '--extract-certificates' \
+  'DeveloperCertificates' \
+  'signingCertificateSHA1' \
+  'ALLOW_PROVISIONING_UPDATES=false' \
+  '&& ARCHIVE_ARGS+=(-allowProvisioningUpdates)' \
+  '&& EXPORT_ARGS+=(-allowProvisioningUpdates)' \
+  'allowProvisioningUpdates: $allowProvisioningUpdates' \
   'Project.xcconfig must contain a final, conflict-checked AGENT_ISLAND_DISPLAY_NAME' \
   'displayName: $displayName' \
   'AgentIslandPrivacyPolicyURL' \
@@ -178,6 +204,8 @@ for release_marker in \
   grep -Fq -- "$release_marker" "$release_script" \
     || fail "release-ios.sh is missing the release gate: $release_marker"
 done
+grep -Fq 'schemaVersion: 1' "$release_script" \
+  || fail "release-ios.sh metadata must have a versioned schema"
 if grep -Fq -- '--entitlements :-' "$release_script"; then
   fail "release-ios.sh must not use deprecated codesign entitlement output syntax"
 fi
@@ -195,6 +223,110 @@ for forbidden_upload_marker in \
   'destination -string upload'; do
   if grep -Fq -- "$forbidden_upload_marker" "$release_script"; then
     fail "release-ios.sh must never upload a build"
+  fi
+done
+
+submission_script="$project_root/scripts/submit-testflight.sh"
+for submission_marker in \
+  '.schemaVersion == 1' \
+  '.allowProvisioningUpdates | type == "boolean"' \
+  '.displayName | type == "string" and length > 0' \
+  '.widgetDisplayName | type == "string" and length > 0' \
+  '.privacyPolicyURL | type == "string" and startswith("https://")' \
+  '.supportURL | type == "string" and startswith("https://")' \
+  '.exportedProvisioningProfileExpiration.app' \
+  'resolved_url_setting' \
+  'AGENT_ISLAND_URL_SLASH' \
+  'release metadata display name does not match current Project.xcconfig' \
+  'release metadata Widget display name does not match current Project.xcconfig' \
+  'release metadata privacy policy URL does not match current Project.xcconfig' \
+  'release metadata support URL does not match current Project.xcconfig' \
+  'the IPA must remain inside the release directory' \
+  'the IPA SHA-256 no longer matches release-metadata.json' \
+  'IPA must contain exactly one App' \
+  'IPA must contain exactly one embedded extension' \
+  'IPA App display name does not match release metadata' \
+  'IPA Widget display name does not match release metadata' \
+  'IPA App privacy policy URL does not match release metadata' \
+  'IPA App support URL does not match release metadata' \
+  'IPA targets must contain arm64' \
+  'IPA App signature/profile failed exact production CloudKit entitlement validation' \
+  'IPA Widget signature/profile identifiers are wrong or an iCloud entitlement leaked' \
+  'embedded.mobileprovision' \
+  '/usr/bin/security cms -D -i' \
+  'extract_profile_entitlements_json' \
+  'validate_app_store_profile_shape' \
+  'profile_authorizes_certificate_sha1' \
+  'ApplicationIdentifierPrefix.0' \
+  'TeamIdentifier.0' \
+  'ExpirationDate' \
+  'ProvisionedDevices' \
+  'ProvisionsAllDevices' \
+  'DeveloperCertificates' \
+  'provisioning profile does not authorize the actual signing certificate' \
+  'release metadata identifiers do not match the IPA provisioning profiles' \
+  'signingCertificateSHA1' \
+  '--extract-certificates' \
+  'AGENT_ISLAND_CONFIRM_TESTFLIGHT_UPLOAD' \
+  '--validate-app' \
+  '--upload-app' \
+  'processingVerified: false' \
+  'platform: "iOS"' \
+  'uploadAccepted: true' \
+  'processingState: null' \
+  'appStoreConnectBuildID: null' \
+  'processingVerifiedAt: null' \
+  'distributedToTesters: false' \
+  'installedFromTestFlight: false' \
+  'testedAt: null' \
+  'validationResultSHA256' \
+  'uploadResultSHA256' \
+  'submittedForAppReview: false'; do
+  grep -Fq -- "$submission_marker" "$submission_script" \
+    || fail "submit-testflight.sh is missing the delivery gate: $submission_marker"
+done
+
+confirmation_script="$project_root/scripts/confirm-testflight-evidence.sh"
+for confirmation_marker in \
+  'AGENT_ISLAND_CONFIRM_TESTFLIGHT_VERIFICATION' \
+  'current IPA SHA-256 differs from the delivery record' \
+  'release metadata and delivery record do not identify the same IPA' \
+  'delivery record parent must be a non-symlink release directory' \
+  'escapes the release directory' \
+  'submit-testflight.sh" --check' \
+  'refusing to overwrite an existing TestFlight verification evidence file' \
+  '/bin/ln "$TEMP_EVIDENCE_PATH" "$EVIDENCE_PATH"' \
+  '/bin/chmod 0444 "$EVIDENCE_PATH"' \
+  'schemaVersion: 1' \
+  'platform: "iOS"' \
+  'uploadAccepted: true' \
+  'appStoreConnectBuildID: $appStoreConnectBuildID' \
+  'processingState: $processingState' \
+  'processingVerifiedAt: $processingVerifiedAt' \
+  'distributedToTesters: true' \
+  'installedFromTestFlight: true' \
+  'testedAt: $testedAt' \
+  'createdAt: $createdAt'; do
+  grep -Fq -- "$confirmation_marker" "$confirmation_script" \
+    || fail "confirm-testflight-evidence.sh is missing the evidence gate: $confirmation_marker"
+done
+for forbidden_confirmation_marker in \
+  '/usr/bin/xcrun' \
+  'altool' \
+  'iTMSTransporter' \
+  '/usr/bin/curl' \
+  'destination -string upload'; do
+  if grep -Fq -- "$forbidden_confirmation_marker" "$confirmation_script"; then
+    fail "confirm-testflight-evidence.sh must remain a local-only evidence recorder"
+  fi
+done
+for forbidden_submission_marker in \
+  'AGENT_ISLAND_ASC_PASSWORD' \
+  'AGENT_ISLAND_APP_SPECIFIC_PASSWORD' \
+  '--password' \
+  '--p8-file-path'; do
+  if grep -Fq -- "$forbidden_submission_marker" "$submission_script"; then
+    fail "submit-testflight.sh must not accept secret material in command-line arguments"
   fi
 done
 

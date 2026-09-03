@@ -37,6 +37,8 @@
     </dict>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>$(AGENT_ISLAND_COPYRIGHT)</string>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
 </dict>

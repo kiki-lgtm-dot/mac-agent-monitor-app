@@ -29,7 +29,7 @@
 - **无日志也可体验：**需用户主动进入的紫色离线示例会展示虚构 Agent、会话、时长和 Token，不读取 Agent 数据源，不访问网络或 iCloud。
 - **可选手机伴侣：**`ApplePlatforms/iOS` 中包含实验性的 SwiftUI 看板和 Live Activity Target。
 
-![MAC版灵动岛--Agent运行监测 折叠与展开状态](docs/media/mac-agent-monitor-states.svg)
+![MAC版灵动岛--Agent运行监测 折叠与展开状态](docs/site/media/mac-agent-monitor-states-zh.svg)
 
 ## 隐私边界
 

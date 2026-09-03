@@ -9,14 +9,17 @@ PROJECT_PATH="$IOS_ROOT/AgentIsland.xcodeproj"
 SCHEME="AgentIslandMobile"
 CONFIGURATION="Release"
 EXPORT_IPA=false
+ALLOW_PROVISIONING_UPDATES=false
 
 usage() {
   /bin/cat <<'EOF'
-Usage: ./scripts/release-ios.sh [--export]
+Usage: ./scripts/release-ios.sh [--export] [--allow-provisioning-updates]
 
 Creates a signed App Store archive under dist/ios. With --export, also exports
 an IPA using Xcode's app-store-connect method. This script never uploads a
-build; use Xcode Organizer or App Store Connect only after inspecting it.
+build. By default it only uses signing assets already installed on this Mac.
+Pass --allow-provisioning-updates only when you deliberately permit Xcode to
+contact Apple and create or update signing assets.
 EOF
 }
 
@@ -29,6 +32,9 @@ while (( $# > 0 )); do
   case "$1" in
     --export)
       EXPORT_IPA=true
+      ;;
+    --allow-provisioning-updates)
+      ALLOW_PROVISIONING_UPDATES=true
       ;;
     -h|--help)
       usage
@@ -205,6 +211,43 @@ utf8_character_count() {
   printf '%s' "$1" | LC_ALL= LC_CTYPE=UTF-8 /usr/bin/wc -m | /usr/bin/tr -d '[:space:]'
 }
 
+extract_leaf_certificate_sha1() {
+  local bundle_path="$1"
+  local certificate_directory="$2"
+  local label="$3"
+  /bin/mkdir -p "$certificate_directory"
+  (cd "$certificate_directory" && \
+    /usr/bin/codesign --display --extract-certificates "$bundle_path" \
+      >/dev/null 2>&1) \
+    || fail "could not extract $label signing certificate"
+  [[ -f "$certificate_directory/codesign0" ]] \
+    || fail "$label code signature has no leaf certificate"
+  LC_ALL=C LANG=C /usr/bin/shasum -a 1 "$certificate_directory/codesign0" \
+    | /usr/bin/awk '{print toupper($1)}'
+}
+
+profile_authorizes_certificate_sha1() {
+  local profile="$1"
+  local expected_sha1="$2"
+  local label="$3"
+  local certificate_count index certificate_path certificate_sha1
+  certificate_count="$(profile_scalar "$profile" DeveloperCertificates "$label")"
+  [[ "$certificate_count" == <-> && "$certificate_count" -gt 0 ]] \
+    || fail "$label provisioning profile has no DeveloperCertificates"
+  for (( index = 0; index < certificate_count; index++ )); do
+    certificate_path="$WORK_DIR/${label//[^A-Za-z0-9]/-}-profile-certificate-$index.der"
+    /usr/bin/plutil -extract "DeveloperCertificates.$index" raw -o - "$profile" \
+      | /usr/bin/base64 -D >"$certificate_path" \
+      || fail "could not decode $label provisioning-profile certificate $index"
+    certificate_sha1="$(LC_ALL=C LANG=C /usr/bin/shasum -a 1 "$certificate_path" \
+      | /usr/bin/awk '{print toupper($1)}')"
+    if [[ "$certificate_sha1" == "$expected_sha1" ]]; then
+      return 0
+    fi
+  done
+  fail "$label provisioning profile does not authorize the actual signing certificate"
+}
+
 [[ ${#TEAM_ID} -eq 10 && "$TEAM_ID" != *[^A-Z0-9]* ]] \
   || fail "Project.xcconfig must contain the production 10-character Team ID"
 DISPLAY_NAME_CHARACTER_COUNT="$(utf8_character_count "$DISPLAY_NAME")"
@@ -250,6 +293,21 @@ else
     || fail "expected exactly one Apple Distribution identity for Team $TEAM_ID; set AGENT_ISLAND_IOS_DISTRIBUTION_IDENTITY after removing duplicates"
   SELECTED_IDENTITY="$(print -r -- "$MATCHING_IDENTITIES" | /usr/bin/head -n 1)"
 fi
+SELECTED_IDENTITY_SHA1S="$(print -r -- "$IDENTITY_OUTPUT" | /usr/bin/awk \
+  -v identity="$SELECTED_IDENTITY" '
+    index($0, "\"" identity "\"") {
+      fingerprint = $2
+      gsub(/[^0-9A-Fa-f]/, "", fingerprint)
+      if (length(fingerprint) == 40) print toupper(fingerprint)
+    }
+  ')"
+SELECTED_IDENTITY_SHA1_COUNT="$(print -r -- "$SELECTED_IDENTITY_SHA1S" \
+  | /usr/bin/awk 'NF {count++} END {print count + 0}')"
+[[ "$SELECTED_IDENTITY_SHA1_COUNT" == "1" ]] \
+  || fail "selected Apple Distribution identity must resolve to one certificate SHA-1"
+SELECTED_IDENTITY_SHA1="$(print -r -- "$SELECTED_IDENTITY_SHA1S" | /usr/bin/head -n 1)"
+print -r -- "$SELECTED_IDENTITY_SHA1" | /usr/bin/grep -Eq '^[0-9A-F]{40}$' \
+  || fail "selected Apple Distribution identity has an invalid certificate SHA-1"
 
 STAMP="$(/bin/date -u '+%Y%m%dT%H%M%SZ')"
 RELEASE_DIR="$DIST_ROOT/$VERSION-$BUILD_NUMBER-$STAMP"
@@ -274,15 +332,20 @@ trap 'exit 143' TERM
 
 /bin/mkdir -p "$RELEASE_DIR"
 
-DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild archive \
-  -project "$PROJECT_PATH" \
-  -scheme "$SCHEME" \
-  -configuration "$CONFIGURATION" \
-  -destination 'generic/platform=iOS' \
-  -archivePath "$ARCHIVE_PATH" \
-  -resultBundlePath "$RESULT_BUNDLE" \
-  -derivedDataPath "$WORK_DIR/DerivedData" \
-  -allowProvisioningUpdates \
+typeset -a ARCHIVE_ARGS
+ARCHIVE_ARGS=(
+  archive
+  -project "$PROJECT_PATH"
+  -scheme "$SCHEME"
+  -configuration "$CONFIGURATION"
+  -destination 'generic/platform=iOS'
+  -archivePath "$ARCHIVE_PATH"
+  -resultBundlePath "$RESULT_BUNDLE"
+  -derivedDataPath "$WORK_DIR/DerivedData"
+)
+[[ "$ALLOW_PROVISIONING_UPDATES" == true ]] \
+  && ARCHIVE_ARGS+=(-allowProvisioningUpdates)
+DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild "${ARCHIVE_ARGS[@]}" \
   DEVELOPMENT_TEAM="$TEAM_ID" \
   CODE_SIGN_IDENTITY="$SELECTED_IDENTITY"
 
@@ -333,6 +396,13 @@ WIDGET_SIGNED_TEAM="$(/usr/bin/sed -n 's/^TeamIdentifier=//p' "$WIDGET_SIGNATURE
   || fail "archive was not signed with the selected Apple Distribution identity"
 [[ "$APP_SIGNED_TEAM" == "$TEAM_ID" && "$WIDGET_SIGNED_TEAM" == "$TEAM_ID" ]] \
   || fail "App or Widget code signature TeamIdentifier does not match Project.xcconfig"
+ARCHIVED_APP_CERTIFICATE_SHA1="$(extract_leaf_certificate_sha1 \
+  "$APP_PATH" "$WORK_DIR/archived-app-certificates" "archived App")"
+ARCHIVED_WIDGET_CERTIFICATE_SHA1="$(extract_leaf_certificate_sha1 \
+  "$WIDGET_PATH" "$WORK_DIR/archived-widget-certificates" "archived Widget")"
+[[ "$ARCHIVED_APP_CERTIFICATE_SHA1" == "$SELECTED_IDENTITY_SHA1" \
+    && "$ARCHIVED_WIDGET_CERTIFICATE_SHA1" == "$SELECTED_IDENTITY_SHA1" ]] \
+  || fail "App or Widget was not signed by the selected Apple Distribution certificate"
 
 APP_ENTITLEMENTS="$WORK_DIR/app-entitlements.plist"
 WIDGET_ENTITLEMENTS="$WORK_DIR/widget-entitlements.plist"
@@ -385,6 +455,11 @@ validate_app_store_profile_shape() {
   (( expiration_epoch > $(/bin/date -u '+%s') )) \
     || fail "$label provisioning profile expired at $expiration"
 }
+
+profile_authorizes_certificate_sha1 \
+  "$APP_PROFILE_PLIST" "$ARCHIVED_APP_CERTIFICATE_SHA1" "archived App"
+profile_authorizes_certificate_sha1 \
+  "$WIDGET_PROFILE_PLIST" "$ARCHIVED_WIDGET_CERTIFICATE_SHA1" "archived Widget"
 
 APP_PREFIX_COUNT="$(profile_scalar "$APP_PROFILE_PLIST" \
   ApplicationIdentifierPrefix "App")"
@@ -476,11 +551,16 @@ if [[ "$EXPORT_IPA" == true ]]; then
   /usr/bin/plutil -insert manageAppVersionAndBuildNumber -bool false "$EXPORT_OPTIONS"
 
   /bin/mkdir -p "$EXPORT_DIR"
-  DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild -exportArchive \
-    -archivePath "$ARCHIVE_PATH" \
-    -exportPath "$EXPORT_DIR" \
-    -exportOptionsPlist "$EXPORT_OPTIONS" \
-    -allowProvisioningUpdates
+  typeset -a EXPORT_ARGS
+  EXPORT_ARGS=(
+    -exportArchive
+    -archivePath "$ARCHIVE_PATH"
+    -exportPath "$EXPORT_DIR"
+    -exportOptionsPlist "$EXPORT_OPTIONS"
+  )
+  [[ "$ALLOW_PROVISIONING_UPDATES" == true ]] \
+    && EXPORT_ARGS+=(-allowProvisioningUpdates)
+  DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild "${EXPORT_ARGS[@]}"
 
   ipa_files=("$EXPORT_DIR"/*.ipa(N))
   (( ${#ipa_files} == 1 )) || fail "expected exactly one exported IPA"
@@ -536,6 +616,13 @@ if [[ "$EXPORT_IPA" == true ]]; then
     || fail "exported IPA is not signed with the verified Apple Distribution identity"
   [[ "$EXPORTED_APP_TEAM" == "$TEAM_ID" && "$EXPORTED_WIDGET_TEAM" == "$TEAM_ID" ]] \
     || fail "exported App or Widget signature has the wrong TeamIdentifier"
+  EXPORTED_APP_CERTIFICATE_SHA1="$(extract_leaf_certificate_sha1 \
+    "$EXPORTED_APP_PATH" "$WORK_DIR/exported-app-certificates" "exported App")"
+  EXPORTED_WIDGET_CERTIFICATE_SHA1="$(extract_leaf_certificate_sha1 \
+    "$EXPORTED_WIDGET_PATH" "$WORK_DIR/exported-widget-certificates" "exported Widget")"
+  [[ "$EXPORTED_APP_CERTIFICATE_SHA1" == "$SELECTED_IDENTITY_SHA1" \
+      && "$EXPORTED_WIDGET_CERTIFICATE_SHA1" == "$SELECTED_IDENTITY_SHA1" ]] \
+    || fail "exported App or Widget was not signed by the selected Apple Distribution certificate"
 
   EXPORTED_APP_ENTITLEMENTS_JSON="$WORK_DIR/exported-app-entitlements.json"
   EXPORTED_WIDGET_ENTITLEMENTS_JSON="$WORK_DIR/exported-widget-entitlements.json"
@@ -556,6 +643,10 @@ if [[ "$EXPORT_IPA" == true ]]; then
     "$EXPORTED_APP_PROFILE_PLIST" "$EXPORTED_APP_PROFILE_ENTITLEMENTS_JSON"
   extract_profile_entitlements_json \
     "$EXPORTED_WIDGET_PROFILE_PLIST" "$EXPORTED_WIDGET_PROFILE_ENTITLEMENTS_JSON"
+  profile_authorizes_certificate_sha1 \
+    "$EXPORTED_APP_PROFILE_PLIST" "$EXPORTED_APP_CERTIFICATE_SHA1" "exported App"
+  profile_authorizes_certificate_sha1 \
+    "$EXPORTED_WIDGET_PROFILE_PLIST" "$EXPORTED_WIDGET_CERTIFICATE_SHA1" "exported Widget"
 
   EXPORTED_APP_PREFIX_COUNT="$(profile_scalar "$EXPORTED_APP_PROFILE_PLIST" \
     ApplicationIdentifierPrefix "exported App")"
@@ -660,12 +751,15 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
   --arg appPrivacyManifestSHA256 "$ARCHIVED_APP_PRIVACY_SHA256" \
   --arg widgetPrivacyManifestSHA256 "$ARCHIVED_WIDGET_PRIVACY_SHA256" \
   --arg signingIdentity "$APP_SIGNING_AUTHORITY" \
+  --arg signingCertificateSHA1 "$SELECTED_IDENTITY_SHA1" \
   --arg appProfileExpiration "$APP_PROFILE_EXPIRATION" \
   --arg widgetProfileExpiration "$WIDGET_PROFILE_EXPIRATION" \
   --arg exportedAppProfileExpiration "$EXPORTED_APP_EXPIRATION" \
   --arg exportedWidgetProfileExpiration "$EXPORTED_WIDGET_EXPIRATION" \
+  --argjson allowProvisioningUpdates "$ALLOW_PROVISIONING_UPDATES" \
   --arg createdAt "$CREATED_AT" \
   '{
+    schemaVersion: 1,
     product: $product,
     version: $version,
     build: $build,
@@ -695,6 +789,7 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
     },
     cloudKitEnvironment: "Production",
     signingIdentity: $signingIdentity,
+    signingCertificateSHA1: $signingCertificateSHA1,
     provisioningProfileExpiration: {
       app: $appProfileExpiration,
       widget: $widgetProfileExpiration
@@ -707,6 +802,7 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
       }
       end
     ),
+    allowProvisioningUpdates: $allowProvisioningUpdates,
     uploaded: false,
     createdAt: $createdAt
   }' >"$METADATA_PATH"

@@ -89,6 +89,8 @@
 		A10100000000000000000061 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		A10100000000000000000071 /* validate-project.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "validate-project.sh"; sourceTree = "<group>"; };
 		A10100000000000000000072 /* release-ios.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "release-ios.sh"; sourceTree = "<group>"; };
+		A10100000000000000000073 /* submit-testflight.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "submit-testflight.sh"; sourceTree = "<group>"; };
+		A10100000000000000000074 /* confirm-testflight-evidence.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "confirm-testflight-evidence.sh"; sourceTree = "<group>"; };
 		A10100000000000000000081 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
 		B20100000000000000000001 /* DashboardStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardStoreTests.swift; sourceTree = "<group>"; };
 		B20100000000000000000002 /* AgentSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSnapshotTests.swift; sourceTree = "<group>"; };
@@ -207,6 +209,8 @@
 			children = (
 				A10100000000000000000071 /* validate-project.sh */,
 				A10100000000000000000072 /* release-ios.sh */,
+				A10100000000000000000073 /* submit-testflight.sh */,
+				A10100000000000000000074 /* confirm-testflight-evidence.sh */,
 			);
 			path = scripts;
 			sourceTree = "<group>";

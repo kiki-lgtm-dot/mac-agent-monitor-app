@@ -31,8 +31,8 @@
 ## 2. 法务、隐私与支持页面
 
 - [ ] 填写 `[开发者法定姓名]`、`[支持邮箱]`，不得把个人开发者写成不存在的公司。
-- [ ] 将最终中文和英文隐私政策发布到稳定 HTTPS 页面：`https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/`。
-- [ ] 建立支持页面：`https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/`，包含联系入口、系统要求、常见问题、卸载和本地数据清理方法。
+- [x] 已将中英双语隐私政策预览部署到稳定 HTTPS 页面：`https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/`，并于 2026-09-04 从未登录请求验证 HTTP 200。候选提交前须补齐法定姓名/支持邮箱、按最终供应商决定定稿，并重新留存可达证据。
+- [x] 已建立双语支持页面：`https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/`，包含 GitHub Issues 联系入口、系统要求、常见问题、卸载和本地数据清理方法。候选提交前仍须补入最终支持邮箱和 Bundle ID 对应的精确清理路径。
 - [ ] 如提供营销页，填写 `[营销URL，可选]`。
 - [ ] 删除所有上线材料中的方括号占位符和“草案”提示。
 - [ ] 复核 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`，把第三方声明随最终应用分发。
@@ -85,7 +85,9 @@
 - [ ] 填写并发布 App Privacy 标签，和最终构建、隐私政策保持一致。
 - [ ] 上传中英文元数据、最终截图、隐私政策 URL、支持 URL 和 Review Notes。
 - [ ] 先通过 macOS TestFlight/内部测试验证，再提交 App Review。
-- [ ] 仅针对同一个未改动的候选 Archive，记录沙盒授权流程、Archive 签名结构、匹配 profile/证书、Xcode Privacy Report 和审核路径证据后，才将 `AGENT_ISLAND_MAC_APP_STORE_SANDBOX_FLOW_VERIFIED`、`AGENT_ISLAND_MAC_APP_STORE_ARCHIVE_VERIFIED`、`AGENT_ISLAND_MAC_APP_STORE_PROFILE_CERTIFICATE_VERIFIED`、`AGENT_ISLAND_MAC_APP_STORE_PRIVACY_REPORT_VERIFIED`、`AGENT_ISLAND_MAC_APP_STORE_REVIEW_PATH_VERIFIED` 设为 `true`。
+- [ ] 用 `release-macos-app-store.sh --export` 产生不可变候选包，将 `AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA` 指向该目录的 `release-metadata.json`；readiness 必须同时确认 metadata 中的版本/构建号等于当前 macOS Target，并重新校验 Archive ZIP 与 PKG 的 SHA-256，才能接受该候选构建。
+- [ ] 仅针对上述精确候选构建，记录沙盒授权流程、Archive 签名结构、匹配 profile/证书、Xcode Privacy Report 和审核路径证据后，将当前报告中的 Archive ZIP/PKG SHA-256 分别填入 `AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_ARCHIVE_SHA256` 与 `AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_EVIDENCE_PACKAGE_SHA256`，再将 `AGENT_ISLAND_MAC_APP_STORE_SANDBOX_FLOW_VERIFIED`、`AGENT_ISLAND_MAC_APP_STORE_ARCHIVE_VERIFIED`、`AGENT_ISLAND_MAC_APP_STORE_PROFILE_CERTIFICATE_VERIFIED`、`AGENT_ISLAND_MAC_APP_STORE_PRIVACY_REPORT_VERIFIED`、`AGENT_ISLAND_MAC_APP_STORE_REVIEW_PATH_VERIFIED` 设为 `true`。重新构建后必须重做 QA 并更新两个哈希。
+- [ ] 确认 `readyForMacAppStoreUpload: true` 后才手动上传。当前 readiness 不收集 macOS 上传接受、App Store Connect 处理或提审证据，所以已废弃的兼容字段 `readyForFunctionalMacAppStoreSubmission` 必须保持 `false`，且 `readyForFunctionalMacAppStoreSubmissionDeprecated` 必须为 `true`；不能将 `uploaded: false` 的本地 metadata 当作已交付证明。
 
 ## 3C. iOS TestFlight 与 App Store 专项
 
@@ -110,9 +112,11 @@
 - [ ] 使用真实同步数据完成 iPhone/iPad 适配范围决定、Dynamic Type、VoiceOver、深浅色、旋转和本地化测试。
 - [ ] 在支持 Dynamic Island 的真机测试紧凑、最小、展开和锁屏视图；普通 iPhone 上验证锁屏 Live Activity。
 - [ ] 生成 Development/TestFlight Archive，先邀请内部测试；正式签名/Production schema/同账号真机链路未验收时，不邀请外部测试或提交 Beta App Review。
+- [ ] 对 `release-ios.sh --export` 生成的候选目录运行 `submit-testflight.sh --check`；仅在核对完整 `Bundle ID:Version:Build:IPA SHA-256` 确认值后执行独立上传。`release-readiness.sh` 必须重跑该无凭据预检并输出 `iosLocalIPAPreflightPassed=true`，纯文本伪 IPA 或手写 JSON 不得进入 exact-build 状态。
+- [ ] App Store Connect 显示该精确构建已 `VALID`/`Complete` 后，记录 Build ID 和 UTC 时间；分发给测试者、从 TestFlight 真机安装后，用 `confirm-testflight-evidence.sh` 生成不覆盖的 `testflight-verification-*.json`。
 - [ ] 外部 TestFlight 前填写中英文 Beta Description、What to Test、反馈邮箱、审核联系人和可复现的配对/演示步骤。
 - [ ] App Store 提交前使用 `IOS_APP_REVIEW_NOTES.md` 提供无需审核员自行搭建开发环境的可审核路径。
-- [ ] 仅在 Production CloudKit schema、同账号 Mac→iPhone 真机同步、Live Activity 真机表现和审核演示路径都针对同一签名 Build 验收后，才把 `Config/Release.example.env` 中对应四个手工证据开关设为 `true`；`readyForFunctionalIOSTestFlight` 不再只凭源码与占位配置推断。
+- [ ] 仅在 Production CloudKit schema、同账号 Mac→iPhone 真机同步、Live Activity 真机表现和审核演示路径都针对同一个 TestFlight 构建验收后，才把对应四个手工证据开关设为 `true`，并将 `AGENT_ISLAND_IOS_FUNCTIONAL_EVIDENCE_IPA_SHA256` 设为 verification evidence 中的同一 IPA 哈希；`readyForFunctionalIOSTestFlight` 还必须重新校验 delivery/metadata/IPA，并要求 `iosPrivacyReleaseEvidenceReady=true`：App Privacy 中的 iOS 条目必须精确匹配该 IPA 的平台、Bundle ID、版本、Build 和 SHA-256。不接受其他平台证据或独立布尔值冒充上传、处理、安装或隐私发布状态。
 
 ## 4. 功能与隐私 QA
 

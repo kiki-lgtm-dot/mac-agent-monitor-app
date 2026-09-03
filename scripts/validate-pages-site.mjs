@@ -12,6 +12,8 @@ const pages = {
   support: read("docs/site/support/index.html"),
   styles: read("docs/site/styles.css")
 };
+const localizedInteractionGraphicPath = "docs/site/media/mac-agent-monitor-states-zh.svg";
+const localizedInteractionGraphic = read(localizedInteractionGraphicPath);
 const deploymentOrigin = "https://kiki-lgtm-dot.github.io";
 const deploymentRoot = "/mac-agent-monitor-app/";
 const documentByPath = new Map([
@@ -25,7 +27,8 @@ const documentByPath = new Map([
 const outputAssetSources = new Map([
   [`${deploymentRoot}styles.css`, "docs/site/styles.css"],
   [`${deploymentRoot}media/mac-agent-monitor-overview-zh.png`, "docs/media/mac-agent-monitor-overview-zh.png"],
-  [`${deploymentRoot}media/mac-agent-monitor-overview-en.png`, "docs/media/mac-agent-monitor-overview-en.png"]
+  [`${deploymentRoot}media/mac-agent-monitor-overview-en.png`, "docs/media/mac-agent-monitor-overview-en.png"],
+  [`${deploymentRoot}media/mac-agent-monitor-states-zh.svg`, localizedInteractionGraphicPath]
 ]);
 const fail = message => {
   console.error(`Public-site validation failed: ${message}`);
@@ -47,6 +50,7 @@ requireText(pages.home, [
   "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/",
   "media/mac-agent-monitor-overview-zh.png",
   "media/mac-agent-monitor-overview-en.png",
+  "media/mac-agent-monitor-states-zh.svg",
   "privacy/",
   "support/"
 ], "home page");
@@ -59,8 +63,15 @@ requireText(pages.privacy, [
   "CloudKit",
   "off by default",
   "OpenAI-compatible API",
+  "https://cdn.deepseek.com/policies/zh-CN/deepseek-privacy-policy.html",
+  "https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html",
+  "https://cdn.deepseek.com/policies/zh-CN/deepseek-open-platform-terms-of-service.html",
+  "https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html",
+  "API-specific no-training commitment",
+  "../support/#delete-data",
+  "../support/#delete-data-en",
   "GitHub Issues",
-  "September 3, 2026"
+  "September 4, 2026"
 ], "privacy page");
 requireText(pages.support, [
   "lang=\"zh-CN\"",
@@ -69,8 +80,29 @@ requireText(pages.support, [
   "Agent is not detected",
   "token usage is unavailable",
   "Translation returns 401",
+  "id=\"delete-data\"",
+  "id=\"delete-data-en\"",
   "GitHub Issue"
 ], "support page");
+
+if (!/\.shot\s*\{[^}]*width:\s*100%[^}]*height:\s*auto/i.test(pages.styles)) {
+  fail("responsive screenshots must preserve their intrinsic aspect ratio");
+}
+
+requireText(localizedInteractionGraphic, [
+  "<svg",
+  "role=\"img\"",
+  "<title id=\"title\">",
+  "<desc id=\"desc\">",
+  "一眼概览，全局掌握",
+  "虚构示例数据"
+], "localized interaction graphic");
+if (/<script\b|\bon[a-z]+\s*=|(?:href|xlink:href)\s*=\s*["'](?:https?:|\/\/)/i.test(localizedInteractionGraphic)) {
+  fail("localized interaction graphic unexpectedly contains executable or remote content");
+}
+if (statSync(path.join(root, localizedInteractionGraphicPath)).size < 5_000) {
+  fail(`${localizedInteractionGraphicPath} is missing or unexpectedly small`);
+}
 
 const pageURL = name => new URL(name === "home" ? deploymentRoot : `${deploymentRoot}${name}/`, deploymentOrigin);
 const voidElements = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);

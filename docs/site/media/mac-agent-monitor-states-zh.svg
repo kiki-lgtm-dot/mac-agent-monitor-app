@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="720" viewBox="0 0 1600 720" role="img" aria-labelledby="title desc">
+  <title id="title">MAC版灵动岛--Agent运行监测：折叠与展开交互</title>
+  <desc id="desc">紧凑的 macOS 状态胶囊从空闲切换为 3 个 Agent 工作中，鼠标悬停后展开 Agent 活动看板。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0e12"/>
+      <stop offset="1" stop-color="#050607"/>
+    </linearGradient>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3deeb3"/>
+      <stop offset="1" stop-color="#55d7e1"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="22" flood-color="#000" flood-opacity=".45"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="720" rx="38" fill="url(#bg)"/>
+  <circle cx="1420" cy="80" r="260" fill="#3deeb3" opacity=".045"/>
+  <circle cx="180" cy="660" r="310" fill="#6aa9ff" opacity=".04"/>
+
+  <text x="86" y="80" fill="#f7f8fa" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="38" font-weight="700">一眼概览，全局掌握</text>
+  <text x="86" y="120" fill="#8f939d" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="22">空闲 → 工作中 → 悬停查看详情；单击一次固定看板。</text>
+
+  <g transform="translate(88 172)">
+    <text x="0" y="0" fill="#6f747e" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="17" font-weight="700" letter-spacing="2">空闲</text>
+    <rect x="0" y="26" width="330" height="64" rx="32" fill="#020304" stroke="#24282e"/>
+    <circle cx="78" cy="58" r="8" fill="#777b83"/>
+    <text x="103" y="66" fill="#b6b8be" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="23" font-weight="650">暂无 Agent 工作</text>
+
+    <path d="M366 58h74" stroke="#383d45" stroke-width="2" stroke-linecap="round"/>
+    <path d="m426 47 14 11-14 11" fill="none" stroke="#616772" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <text x="486" y="0" fill="#3deeb3" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="17" font-weight="700" letter-spacing="2">工作中</text>
+    <rect x="486" y="26" width="330" height="64" rx="32" fill="#020304" stroke="#164638" filter="url(#shadow)"/>
+    <circle cx="550" cy="58" r="8" fill="#3deeb3"/>
+    <circle cx="550" cy="58" r="15" fill="#3deeb3" opacity=".12"/>
+    <text x="575" y="66" fill="#3deeb3" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="23" font-weight="700">3 个 Agent 工作中</text>
+
+    <path d="M852 58h74" stroke="#383d45" stroke-width="2" stroke-linecap="round"/>
+    <path d="m912 47 14 11-14 11" fill="none" stroke="#616772" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="948" y="64" fill="#8f939d" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="18">悬停 150 毫秒</text>
+  </g>
+
+  <g transform="translate(88 310)" filter="url(#shadow)">
+    <rect width="1424" height="336" rx="28" fill="#0d1014" stroke="#2a2e35"/>
+    <rect width="242" height="336" rx="28" fill="#080a0d"/>
+    <path d="M242 0v336" stroke="#20242a"/>
+    <circle cx="50" cy="52" r="19" fill="url(#mint)"/>
+    <circle cx="50" cy="52" r="8" fill="#07100e"/>
+    <text x="82" y="49" fill="#f4f5f7" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="17" font-weight="750">MAC版灵动岛</text>
+    <text x="82" y="70" fill="#3deeb3" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="11" font-weight="700" letter-spacing=".3">AGENT 运行监测</text>
+
+    <rect x="26" y="108" width="190" height="48" rx="14" fill="#14251f"/>
+    <text x="54" y="139" fill="#3deeb3" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="18" font-weight="700">◉  监控</text>
+    <text x="54" y="198" fill="#777c85" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="18">⌂  工作台</text>
+    <text x="54" y="248" fill="#777c85" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="18">文  翻译学习</text>
+    <circle cx="50" cy="299" r="6" fill="#3deeb3"/>
+    <text x="68" y="306" fill="#9da1a9" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="15">本地工作台</text>
+
+    <text x="278" y="52" fill="#f5f6f8" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="27" font-weight="750">Agent 实时状态</text>
+    <text x="278" y="79" fill="#737883" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="15">虚构示例数据 · 刚刚更新</text>
+
+    <g transform="translate(278 104)">
+      <rect width="250" height="90" rx="18" fill="#15181e" stroke="#292d34"/>
+      <text x="22" y="30" fill="#858a94" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="14">执行中 Agent</text>
+      <text x="22" y="69" fill="#3deeb3" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="34" font-weight="750">3</text>
+    </g>
+    <g transform="translate(546 104)">
+      <rect width="250" height="90" rx="18" fill="#15181e" stroke="#292d34"/>
+      <text x="22" y="30" fill="#858a94" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="14">活跃对话</text>
+      <text x="22" y="69" fill="#f5c451" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="34" font-weight="750">2</text>
+    </g>
+    <g transform="translate(814 104)">
+      <rect width="250" height="90" rx="18" fill="#15181e" stroke="#292d34"/>
+      <text x="22" y="30" fill="#858a94" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="14">运行工具</text>
+      <text x="22" y="69" fill="#6aa9ff" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="34" font-weight="750">3</text>
+    </g>
+    <g transform="translate(1082 104)">
+      <rect width="306" height="90" rx="18" fill="#15181e" stroke="#292d34"/>
+      <text x="22" y="30" fill="#858a94" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="14">活跃 Token</text>
+      <text x="22" y="69" fill="#fb923c" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="34" font-weight="750">42.1K</text>
+    </g>
+
+    <g transform="translate(278 214)">
+      <rect width="544" height="88" rx="18" fill="#12151a" stroke="#292d34"/>
+      <circle cx="28" cy="28" r="7" fill="#3deeb3"/>
+      <text x="48" y="33" fill="#e8eaed" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="18" font-weight="700">准备开源发布</text>
+      <text x="22" y="65" fill="#7f848d" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="14">Codex · 34 分钟</text>
+      <text x="458" y="65" text-anchor="end" fill="#aeb2ba" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="14">18.4K Token</text>
+    </g>
+    <g transform="translate(842 214)">
+      <rect width="546" height="88" rx="18" fill="#12151a" stroke="#292d34"/>
+      <circle cx="28" cy="28" r="7" fill="#fb7b52"/>
+      <text x="48" y="33" fill="#e8eaed" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="18" font-weight="700">编写双语说明</text>
+      <text x="22" y="65" fill="#7f848d" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="14">Claude Code · 27 分钟</text>
+      <text x="460" y="65" text-anchor="end" fill="#aeb2ba" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="14">14.1K Token</text>
+    </g>
+  </g>
+</svg>

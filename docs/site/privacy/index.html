@@ -14,7 +14,7 @@
     <section id="zh">
       <div class="eyebrow">Privacy Policy</div>
       <h1>隐私政策</h1>
-      <p class="meta">生效日期：2026 年 9 月 3 日 · 维护者：kiki-lgtm-dot · <a href="https://github.com/kiki-lgtm-dot/mac-agent-monitor-app/issues">联系与支持</a></p>
+      <p class="meta">生效日期：2026 年 9 月 4 日 · 维护者：kiki-lgtm-dot · <a href="https://github.com/kiki-lgtm-dot/mac-agent-monitor-app/issues">联系与支持</a></p>
 
       <h2>1. 适用范围</h2>
       <p>本政策适用于“MAC版灵动岛--Agent运行监测”的 macOS 应用和 iPhone 伴侣应用（统称“本应用”）。Mac 端用于查看本机 AI Agent 的状态、时长和 Token 用量，并提供网站快捷方式、备忘录和可选翻译学习功能。iPhone 端仅查看用户选择同步的精简状态摘要。</p>
@@ -38,6 +38,8 @@
 
       <h2>6. 可选翻译与第三方服务</h2>
       <p>翻译只在用户输入文本并主动点击“仅翻译”或“学习解析”后发起。应用会把提交的文本、语言和模式、模型名、结构化回复指令及鉴权密钥发送到界面中显示的 OpenAI-compatible API 端点。该服务可按其自身条款处理提交文本、IP 地址和请求元数据；用户应先阅读所选服务的政策。开发者不会收到翻译请求或结果。结果只有在用户点击“存入学习本”后才写入本机工作台。</p>
+      <p>当前开发版本的默认端点指向 DeepSeek API，用户可在设置中替换为其他受支持的 HTTPS 端点或本机 loopback 服务。应用使用无 Cookie、无 URL 缓存的临时网络会话，仅允许同源重定向，并限制响应大小。</p>
+      <p>如正式版保留该默认值，请注意：DeepSeek 当前公布的<a href="https://cdn.deepseek.com/policies/zh-CN/deepseek-privacy-policy.html">隐私政策</a>说明，其所覆盖的境内运营中收集和产生的个人信息存储于中华人民共和国境内，输入和对应输出可能在其所述条件下用于模型训练和服务优化。该政策同时明确，下游应用终端用户的具体处理规则不在其说明范围内；DeepSeek <a href="https://cdn.deepseek.com/policies/zh-CN/deepseek-open-platform-terms-of-service.html">开放平台服务协议</a>要求下游应用运营者向终端用户披露处理规则。截至 2026 年 9 月 4 日，上述公开材料未公布适用于本下游应用 API 请求的固定保留期或 API 专用“不用于训练”承诺，因此本应用不作出这两项承诺。请勿提交敏感或无权披露的内容。</p>
 
       <h2>7. 可选 iCloud 私有同步</h2>
       <p>iCloud 同步默认关闭。用户明确开启后，Mac 才会向其 Apple ID 的 CloudKit 私有数据库写入一份精简快照，包含 Agent/工具类别、安全显示名、状态、时长、Token 统计、时间戳和计数。快照不包含 prompt、响应正文、任务摘要、项目/文件路径、模型名、API Key、备忘录或翻译内容。对话标题默认不同步，只在用户单独确认后才可包含；Live Activity 始终不包含标题。</p>
@@ -51,7 +53,7 @@
         <li>用户可在应用中删除网站、备忘录和学习条目，移除自定义数据源，并清除 Keychain 中的翻译密钥。</li>
         <li>撤销主目录授权会停止 Mac App Store 版的日志监测；本应用不会删除第三方工具的原始日志。</li>
         <li>关闭 iCloud 私有同步时，Mac 会请求删除私有数据库中的 <code>latest</code> 记录；这需要 iCloud 和网络可用。</li>
-        <li>卸载应用可能保留 macOS Application Support、偏好设置和 Keychain 项。如需完全清理，请查看<a href="../support/">支持页面</a>或提交不含私密数据的支持工单。</li>
+        <li>卸载应用可能保留 macOS Application Support、偏好设置和 Keychain 项。如需完全清理，请查看<a href="../support/#delete-data">支持页面的删除说明</a>或提交不含私密数据的支持工单。</li>
       </ul>
 
       <h2>10. 儿童、安全与政策变更</h2>
@@ -64,7 +66,7 @@
     <section class="language-block" id="en" lang="en">
       <div class="eyebrow">English version</div>
       <h1>Privacy Policy</h1>
-      <p class="meta">Effective: September 3, 2026 · Maintainer: kiki-lgtm-dot · <a href="https://github.com/kiki-lgtm-dot/mac-agent-monitor-app/issues">Contact and support</a></p>
+      <p class="meta">Effective: September 4, 2026 · Maintainer: kiki-lgtm-dot · <a href="https://github.com/kiki-lgtm-dot/mac-agent-monitor-app/issues">Contact and support</a></p>
 
       <h2>1. Scope</h2>
       <p>This policy applies to MAC版灵动岛--Agent运行监测 for macOS and its iPhone companion (together, the “App”). The Mac app shows local AI-agent state, elapsed time, and token usage and provides website shortcuts, notes, and an optional translation-learning tool. The iPhone app displays only the reduced status summary the user chooses to sync.</p>
@@ -84,6 +86,8 @@
 
       <h2>6. Optional translation and third-party services</h2>
       <p>A translation request occurs only after the user enters text and selects Translate only or Learning analysis. The submitted text, language and mode, model name, structured-response instructions, and authentication key are sent to the OpenAI-compatible API endpoint displayed in the App. That provider may process submitted text, IP address, and request metadata under its own terms. Users should review the selected provider's policy first. The developer does not receive translation requests or results. A result is written to the local workspace only when the user selects Save to study book.</p>
+      <p>The current development build defaults to the DeepSeek API. Users can replace it in Settings with another supported HTTPS endpoint or a local loopback service. The App uses an ephemeral network session without cookies or URL caching, permits only same-origin redirects, and caps response size.</p>
+      <p>If the release build retains that default, users should note the following. DeepSeek's current published <a href="https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html">Privacy Policy</a> says that the Personal Data it covers is processed and stored in the People's Republic of China and that User Input may be used to develop, improve, and train its services and technology. The policy also expressly says it does not cover the specific processing rules for end users of downstream applications. DeepSeek's <a href="https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html">Open Platform Terms of Service</a> require the downstream-app operator to disclose those processing rules. As of September 4, 2026, those public materials do not publish a fixed retention period for this downstream App's API requests or an API-specific no-training commitment, so the App makes neither promise. Do not submit sensitive or unauthorized content.</p>
 
       <h2>7. Optional private iCloud sync</h2>
       <p>Private iCloud sync is off by default. After express opt-in, the Mac writes a reduced snapshot to the user's Apple ID private CloudKit database. It contains agent/tool categories and safe display names, state, elapsed time, token statistics, timestamps, and counts. It excludes prompts, response bodies, task summaries, project/file paths, model names, API keys, notes, and translation content. Conversation titles are excluded by default and require a separate opt-in. Live Activities never contain titles.</p>
@@ -93,7 +97,7 @@
       <p>Apart from user-selected CloudKit sync and user-initiated translation API requests, the App sends no data to a developer-operated server, does not sell data, does not use data for advertising or cross-app/site tracking, and includes no third-party analytics or advertising SDK. It does not request Camera, Microphone, Screen Recording, or Accessibility permission.</p>
 
       <h2>9. Retention and deletion</h2>
-      <ul><li>Users can delete website, note, and study items, disconnect custom sources, and clear the translation key from Keychain in the App.</li><li>Revoking Home-folder authorization stops sandboxed log monitoring. The App never deletes third-party tools' original logs.</li><li>Turning off private iCloud sync asks the Mac to delete the <code>latest</code> private-database record; iCloud and network access must be available.</li><li>Uninstalling may leave Application Support, preference, and Keychain items. See <a href="../support/">Support</a> for removal guidance.</li></ul>
+      <ul><li>Users can delete website, note, and study items, disconnect custom sources, and clear the translation key from Keychain in the App.</li><li>Revoking Home-folder authorization stops sandboxed log monitoring. The App never deletes third-party tools' original logs.</li><li>Turning off private iCloud sync asks the Mac to delete the <code>latest</code> private-database record; iCloud and network access must be available.</li><li>Uninstalling may leave Application Support, preference, and Keychain items. See the <a href="../support/#delete-data-en">removal guidance on the Support page</a>.</li></ul>
 
       <h2>10. Children, security, and changes</h2>
       <p>The App is a general development and productivity tool and is not directed specifically to children. It uses measures including App Sandbox, read-only file authorization, Keychain, atomic writes, and endpoint and response-size restrictions, but no software can guarantee absolute security. If features or data practices materially change, this page will be updated and the effective date revised.</p>

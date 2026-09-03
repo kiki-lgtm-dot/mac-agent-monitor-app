@@ -90,16 +90,18 @@ node scripts/validate-app-privacy.mjs
 
 | Locale | Privacy Policy URL | User Privacy Choices URL（可选） |
 | --- | --- | --- |
-| 简体中文 | `https://<正式域名>/privacy` | `https://<正式域名>/support#delete-data` |
-| English (U.S.) | `https://<正式域名>/en/privacy` | `https://<正式域名>/en/support#delete-data` |
+| 简体中文 | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/` | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/#delete-data` |
+| English (U.S.) | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/` | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/#delete-data-en` |
 
-填写前用未登录浏览器验证 HTTPS、200 响应、移动端可读、无占位符，并确认隐私选择锚点能直接定位到关闭同步与数据清理步骤。当前 owner-only 预览 URL 不能作为 App Store 的公开 URL。
+上述页面已由公开 GitHub Pages 站点提供，中英文合并在同一份隐私政策中。每次提交前仍需用未登录浏览器复核 HTTPS、200 响应、移动端可读、无占位符，并确认两个隐私选择锚点分别直接定位到对应语言的关闭同步与数据清理步骤。
 
 ## 8. 发布前结构化证据
 
 不使用手动勾选框或单独的 `VERIFIED=true` 作为完成证明。先把每个待上传的 `.ipa`、`.pkg`、应用 ZIP 或 `.xcarchive.zip` 作为不再变更的普通文件放在仓库内已忽略的 `dist/` 目录，再将文本/JSON 证据放在 `.release/app-privacy-evidence/`。门禁会检查扩展名、ZIP/XAR 文件头、包内 App `Info.plist`、可执行文件和 Privacy Manifest；每份证据文件还必须明文包含它所验证的全部候选包 SHA-256。
 
 默认门禁读取 `.release/app-privacy-evidence.json`；如果需要其他仓库内路径，设置 `AGENT_ISLAND_APP_PRIVACY_EVIDENCE`。路径不得越出仓库，不得是符号链接。下方是必须完整填写的结构；`null` 不会通过 `--release`：
+
+`releaseEvidenceReady` 只表示这份文档自身完整，不代表任意平台的当前构建已绑定。`release-readiness.sh` 会先要求 evidence 的 `recordScope` 与 `AGENT_ISLAND_APP_STORE_RECORD_MODE` 精确一致（`universal-purchase` 或 `separate-records`），再对 iOS 和 macOS 分别查找唯一的 archive 条目，并要求 `platform` / `distribution` / `bundleID` / `version` / `build` 以及候选文件 SHA-256 全部匹配。iOS 必须绑定已通过本地 `submit-testflight.sh --check` 的同一 IPA；macOS 有导出包时必须绑定当前精确候选的 `.pkg`，未导出包时才绑定同一候选的 Archive ZIP。当记录模式为 `universal-purchase` 时，Mac-only 或 iOS-only 证据即使自身完整，也不会打开任一平台的发布门禁。
 
 ```json
 {

@@ -209,6 +209,7 @@ WidgetExtension/PrivacyInfo.xcprivacy      Widget-only privacy manifest
 AgentIsland.xcodeproj                      App + Widget + hosted unit-test targets
 scripts/validate-project.sh                Static validation and optional build
 scripts/release-ios.sh                     Signed archive and optional local IPA export
+scripts/submit-testflight.sh                Exact-IPA preflight and deliberate delivery
 ```
 
 ## Validate
@@ -266,7 +267,16 @@ a signed App Store archive with:
 ```
 
 The script runs release validation and archives to a timestamped directory
-under `dist/ios`. It accepts only an Apple Distribution identity whose
+under `dist/ios`. By default, it only uses signing certificates and profiles
+already installed on the Mac. If you are signed in to the intended Apple team
+in Xcode and deliberately want Xcode to create or update signing assets, use:
+
+```bash
+./scripts/release-ios.sh --allow-provisioning-updates
+```
+
+This option may change signing assets in the Apple account, but never uploads
+an App build. The release script accepts only an Apple Distribution identity whose
 certificate subject and code-signature `TeamIdentifier` match the configured
 team. For both the App and Live Activity extension it then verifies that:
 
@@ -277,6 +287,9 @@ team. For both the App and Live Activity extension it then verifies that:
   full bundle ID (a suffix-only match is not accepted);
 - the signed entitlement, profile entitlement, profile `TeamIdentifier`, and
   certificate team all agree;
+- the exact SHA-1 fingerprint of the signing leaf certificate is the selected
+  Apple Distribution identity and occurs in each target profile's
+  `DeveloperCertificates` authorization list;
 - the profile is unexpired, is not device-scoped or all-device, and neither
   signature nor profile enables `get-task-allow`;
 - the App signature and profile each contain exactly the configured CloudKit
@@ -295,15 +308,122 @@ SHA-256 locally, run:
 ./scripts/release-ios.sh --export
 ```
 
+If local export also needs Xcode to update signing assets, combine the two
+explicit options:
+
+```bash
+./scripts/release-ios.sh --export --allow-provisioning-updates
+```
+
 The `--export` path unpacks the resulting IPA and repeats the same exact bundle,
 signature, profile-expiry, team, CloudKit, and Widget no-iCloud checks against
 the exported payload before writing its checksum. A successful archive check
 therefore cannot mask an export-time re-signing mismatch.
 
-Neither command uploads a build: `ExportOptions.plist` fixes the destination to
-local `export`, and the validation script rejects upload command paths. Inspect
-the archive and metadata first, then use Xcode Organizer/App Store Connect as
-the separate, deliberate upload step.
+Neither archive command uploads a build: `ExportOptions.plist` fixes the
+destination to local `export`, and the validation script rejects upload command
+paths in `release-ios.sh`. This separation ensures that creating or inspecting
+an artifact cannot accidentally deliver it.
+
+## Validate and deliberately upload the exact IPA
+
+After running `release-ios.sh --export`, perform the credential-free local
+submission preflight against its timestamped release directory:
+
+```bash
+./scripts/submit-testflight.sh --check \
+  ../../dist/ios/0.6.1-8-YYYYMMDDTHHMMSSZ
+```
+
+The preflight refuses an IPA that moved outside that release directory or no
+longer matches the recorded SHA-256. It unpacks the IPA and rechecks the sole
+App/Widget structure, identifiers, version/build, actual App and Widget display
+names, the App's privacy-policy and support URLs, arm64 device slices,
+distribution signature, exact signing-certificate fingerprint and Team ID,
+production CloudKit entitlement, Widget no-CloudKit boundary, export-compliance
+declaration, and both reviewed privacy manifests. The values are read from the
+unpacked IPA and compared with both the release metadata and the current
+`Config/Project.xcconfig` display-name/URL values (including resolution of the
+split URL slash setting); metadata alone is not accepted as evidence of the
+packaged identity. For both embedded provisioning
+profiles, the preflight also requires a future expiration, App Store distribution
+shape (no device list or all-device authorization), the actual signing leaf in
+`DeveloperCertificates`, and exact agreement between signed/profile team,
+application-identifier, `get-task-allow`, CloudKit, and Widget no-iCloud
+entitlements. It prints an artifact-specific confirmation value but performs no
+network request.
+
+Apple requires an App Store Connect app record before accepting a build. Once
+that record exists and the API-key owner has a role allowed to upload builds,
+store the downloaded private key outside the repository at
+`~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8` with no group/other read
+permission. Then ask Apple to validate the already-verified IPA:
+
+```bash
+AGENT_ISLAND_ASC_API_KEY_ID='XXXXXXXXXX' \
+AGENT_ISLAND_ASC_API_ISSUER_ID='00000000-0000-0000-0000-000000000000' \
+  ./scripts/submit-testflight.sh --validate \
+  ../../dist/ios/0.6.1-8-YYYYMMDDTHHMMSSZ
+```
+
+`--upload` is intentionally a separate operation. It first repeats the full
+local preflight and App Store Connect validation, then requires
+`AGENT_ISLAND_CONFIRM_TESTFLIGHT_UPLOAD` to exactly match the bundle,
+version/build, and full IPA SHA-256 printed by `--check`. Do not paste that
+value until the archive, privacy answers, screenshots, and production
+CloudKit schema for this same build have been reviewed.
+
+```bash
+AGENT_ISLAND_ASC_API_KEY_ID='XXXXXXXXXX' \
+AGENT_ISLAND_ASC_API_ISSUER_ID='00000000-0000-0000-0000-000000000000' \
+AGENT_ISLAND_CONFIRM_TESTFLIGHT_UPLOAD='<exact value printed by --check>' \
+  ./scripts/submit-testflight.sh --upload \
+  ../../dist/ios/0.6.1-8-YYYYMMDDTHHMMSSZ
+```
+
+The private key is never a command-line argument, is never read into output,
+and is never copied into `dist`. Successful remote validation and delivery
+responses are retained beside the release metadata. A successful upload only
+starts App Store Connect processing: the generated delivery record explicitly
+leaves processing verification, tester distribution, and App Review submission
+false. Inspect all processing warnings in App Store Connect and verify the
+processed bundle/version/build before enabling internal or external TestFlight.
+Xcode Organizer or Apple's Transporter app remains a supported manual fallback.
+
+After App Store Connect reports the exact bundle/version/build as `VALID` (or
+`Complete`), distribute that processed build to testers and install it from
+TestFlight on a real device. Then create a local, immutable evidence record:
+
+```bash
+AGENT_ISLAND_CONFIRM_TESTFLIGHT_VERIFICATION='<exact bundle:version:build:IPA-SHA256>' \
+  ./scripts/confirm-testflight-evidence.sh \
+  --processing-state VALID \
+  --app-store-connect-build-id '<Build ID shown by App Store Connect>' \
+  --processing-verified-at 'YYYY-MM-DDTHH:MM:SSZ' \
+  --distributed-to-testers \
+  --installed-from-testflight \
+  --tested-at 'YYYY-MM-DDTHH:MM:SSZ' \
+  ../../dist/ios/<release>/testflight-delivery-<timestamp>.json
+```
+
+The confirmation script is offline and changes neither Apple state nor the
+original delivery record. It re-hashes the IPA, release metadata, delivery,
+validation, and upload records, then writes a new no-overwrite
+`testflight-verification-*.json`. Point
+`AGENT_ISLAND_IOS_TESTFLIGHT_VERIFICATION_EVIDENCE` at that file before running
+release readiness. After repeating the CloudKit, Mac-to-iPhone, Live Activity,
+and review-path checks on this installed build, set
+`AGENT_ISLAND_IOS_FUNCTIONAL_EVIDENCE_IPA_SHA256` to its exact 64-character IPA
+hash. The readiness result stays false if any path, identity, or hash no longer
+matches. Readiness also reruns this script's credential-free `--check` against
+the evidence directory, so a ZIP or hand-authored metadata chain cannot stand
+in for a signed device IPA. This evidence does not replace App Privacy evidence:
+the iOS archive entry in `AGENT_ISLAND_APP_PRIVACY_EVIDENCE` must independently
+match this same platform, bundle ID, version, build number, and IPA SHA-256.
+
+Apple's current upload guidance is kept here for the release operator:
+[Upload builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
+and [Create an app record](https://developer.apple.com/help/app-store-connect/create-an-app-record/add-a-new-app/).
 
 ## What remains before TestFlight
 
@@ -319,9 +439,11 @@ the separate, deliberate upload step.
   real-device test, including sign-out/account switching and missing-record
   cache clearing.
 - Run `scripts/release-ios.sh` with the real Apple Distribution identity and
-  provisioning profiles; inspect the archive before any deliberate upload.
-- Verify icons and add screenshots, replace privacy-policy/support URL
-  placeholders, and complete App Store metadata.
+  provisioning profiles; inspect the archive, use
+  `scripts/submit-testflight.sh --check`, and review the exact confirmation
+  before any deliberate upload.
+- Verify icons, add final bilingual screenshots, recheck the published
+  privacy/support URLs, and complete App Store metadata.
 - Exercise pairing, offline cache, account changes, stale data, localization,
   Dynamic Type, VoiceOver, Live Activity expiry, and real-device Dynamic Island.
 - Keep `PrivacyInfo.xcprivacy` and the App Store privacy answers aligned with the

@@ -46,6 +46,7 @@ required_files=(
   "ApplePlatforms/macOS/Config/Project.xcconfig"
   "ApplePlatforms/macOS/Config/Mac-Info.plist"
   "ApplePlatforms/macOS/Config/AgentIslandMac.entitlements"
+  "ApplePlatforms/macOS/scripts/release-macos-app-store.sh"
   "ApplePlatforms/iOS/Config/Project.xcconfig"
   "Native/AgentIsland.m"
   "Resources/Info.plist"
@@ -57,6 +58,8 @@ required_files=(
 for relative_path in "${required_files[@]}"; do
   [ -f "$repo_root/$relative_path" ] || fail "missing $relative_path"
 done
+[ -x "$repo_root/ApplePlatforms/macOS/scripts/release-macos-app-store.sh" ] \
+  || fail "macOS App Store release script must be executable"
 
 plutil -lint \
   "$project_file" \
@@ -245,6 +248,7 @@ jq -e '
   and .LSUIElement == true
   and .ITSAppUsesNonExemptEncryption == false
   and .NSAppTransportSecurity.NSAllowsLocalNetworking == true
+  and .NSHumanReadableCopyright == "$(AGENT_ISLAND_COPYRIGHT)"
 ' "$info_json" >/dev/null || fail "Mac-Info.plist is not driven by release macros"
 
 jq -e '

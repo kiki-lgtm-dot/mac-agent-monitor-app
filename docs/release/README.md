@@ -1,8 +1,8 @@
 # MAC版灵动岛--Agent运行监测 上线材料索引
 
-> 状态：草案。更新日期：2026-09-03。以下文件不能在保留占位符的情况下直接发布或提交 App Review。
+> 状态：草案。更新日期：2026-09-04。以下文件不能在保留占位符的情况下直接发布或提交 App Review。
 
-本目录以 MAC版灵动岛--Agent运行监测 0.6.1（Build 8）的 macOS 实现和 `ApplePlatforms/iOS` 中的 iPhone 伴侣工程为准，覆盖 macOS 直接分发、Mac App Store、iOS App Store 与 TestFlight 准备。仓库现已包含 Mac CloudKit 隐私化快照 producer、带 App Sandbox 和主目录只读安全书签流程的原生 macOS Xcode 工程、SwiftUI iPhone 看板、Widget/Live Activity Extension、按 iCloud 账号隔离的私有 CloudKit receiver/离线缓存、App 与 Widget 独立 Privacy Manifest、App Icon，以及只归档/可选导出但不上传的 `scripts/release-ios.sh`，本地静态校验与回归已通过。但正式 Team/Bundle/Container ID、真实签名与 provisioning profile、Production schema、完整 Xcode Archive、沙盒实机流程及同一 iCloud 账号的 Mac→iPhone 真机验证仍未完成，因此不能宣称当前构建已具备商店上线条件。
+本目录以 MAC版灵动岛--Agent运行监测 0.6.1（Build 8）的 macOS 实现和 `ApplePlatforms/iOS` 中的 iPhone 伴侣工程为准，覆盖 macOS 直接分发、Mac App Store、iOS App Store 与 TestFlight 准备。仓库现已包含 Mac CloudKit 隐私化快照 producer、带 App Sandbox 和主目录只读安全书签流程的原生 macOS Xcode 工程、SwiftUI iPhone 看板、Widget/Live Activity Extension、按 iCloud 账号隔离的私有 CloudKit receiver/离线缓存、App 与 Widget 独立 Privacy Manifest、App Icon，以及只归档/导出但不上传的发布脚本、需要精确 IPA 二次确认的 TestFlight 上传脚本与离线后处理证据链，本地静态校验与回归已通过。但正式 Team/Bundle/Container ID、真实签名与 provisioning profile、Production schema、完整 Xcode Archive、沙盒实机流程及同一 iCloud 账号的 Mac→iPhone 真机验证仍未完成，因此不能宣称当前构建已具备商店上线条件。
 
 ## 文件
 
@@ -40,8 +40,8 @@
 
 1. 当前 Bundle ID 为开发占位值 `local.agentisland.desktop`，构建采用 ad-hoc 签名。
 2. Mac App Store Xcode Target、App Sandbox、主目录只读安全书签及撤销/重新授权源码已完成静态验证；仍需在完整 Xcode、正式签名的商店构建中实测授权、拒绝、书签失效、监测停止与恢复流程。
-3. 隐私政策与支持页面源码已配置 GitHub Pages 稳定 URL；提交前仍需确认 Pages 已启用、部署成功并公开可达，同时补齐 App Store Connect 所需的法定姓名、支持邮箱等账号材料。
-4. 翻译器默认地址当前指向 DeepSeek API。官方公开资料基线审计已归档，技术接入符合当前文档；但公开材料未给出本下游应用 API 请求的固定保留期或不训练承诺。仍需决定是否保留默认第三方端点，实施应用内分层告知，并据此最终确认 App Privacy 标签。
+3. 隐私政策与支持页面已部署到稳定的公开 GitHub Pages URL，并于 2026-09-04 从未登录请求复核 HTTPS 200。每个候选提交前仍须重新验证并将结果绑定到候选包，同时补齐 App Store Connect 所需的法定姓名、支持邮箱等账号材料。
+4. 翻译器默认地址当前指向 DeepSeek API。官方公开资料基线审计已归档，应用内分层告知、首次离机传输确认和官方政策链接已实施，公开隐私页也已同步。但公开材料未给出本下游应用 API 请求的固定保留期或不训练承诺；仍需决定是否保留默认第三方端点，并据此最终确认 App Privacy 标签。
 5. iOS 与 macOS 都已有明确标识、可退出并重置的内置离线示例模式。macOS 示例仅替代 Agent 监测数据，不读本机 Agent 日志/自定义源，不访问网络或 CloudKit，且退出后不自动恢复真实监测；iOS 示例不访问 CloudKit。两者都不能替代候选签名构建的动态验收、真实生产同步或真机验证。
 6. Mac producer 与 iPhone receiver 的代码契约已接通：用户明确同意后，Mac 可向其私有 CloudKit 数据库写入 `AgentIslandSnapshot/latest/payloadJSON`，iPhone 按当前 iCloud 账号读取并缓存。但正式 Developer ID entitlement/profile、生产 Container/schema 和同账号真机链路尚未验收；完成这些项目、完整 Xcode 构建和 Archive 之前，不得提交或宣传可用的跨设备监控。
 7. iOS 已与 macOS 统一为 0.6.1（Build 8），但仍使用 `com.example.agentisland` 占位 Bundle ID 和空 Team ID；Widget ID 也必须随正式 App ID 注册。
