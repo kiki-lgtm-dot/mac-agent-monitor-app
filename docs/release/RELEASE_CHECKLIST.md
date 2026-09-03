@@ -113,19 +113,22 @@
 - [ ] 验证无活跃 Agent 时不能错误启动实时活动；Agent 结束后活动能及时结束。
 - [ ] 在锁屏和灵动岛中只显示数量、状态、时长、Token 和更新时间，不显示会话标题或个人电脑名。
 - [ ] 用相同 Team 正式签名 App 与 Extension，并确认 Extension 被正确嵌入 App Archive。
+- [ ] 确认 `ios-entitlements-contract.jq` 通过：App/Widget 实际签名权限必须严格落在已审查 allowlist 内，App Store profile 则作为授权上限验证，不得把 Apple 管理的通配符/基线字段误当成签名权限或强制文本相等。
 - [ ] 检查 App Icon 的所有槽位、最终品牌权利及 1024×1024 marketing icon，不使用透明通道。
 - [ ] 核对 App Target `Config/PrivacyInfo.xcprivacy` 已同时声明 Other Usage Data 与 Other User Content（与用户关联 / App Functionality / no tracking），并在 App Store Connect 使用相同口径；确认 Widget 嵌入独立 `WidgetExtension/PrivacyInfo.xcprivacy`，collected data/accessed API/tracking domains 均为空且 tracking=false，并确认 Widget 无 iCloud entitlement。若首发移除完整标题同步，再按最终行为重新评估 Other User Content，而不是保留过时披露。
 - [ ] 使用真实同步数据完成 iPhone/iPad 适配范围决定、Dynamic Type、VoiceOver、深浅色、旋转和本地化测试。
 - [ ] 在支持 Dynamic Island 的真机测试紧凑、最小、展开和锁屏视图；普通 iPhone 上验证锁屏 Live Activity。
 - [ ] 生成 Development/TestFlight Archive，先邀请内部测试；正式签名/Production schema/同账号真机链路未验收时，不邀请外部测试或提交 Beta App Review。
 - [ ] 对 `release-ios.sh --export` 生成的候选目录运行 `submit-testflight.sh --check`；仅在核对完整 `Bundle ID:Version:Build:IPA SHA-256` 确认值后执行独立上传。`release-readiness.sh` 必须重跑该无凭据预检并输出 `iosLocalIPAPreflightPassed=true`，纯文本伪 IPA 或手写 JSON 不得进入 exact-build 状态。
-- [ ] App Store Connect 显示该精确构建已 `VALID`/`Complete` 后，记录 Build ID 和 UTC 时间；分发给测试者、从 TestFlight 真机安装后，用 `confirm-testflight-evidence.sh` 生成不覆盖的 `testflight-verification-*.json`。
+- [ ] App Store Connect 显示该精确构建已 `VALID`/`Complete` 后，记录 Build ID 和 UTC 时间，逐项检查 processing errors/warnings/information 并记录 `--warnings-reviewed-at`；分发给测试者、从 TestFlight 真机安装后，用带 `--warnings-reviewed` 的 `confirm-testflight-evidence.sh` 生成不覆盖的 `testflight-verification-*.json`。成功上传本身不得推断为警告已复核。
 - [ ] 外部 TestFlight 前填写中英文 Beta Description、What to Test、反馈邮箱、审核联系人和可复现的配对/演示步骤。
 - [ ] 由有权提交者完成 App Store Connect 的年龄分级、Content Rights、EULA、DSA trader status、价格、可用地区与版本发布方式决策；这些账号级事项不能由 IPA 本地预检代替。
 - [ ] 如发布 iPhone 无障碍营养标签，先用 VoiceOver、Voice Control、较大文字、深色模式、仅靠颜色区分等对应能力走完所有常用任务并保存证据；当前标签可自愿填写，不能仅凭采用 SwiftUI 控件推断支持。
 - [ ] App Store 提交前使用 `IOS_APP_REVIEW_NOTES.md` 提供无需审核员自行搭建开发环境的可审核路径。
 - [ ] iOS 最终 App Store 提审前确认 readiness 中 `iosStoreSubmissionAssetsReady: true`；它只依赖 iOS 中英文元数据/iPhone 截图/App Icon 和两端共用隐私、支持材料。TestFlight 上传本身不要求商店截图，macOS 独有素材也不得阻断 iOS 门禁。
 - [ ] 仅在 Production CloudKit schema、同账号 Mac→iPhone 真机同步、Live Activity 真机表现和审核演示路径都针对同一个 TestFlight 安装包验收后，使用 `confirm-functional-qa-evidence.sh` 将设备型号、iOS 版本、测试时间和四份不同附件写入不可覆盖的只读记录，并把 `AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE` 指向该文件。`readyForFunctionalIOSTestFlight` 必须重新校验整条 delivery/metadata/IPA/TestFlight/QA 证据链，并要求 `iosPrivacyReleaseEvidenceReady=true`；不接受其他平台证据、复制的 IPA 哈希或独立布尔值冒充验收状态。
+- [ ] 生成最新 `release-readiness.sh --json` 报告并运行 `scripts/assert-release-preflight.sh ios-app-store-review /absolute/path/readiness.json`；只有 `readyForIOSAppStoreReviewSelection: true` 才进入人工选择 Build 的步骤。该字段会将功能验收与 `iosStoreSubmissionAssetsReady`、记录模式和精确 App Store Connect Build ID 合并校验，但不表示 Build 已选中、已 Add for Review 或已 Submit for Review。
+- [ ] 账号授权人在 App Store Connect 中选择该精确 Build、发布最终 App Privacy 回答、补齐所有必填属性并复核后先 Add for Review；再单独执行 Submit for Review。不要从本地 `readyForIOSAppStoreReviewSelection` 推断任何远程动作已经发生。
 
 ## 4. 功能与隐私 QA
 

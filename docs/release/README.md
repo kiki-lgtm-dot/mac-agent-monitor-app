@@ -34,6 +34,10 @@ Mac App Store 发布状态必须按以下证据层级逐步判定，不得用单
 5. 人工在 App Store Connect 确认该精确构建为 `Complete` 并检查全部警告后，用 `confirm-macos-app-store-evidence.sh` 生成处理记录，再填入 `AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE`。这是操作人员的本地证据，验证脚本不会回查 Apple 状态。
 6. `readyForMacAppStoreReviewSelection: true` 只表示证据链已支持在对应 macOS 版本中人工选择该 Build；它不表示 Build 已被选中，更不表示已执行 App Review 提交。选择构建和最终提审仍由账号授权人在 App Store Connect 中完成。
 
+iOS 也分为两个独立层级：`readyForFunctionalIOSTestFlight: true` 只表示精确 TestFlight 安装包已完成候选绑定的处理、安装、隐私与真机功能验收；`readyForIOSAppStoreReviewSelection: true` 还要求 iOS 中英文商店材料、截图、App Icon、公开支持信息、App Privacy 证据和记录模式全部通过。可用
+`scripts/assert-release-preflight.sh ios-app-store-review /absolute/path/readiness.json`
+在进入 App Store Connect 前复验。该结果仍不表示已经选择 Build、Add for Review 或 Submit for Review，这些远程操作必须由账号授权人明确执行。
+
 ## 必须替换的占位符
 
 发布前全文搜索 `[`，逐项替换或删除：

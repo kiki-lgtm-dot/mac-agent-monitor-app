@@ -8,6 +8,7 @@ scheme_file="$project_root/AgentIsland.xcodeproj/xcshareddata/xcschemes/AgentIsl
 workspace_file="$project_root/AgentIsland.xcodeproj/project.xcworkspace/contents.xcworkspacedata"
 asset_manifest="$project_root/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json"
 privacy_contract="$project_root/scripts/privacy-manifest-contract.jq"
+entitlements_contract="$project_root/scripts/ios-entitlements-contract.jq"
 build_settings_validator="$project_root/scripts/validate-build-settings.mjs"
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/agentisland-ios-validation.XXXXXX")"
 run_build=false
@@ -107,6 +108,7 @@ required_files=(
   "Resources/en.lproj/Localizable.strings"
   "Resources/zh-Hans.lproj/Localizable.strings"
   "scripts/privacy-manifest-contract.jq"
+  "scripts/ios-entitlements-contract.jq"
   "scripts/validate-build-settings.mjs"
   "scripts/release-ios.sh"
   "scripts/submit-testflight.sh"
@@ -174,8 +176,11 @@ for release_marker in \
   'ApplicationIdentifierPrefix.0' \
   'TeamIdentifier.0' \
   'ExpirationDate' \
-  'com.apple.developer.icloud-container-environment' \
-  'Production' \
+  'ios-entitlements-contract.jq' \
+  'validate_entitlement_contract signed-app' \
+  'validate_entitlement_contract profile-app' \
+  'validate_entitlement_contract signed-widget' \
+  'validate_entitlement_contract profile-widget' \
   'ProvisionedDevices' \
   'uploaded: false' \
   'expected exactly one Apple Distribution identity' \
@@ -212,8 +217,8 @@ fi
 if grep -Fq -- '-extract Entitlements json' "$release_script"; then
   fail "release-ios.sh must isolate profile Entitlements as XML before JSON conversion"
 fi
-grep -Fq 'startswith("com.apple.developer.ubiquity")' "$release_script" \
-  || fail "release-ios.sh must reject Widget ubiquity entitlements"
+grep -Fq 'startswith("com.apple.developer.ubiquity")' "$entitlements_contract" \
+  || fail "the shared entitlement contract must reject Widget ubiquity entitlements"
 grep -Fq 'destination -string export' "$release_script" \
   || fail "release-ios.sh must keep IPA export local"
 for forbidden_upload_marker in \
@@ -250,6 +255,11 @@ for submission_marker in \
   'IPA App privacy policy URL does not match release metadata' \
   'IPA App support URL does not match release metadata' \
   'IPA targets must contain arm64' \
+  'ios-entitlements-contract.jq' \
+  'validate_entitlement_contract signed-app' \
+  'validate_entitlement_contract profile-app' \
+  'validate_entitlement_contract signed-widget' \
+  'validate_entitlement_contract profile-widget' \
   'IPA App signature/profile failed exact production CloudKit entitlement validation' \
   'IPA Widget signature/profile identifiers are wrong or an iCloud entitlement leaked' \
   'embedded.mobileprovision' \
@@ -276,6 +286,8 @@ for submission_marker in \
   'processingState: null' \
   'appStoreConnectBuildID: null' \
   'processingVerifiedAt: null' \
+  'warningsReviewed: false' \
+  'warningsReviewedAt: null' \
   'distributedToTesters: false' \
   'installedFromTestFlight: false' \
   'testedAt: null' \
@@ -303,6 +315,8 @@ for confirmation_marker in \
   'appStoreConnectBuildID: $appStoreConnectBuildID' \
   'processingState: $processingState' \
   'processingVerifiedAt: $processingVerifiedAt' \
+  'warningsReviewed: true' \
+  'warningsReviewedAt: $warningsReviewedAt' \
   'distributedToTesters: true' \
   'installedFromTestFlight: true' \
   'testedAt: $testedAt' \
@@ -751,12 +765,13 @@ grep -Fq 'guard let fileSize = values.fileSize' "$project_root/App/CloudKitSnaps
 entitlements_json="$work_dir/entitlements.json"
 plutil -convert json -o "$entitlements_json" \
   "$project_root/Config/AgentIslandMobile.entitlements"
-jq -e '."com.apple.developer.icloud-container-identifiers"
-  == ["$(AGENT_ISLAND_ICLOUD_CONTAINER_ID)"]' "$entitlements_json" >/dev/null \
-  || fail "CloudKit entitlement must contain only the configurable container"
-jq -e '."com.apple.developer.icloud-services" == ["CloudKit"]' \
-  "$entitlements_json" >/dev/null \
-  || fail "CloudKit service entitlement is missing"
+jq -e \
+  --arg mode source-app \
+  --arg identifier "" \
+  --arg team "" \
+  --arg container '$(AGENT_ISLAND_ICLOUD_CONTAINER_ID)' \
+  -f "$entitlements_contract" "$entitlements_json" >/dev/null \
+  || fail "App source entitlements must contain only the configured CloudKit container and CloudKit service"
 
 for info_key in \
   AgentIslandCloudKitContainerIdentifier \

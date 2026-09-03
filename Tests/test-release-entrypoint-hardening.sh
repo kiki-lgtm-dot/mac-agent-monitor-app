@@ -246,6 +246,75 @@ for expression in \
     "$PREFLIGHT" ios-upload "$INVALID_REPORT"
 done
 
+IOS_APP_STORE_REVIEW_REPORT="$TEST_ROOT/ios-app-store-review-ready.json"
+/usr/bin/jq '. + {
+  iosTestFlightExactBuildEvidenceReady: true,
+  iosFunctionalQAEvidenceReady: true,
+  iosFunctionalEvidenceBoundToCandidate: true,
+  iosTestFlightUploadVerified: true,
+  iosTestFlightProcessingVerified: true,
+  iosTestFlightProcessingState: "VALID",
+  iosTestFlightInstallVerified: true,
+  iosTestFlightWarningsReviewed: true,
+  iosTestFlightWarningsReviewedAt: "2026-09-04T00:00:00Z",
+  iosPrivacyReleaseEvidenceReady: true,
+  iosStoreSubmissionAssetsReady: true,
+  macStoreSubmissionAssetsReady: false,
+  storeSubmissionAssetsReady: false,
+  appStoreRecordModeConfigured: true,
+  appStoreRecordModeBundleIDsValid: true,
+  iosTestFlightAppStoreConnectBuildID: "fixture-build-id",
+  readyForFunctionalIOSTestFlight: true,
+  readyForIOSAppStoreReviewSelection: true
+}' "$IOS_REPORT" >"$IOS_APP_STORE_REVIEW_REPORT"
+# A ready iOS submission must not depend on unfinished macOS store materials.
+"$PREFLIGHT" ios-app-store-review "$IOS_APP_STORE_REVIEW_REPORT"
+
+for field in \
+    releaseIdentityReady \
+    readyForIOSArchive \
+    iosTestFlightExactBuildEvidenceReady \
+    iosFunctionalQAEvidenceReady \
+    iosFunctionalEvidenceBoundToCandidate \
+    iosTestFlightUploadVerified \
+    iosTestFlightProcessingVerified \
+    iosTestFlightInstallVerified \
+    iosTestFlightWarningsReviewed \
+    iosPrivacyReleaseEvidenceReady \
+    iosStoreSubmissionAssetsReady \
+    appStoreRecordModeConfigured \
+    appStoreRecordModeBundleIDsValid \
+    readyForFunctionalIOSTestFlight \
+    readyForIOSAppStoreReviewSelection; do
+  INVALID_REPORT="$TEST_ROOT/ios-app-store-review-$field-false.json"
+  /usr/bin/jq --arg field "$field" '.[$field] = false' \
+    "$IOS_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+  expect_rejected "iOS App Store review report with $field=false" \
+    "$PREFLIGHT" ios-app-store-review "$INVALID_REPORT"
+done
+INVALID_REPORT="$TEST_ROOT/ios-app-store-review-build-id-empty.json"
+/usr/bin/jq '.iosTestFlightAppStoreConnectBuildID = ""' \
+  "$IOS_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+expect_rejected "iOS App Store review report without an App Store Connect build ID" \
+  "$PREFLIGHT" ios-app-store-review "$INVALID_REPORT"
+INVALID_REPORT="$TEST_ROOT/ios-app-store-review-warning-time-empty.json"
+/usr/bin/jq '.iosTestFlightWarningsReviewedAt = ""' \
+  "$IOS_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+expect_rejected "iOS App Store review report without a warning-review time" \
+  "$PREFLIGHT" ios-app-store-review "$INVALID_REPORT"
+for invalid_state in null '"BROKEN"'; do
+  INVALID_REPORT="$TEST_ROOT/ios-app-store-review-processing-state-$RANDOM.json"
+  /usr/bin/jq ".iosTestFlightProcessingState = $invalid_state" \
+    "$IOS_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+  expect_rejected "iOS App Store review report with invalid processing state" \
+    "$PREFLIGHT" ios-app-store-review "$INVALID_REPORT"
+done
+INVALID_REPORT="$TEST_ROOT/ios-app-store-review-warning-time-malformed.json"
+/usr/bin/jq '.iosTestFlightWarningsReviewedAt = "not-a-time"' \
+  "$IOS_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+expect_rejected "iOS App Store review report with malformed warning-review time" \
+  "$PREFLIGHT" ios-app-store-review "$INVALID_REPORT"
+
 # A report is only a snapshot. Every channel must independently reject lock
 # content drift, a replacement symlink, and a path that traverses a symlinked
 # parent before performing its protected action.

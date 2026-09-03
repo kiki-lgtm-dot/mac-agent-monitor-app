@@ -235,8 +235,8 @@ TESTFLIGHT_TESTED_EPOCH="$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' \
 NOW_EPOCH="$(/bin/date -u '+%s')"
 (( TESTFLIGHT_TESTED_EPOCH <= TESTED_EPOCH )) \
   || fail "--tested-at must not precede the recorded TestFlight installation test"
-(( TESTED_EPOCH <= NOW_EPOCH + 300 )) \
-  || fail "--tested-at must not be more than five minutes in the future"
+(( TESTED_EPOCH <= NOW_EPOCH )) \
+  || fail "--tested-at must not be in the future"
 
 CONFIRMATION_VALUE="$APP_BUNDLE_ID:$VERSION:$BUILD_NUMBER:$IPA_SHA256"
 [[ "${AGENT_ISLAND_CONFIRM_IOS_FUNCTIONAL_QA:-}" == "$CONFIRMATION_VALUE" ]] \

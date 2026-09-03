@@ -101,7 +101,7 @@ node scripts/validate-app-privacy.mjs
 
 默认门禁读取 `.release/app-privacy-evidence.json`；如果需要其他仓库内路径，设置 `AGENT_ISLAND_APP_PRIVACY_EVIDENCE`。路径不得越出仓库，不得是符号链接。下方是必须完整填写的结构；`null` 不会通过 `--release`：
 
-`releaseEvidenceReady` 只表示这份文档自身完整，不代表任意平台的当前构建已绑定。`release-readiness.sh` 会先要求 evidence 的 `recordScope` 与 `AGENT_ISLAND_APP_STORE_RECORD_MODE` 精确一致（`universal-purchase` 或 `separate-records`），再对 iOS 和 macOS 分别查找唯一的 archive 条目，并要求 `platform` / `distribution` / `bundleID` / `version` / `build` 以及候选文件 SHA-256 全部匹配。iOS 必须绑定已通过本地 `submit-testflight.sh --check` 的同一 IPA；macOS 有导出包时必须绑定当前精确候选的 `.pkg`，未导出包时才绑定同一候选的 Archive ZIP。当记录模式为 `universal-purchase` 时，Mac-only 或 iOS-only 证据即使自身完整，也不会打开任一平台的发布门禁。
+`releaseEvidenceReady` 只表示这份文档自身完整，不代表任意平台的当前构建已绑定。`release-readiness.sh` 还会对 iOS 和 macOS 分别查找唯一的 archive 条目，并要求 `platform` / `distribution` / `bundleID` / `version` / `build` 以及候选文件 SHA-256 全部匹配。iOS 必须绑定已通过本地 `submit-testflight.sh --check` 的同一 IPA；macOS 有导出包时必须绑定当前精确候选的 `.pkg`，未导出包时才绑定同一候选的 Archive ZIP。`universal-purchase` 只接受同时绑定两端候选的 `recordScope: universal-purchase`；Mac-only 或 iOS-only 证据不会打开其中任一平台的门禁。`separate-records` 可以分别提供 `recordScope: macOS` 和 `recordScope: iOS` 的证据，因此某一端可以独立进入发布门禁；为向后兼容，一份同时绑定两端候选的 `recordScope: separate-records` 证据也仍可用。
 
 ```json
 {
@@ -132,7 +132,7 @@ node scripts/validate-app-privacy.mjs
 }
 ```
 
-`recordScope` 只能是 `macOS`、`iOS`、`universal-purchase` 或 `separate-records`；macOS 候选项的 `distribution` 必须是 `mac-app-store`，iOS 必须是 `app-store`。共用记录必须绑定各一份 iOS 与 macOS 候选包且 App Bundle ID 相同；分开记录也要绑定两份候选包，但 App Bundle ID 必须不同。八份证据依次覆盖：最终包内 Manifest、Xcode Privacy Report、网络观测（含 macOS 离线示例的零网络/零 Agent 日志读取证据）、CloudKit Production/删除验证、标题同步边界、翻译供应商决策、公开双语页面的 HTTP/`#delete-data` 验证，以及 App Store Connect App Privacy 已 Publish 的导出或截图索引。
+`recordScope` 只能是 `macOS`、`iOS`、`universal-purchase` 或 `separate-records`；macOS 候选项的 `distribution` 必须是 `mac-app-store`，iOS 必须是 `app-store`。共用记录必须绑定各一份 iOS 与 macOS 候选包且 App Bundle ID 相同。分开记录时，推荐为每个 App Store Connect 记录分别创建只绑定对应候选包的 `macOS` / `iOS` 证据；若使用合并的 `separate-records` 证据，则必须绑定两份候选包且 App Bundle ID 不同。八份证据依次覆盖：最终包内 Manifest、Xcode Privacy Report、网络观测（含 macOS 离线示例的零网络/零 Agent 日志读取证据）、CloudKit Production/删除验证、标题同步边界、翻译供应商决策、公开双语页面的 HTTP/`#delete-data` 验证，以及 App Store Connect App Privacy 已 Publish 的导出或截图索引。
 
 ## 9. 发布操作顺序
 

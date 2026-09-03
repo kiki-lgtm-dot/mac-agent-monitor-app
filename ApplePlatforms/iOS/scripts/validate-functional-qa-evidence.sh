@@ -156,6 +156,8 @@ inspect_testflight_verification() {
     (.appStoreConnectBuildID | type == "string" and length > 0) and
     (.processingState == "VALID" or .processingState == "Complete") and
     (.processingVerifiedAt | type == "string" and length > 0) and
+    .warningsReviewed == true and
+    (.warningsReviewedAt | type == "string" and length > 0) and
     .distributedToTesters == true and
     .installedFromTestFlight == true and
     (.testedAt | type == "string" and length > 0) and
@@ -166,7 +168,8 @@ inspect_testflight_verification() {
   local app_bundle_id version build_number ipa_path ipa_sha256
   local release_metadata_path release_metadata_sha256
   local delivery_record_path delivery_record_sha256 app_store_connect_build_id
-  local processing_verified_at verification_tested_at verification_created_at
+  local processing_verified_at warnings_reviewed_at verification_tested_at
+  local verification_created_at
   app_bundle_id="$(/usr/bin/jq -r '.appBundleID' "$verification_path")"
   version="$(/usr/bin/jq -r '.version' "$verification_path")"
   build_number="$(/usr/bin/jq -r '.build' "$verification_path")"
@@ -178,6 +181,7 @@ inspect_testflight_verification() {
   delivery_record_sha256="$(/usr/bin/jq -r '.deliveryRecordSHA256' "$verification_path")"
   app_store_connect_build_id="$(/usr/bin/jq -r '.appStoreConnectBuildID' "$verification_path")"
   processing_verified_at="$(/usr/bin/jq -r '.processingVerifiedAt' "$verification_path")"
+  warnings_reviewed_at="$(/usr/bin/jq -r '.warningsReviewedAt' "$verification_path")"
   verification_tested_at="$(/usr/bin/jq -r '.testedAt' "$verification_path")"
   verification_created_at="$(/usr/bin/jq -r '.createdAt' "$verification_path")"
 
@@ -246,7 +250,17 @@ inspect_testflight_verification() {
       .ipaSHA256 == $ipaSHA256 and
       .releaseMetadataPath == $releaseMetadataPath and
       .releaseMetadataSHA256 == $releaseMetadataSHA256 and
-      .uploadAccepted == true
+      .uploadAccepted == true and
+      .processingState == null and
+      .appStoreConnectBuildID == null and
+      .processingVerified == false and
+      .processingVerifiedAt == null and
+      ((.warningsReviewed // false) == false) and
+      .warningsReviewedAt == null and
+      .distributedToTesters == false and
+      .installedFromTestFlight == false and
+      .testedAt == null and
+      .submittedForAppReview == false
     ' "$delivery_record_path" >/dev/null \
     || fail "delivery record and TestFlight verification do not identify the same accepted upload"
 
@@ -279,19 +293,22 @@ inspect_testflight_verification() {
 
   local submitted_at
   submitted_at="$(/usr/bin/jq -r '.submittedAt' "$delivery_record_path")"
-  for timestamp in "$submitted_at" "$processing_verified_at" \
+  for timestamp in "$submitted_at" "$processing_verified_at" "$warnings_reviewed_at" \
       "$verification_tested_at" "$verification_created_at"; do
     valid_utc_timestamp "$timestamp" \
       || fail "TestFlight verification contains an invalid UTC timestamp"
   done
-  local submitted_epoch processing_epoch verification_tested_epoch verification_created_epoch now_epoch
+  local submitted_epoch processing_epoch warnings_reviewed_epoch
+  local verification_tested_epoch verification_created_epoch now_epoch
   submitted_epoch="$(timestamp_epoch "$submitted_at")"
   processing_epoch="$(timestamp_epoch "$processing_verified_at")"
+  warnings_reviewed_epoch="$(timestamp_epoch "$warnings_reviewed_at")"
   verification_tested_epoch="$(timestamp_epoch "$verification_tested_at")"
   verification_created_epoch="$(timestamp_epoch "$verification_created_at")"
   now_epoch="$(/bin/date -u '+%s')"
   (( submitted_epoch <= processing_epoch \
-    && processing_epoch <= verification_tested_epoch \
+    && processing_epoch <= warnings_reviewed_epoch \
+    && warnings_reviewed_epoch <= verification_tested_epoch \
     && verification_tested_epoch <= verification_created_epoch \
     && verification_created_epoch <= now_epoch + 300 )) \
     || fail "TestFlight verification timestamps are inconsistent or in the future"
@@ -317,6 +334,7 @@ inspect_testflight_verification() {
     --arg releaseDirectory "$release_directory" \
     --arg verificationPath "$verification_path" \
     --arg verificationSHA256 "$(file_sha256 "$verification_path")" \
+    --arg warningsReviewedAt "$warnings_reviewed_at" \
     --arg verificationTestedAt "$verification_tested_at" '{
       appBundleID: $appBundleID,
       version: $version,
@@ -335,6 +353,8 @@ inspect_testflight_verification() {
       releaseDirectory: $releaseDirectory,
       verificationPath: $verificationPath,
       verificationSHA256: $verificationSHA256,
+      warningsReviewed: true,
+      warningsReviewedAt: $warningsReviewedAt,
       verificationTestedAt: $verificationTestedAt
     }'
 }

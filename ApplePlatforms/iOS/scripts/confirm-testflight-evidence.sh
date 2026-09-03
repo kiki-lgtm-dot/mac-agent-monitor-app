@@ -7,9 +7,11 @@ DELIVERY_RECORD_INPUT=""
 PROCESSING_STATE=""
 APP_STORE_CONNECT_BUILD_ID=""
 PROCESSING_VERIFIED_AT=""
+WARNINGS_REVIEWED_AT=""
 TESTED_AT=""
 DISTRIBUTED_CONFIRMED=false
 INSTALL_CONFIRMED=false
+WARNINGS_REVIEWED_CONFIRMED=false
 
 usage() {
   /bin/cat <<'EOF'
@@ -18,6 +20,8 @@ Usage:
     --processing-state VALID|Complete \
     --app-store-connect-build-id BUILD_ID \
     --processing-verified-at YYYY-MM-DDTHH:MM:SSZ \
+    --warnings-reviewed \
+    --warnings-reviewed-at YYYY-MM-DDTHH:MM:SSZ \
     --distributed-to-testers \
     --installed-from-testflight \
     --tested-at YYYY-MM-DDTHH:MM:SSZ \
@@ -128,6 +132,17 @@ while (( $# > 0 )); do
       PROCESSING_VERIFIED_AT="$2"
       shift 2
       ;;
+    --warnings-reviewed)
+      [[ "$WARNINGS_REVIEWED_CONFIRMED" == false ]] \
+        || fail "--warnings-reviewed may be supplied only once"
+      WARNINGS_REVIEWED_CONFIRMED=true
+      shift
+      ;;
+    --warnings-reviewed-at)
+      (( $# >= 2 )) || fail "--warnings-reviewed-at requires a UTC timestamp"
+      WARNINGS_REVIEWED_AT="$2"
+      shift 2
+      ;;
     --distributed-to-testers)
       [[ "$DISTRIBUTED_CONFIRMED" == false ]] \
         || fail "--distributed-to-testers may be supplied only once"
@@ -172,6 +187,8 @@ print -r -- "$APP_STORE_CONNECT_BUILD_ID" | LC_ALL=C /usr/bin/grep -Eq '^[[:grap
   || fail "--distributed-to-testers is required after verifying tester availability"
 [[ "$INSTALL_CONFIRMED" == true ]] \
   || fail "--installed-from-testflight is required after a real-device installation"
+[[ "$WARNINGS_REVIEWED_CONFIRMED" == true ]] \
+  || fail "--warnings-reviewed is required after inspecting every processing warning"
 
 valid_utc_timestamp() {
   local value="$1"
@@ -183,16 +200,22 @@ valid_utc_timestamp() {
 
 valid_utc_timestamp "$PROCESSING_VERIFIED_AT" \
   || fail "--processing-verified-at must be a real UTC timestamp ending in Z"
+valid_utc_timestamp "$WARNINGS_REVIEWED_AT" \
+  || fail "--warnings-reviewed-at must be a real UTC timestamp ending in Z"
 valid_utc_timestamp "$TESTED_AT" \
   || fail "--tested-at must be a real UTC timestamp ending in Z"
 PROCESSING_EPOCH="$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' \
   "$PROCESSING_VERIFIED_AT" '+%s')"
+WARNINGS_REVIEWED_EPOCH="$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' \
+  "$WARNINGS_REVIEWED_AT" '+%s')"
 TESTED_EPOCH="$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$TESTED_AT" '+%s')"
 NOW_EPOCH="$(/bin/date -u '+%s')"
-(( PROCESSING_EPOCH <= TESTED_EPOCH )) \
-  || fail "processingVerifiedAt must not be later than testedAt"
-(( TESTED_EPOCH <= NOW_EPOCH + 300 )) \
-  || fail "testedAt must not be more than five minutes in the future"
+(( PROCESSING_EPOCH <= WARNINGS_REVIEWED_EPOCH )) \
+  || fail "warningsReviewedAt must not be earlier than processingVerifiedAt"
+(( WARNINGS_REVIEWED_EPOCH <= TESTED_EPOCH )) \
+  || fail "warningsReviewedAt must not be later than testedAt"
+(( TESTED_EPOCH <= NOW_EPOCH )) \
+  || fail "testedAt must not be in the future"
 
 [[ -f "$DELIVERY_RECORD_INPUT" && ! -L "$DELIVERY_RECORD_INPUT" ]] \
   || fail "delivery record must be an existing, non-symlink file"
@@ -234,6 +257,8 @@ command -v shasum >/dev/null 2>&1 || fail "shasum is required"
   .appStoreConnectBuildID == null and
   .processingVerified == false and
   .processingVerifiedAt == null and
+  ((.warningsReviewed // false) == false) and
+  .warningsReviewedAt == null and
   .distributedToTesters == false and
   .installedFromTestFlight == false and
   .testedAt == null and
@@ -356,6 +381,7 @@ trap 'exit 143' TERM
   --arg appStoreConnectBuildID "$APP_STORE_CONNECT_BUILD_ID" \
   --arg processingState "$PROCESSING_STATE" \
   --arg processingVerifiedAt "$PROCESSING_VERIFIED_AT" \
+  --arg warningsReviewedAt "$WARNINGS_REVIEWED_AT" \
   --arg testedAt "$TESTED_AT" \
   --arg createdAt "$CREATED_AT" '{
     schemaVersion: 1,
@@ -373,6 +399,8 @@ trap 'exit 143' TERM
     appStoreConnectBuildID: $appStoreConnectBuildID,
     processingState: $processingState,
     processingVerifiedAt: $processingVerifiedAt,
+    warningsReviewed: true,
+    warningsReviewedAt: $warningsReviewedAt,
     distributedToTesters: true,
     installedFromTestFlight: true,
     testedAt: $testedAt,
@@ -387,6 +415,8 @@ trap 'exit 143' TERM
   (.appStoreConnectBuildID | type == "string" and length > 0) and
   (.processingState == "VALID" or .processingState == "Complete") and
   (.processingVerifiedAt | type == "string" and length > 0) and
+  .warningsReviewed == true and
+  (.warningsReviewedAt | type == "string" and length > 0) and
   .distributedToTesters == true and
   .installedFromTestFlight == true and
   (.testedAt | type == "string" and length > 0) and

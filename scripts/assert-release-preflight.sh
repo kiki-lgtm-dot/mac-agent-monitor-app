@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  print -u2 -r -- "Usage: ${0:t} developer-id|mac-app-store|mac-app-store-upload|ios|ios-upload READINESS_JSON"
+  print -u2 -r -- "Usage: ${0:t} developer-id|mac-app-store|mac-app-store-upload|ios|ios-upload|ios-app-store-review READINESS_JSON"
 }
 
 fail() {
@@ -174,6 +174,38 @@ case "$CHANNEL" in
       .iosUploadCandidate.build == .iosBuildNumber
     '
     ;;
+  ios-app-store-review)
+    # This is a final local/operator gate before selecting the exact processed
+    # build in App Store Connect. It intentionally does not claim that the build
+    # has been selected, added for review, or submitted for review.
+    PREDICATE='
+      .releaseIdentityLockConfigured == true and
+      .releaseIdentityLockValid == true and
+      .releaseIdentityAppliedFilesMatch == true and
+      .releaseIdentityMatchesConfiguration == true and
+      (.releaseIdentityLockSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
+      .releaseIdentityReady == true and
+      .readyForIOSArchive == true and
+      .iosTestFlightExactBuildEvidenceReady == true and
+      .iosFunctionalQAEvidenceReady == true and
+      .iosFunctionalEvidenceBoundToCandidate == true and
+      .iosTestFlightUploadVerified == true and
+      .iosTestFlightProcessingVerified == true and
+      (.iosTestFlightProcessingState == "VALID" or
+        .iosTestFlightProcessingState == "Complete") and
+      .iosTestFlightInstallVerified == true and
+      .iosTestFlightWarningsReviewed == true and
+      (.iosTestFlightWarningsReviewedAt | type == "string" and
+        test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")) and
+      .iosPrivacyReleaseEvidenceReady == true and
+      .iosStoreSubmissionAssetsReady == true and
+      .appStoreRecordModeConfigured == true and
+      .appStoreRecordModeBundleIDsValid == true and
+      (.iosTestFlightAppStoreConnectBuildID | type == "string" and length > 0) and
+      .readyForFunctionalIOSTestFlight == true and
+      .readyForIOSAppStoreReviewSelection == true
+    '
+    ;;
   *)
     usage
     exit 64
@@ -184,7 +216,7 @@ if /usr/bin/jq -e "$PREDICATE" "$REPORT_PATH" >/dev/null 2>&1; then
   exit 0
 fi
 
-print -u2 -r -- "Release preflight failed: $CHANNEL archive prerequisites are not satisfied"
+print -u2 -r -- "Release preflight failed: $CHANNEL prerequisites are not satisfied"
 /usr/bin/jq '{
   releaseIdentityLockConfigured,
   releaseIdentityLockValid,
@@ -227,9 +259,26 @@ print -u2 -r -- "Release preflight failed: $CHANNEL archive prerequisites are no
   macStoreSubmissionBlockers,
   macStoreSubmissionStructuralErrors,
   iosStoreSubmissionAssetsReady,
+  iosStoreSubmissionBlockers,
+  iosStoreSubmissionStructuralErrors,
   storeSubmissionAssetsReady,
   readyForMacAppStoreUpload,
   readyForIOSArchive,
+  iosTestFlightExactBuildEvidenceReady,
+  iosTestFlightUploadVerified,
+  iosTestFlightProcessingVerified,
+  iosTestFlightProcessingState,
+  iosTestFlightWarningsReviewed,
+  iosTestFlightWarningsReviewedAt,
+  iosTestFlightInstallVerified,
+  iosTestFlightAppStoreConnectBuildID,
+  iosFunctionalQAEvidenceReady,
+  iosFunctionalEvidenceBoundToCandidate,
+  iosPrivacyReleaseEvidenceReady,
+  appStoreRecordModeConfigured,
+  appStoreRecordModeBundleIDsValid,
+  readyForFunctionalIOSTestFlight,
+  readyForIOSAppStoreReviewSelection,
   iosUploadCandidateLocalPreflightPassed,
   iosUploadCandidate
 }' "$REPORT_PATH" >&2 || true

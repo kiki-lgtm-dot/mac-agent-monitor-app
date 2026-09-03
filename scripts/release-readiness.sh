@@ -292,9 +292,13 @@ IOS_REVIEW_PATH_VERIFIED=false
 IOS_TESTFLIGHT_UPLOAD_VERIFIED=false
 IOS_TESTFLIGHT_PROCESSING_VERIFIED=false
 IOS_TESTFLIGHT_INSTALL_VERIFIED=false
+IOS_TESTFLIGHT_WARNINGS_REVIEWED=false
+IOS_TESTFLIGHT_WARNINGS_REVIEWED_AT=""
 IOS_TESTFLIGHT_EVIDENCE_CONFIGURED=false
 IOS_LOCAL_IPA_PREFLIGHT_READY=false
 IOS_TESTFLIGHT_EXACT_BUILD_EVIDENCE_READY=false
+IOS_EVIDENCE_PROCESSING_STATE=""
+IOS_TESTFLIGHT_PROCESSING_STATE=""
 IOS_FUNCTIONAL_QA_EVIDENCE_CONFIGURED=false
 IOS_FUNCTIONAL_QA_EVIDENCE_READY=false
 IOS_FUNCTIONAL_QA_EVIDENCE_PATH=""
@@ -731,6 +735,8 @@ if [[ -n "$IOS_TESTFLIGHT_VERIFICATION_EVIDENCE" ]]; then
         "$IOS_EVIDENCE_PATH" 2>/dev/null || true)"
       IOS_EVIDENCE_PROCESSING_AT="$(/usr/bin/jq -r '.processingVerifiedAt // ""' \
         "$IOS_EVIDENCE_PATH" 2>/dev/null || true)"
+      IOS_EVIDENCE_WARNINGS_REVIEWED_AT="$(/usr/bin/jq -r '.warningsReviewedAt // ""' \
+        "$IOS_EVIDENCE_PATH" 2>/dev/null || true)"
       IOS_EVIDENCE_TESTED_AT="$(/usr/bin/jq -r '.testedAt // ""' \
         "$IOS_EVIDENCE_PATH" 2>/dev/null || true)"
 
@@ -795,6 +801,8 @@ if [[ -n "$IOS_TESTFLIGHT_VERIFICATION_EVIDENCE" ]]; then
                 (.appStoreConnectBuildID | type == "string" and length > 0) and
                 (.processingState == "VALID" or .processingState == "Complete") and
                 (.processingVerifiedAt | type == "string" and length > 0) and
+                .warningsReviewed == true and
+                (.warningsReviewedAt | type == "string" and length > 0) and
                 .distributedToTesters == true and .installedFromTestFlight == true and
                 (.testedAt | type == "string" and length > 0)
               ' "$IOS_EVIDENCE_PATH" >/dev/null 2>&1 && \
@@ -840,22 +848,29 @@ if [[ -n "$IOS_TESTFLIGHT_VERIFICATION_EVIDENCE" ]]; then
                 .uploadResultPath == $uploadPath and .uploadResultSHA256 == $uploadSHA and
                 .uploadAccepted == true and .processingState == null and
                 .appStoreConnectBuildID == null and .processingVerified == false and
+                ((.warningsReviewed // false) == false) and .warningsReviewedAt == null and
                 .distributedToTesters == false and .installedFromTestFlight == false and
                 .submittedForAppReview == false
               ' "$IOS_EVIDENCE_DELIVERY_PATH" >/dev/null 2>&1 && \
             valid_utc_timestamp "$IOS_DELIVERY_SUBMITTED_AT" && \
             valid_utc_timestamp "$IOS_EVIDENCE_PROCESSING_AT" && \
+            valid_utc_timestamp "$IOS_EVIDENCE_WARNINGS_REVIEWED_AT" && \
             valid_utc_timestamp "$IOS_EVIDENCE_TESTED_AT" && \
             [[ "$IOS_LOCAL_IPA_PREFLIGHT_READY" == true ]]; then
           IOS_DELIVERY_SUBMITTED_EPOCH="$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$IOS_DELIVERY_SUBMITTED_AT" '+%s')"
           IOS_EVIDENCE_PROCESSING_EPOCH="$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$IOS_EVIDENCE_PROCESSING_AT" '+%s')"
+          IOS_EVIDENCE_WARNINGS_REVIEWED_EPOCH="$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$IOS_EVIDENCE_WARNINGS_REVIEWED_AT" '+%s')"
           IOS_EVIDENCE_TESTED_EPOCH="$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$IOS_EVIDENCE_TESTED_AT" '+%s')"
           if (( IOS_DELIVERY_SUBMITTED_EPOCH <= IOS_EVIDENCE_PROCESSING_EPOCH && \
-              IOS_EVIDENCE_PROCESSING_EPOCH <= IOS_EVIDENCE_TESTED_EPOCH )); then
+              IOS_EVIDENCE_PROCESSING_EPOCH <= IOS_EVIDENCE_WARNINGS_REVIEWED_EPOCH && \
+              IOS_EVIDENCE_WARNINGS_REVIEWED_EPOCH <= IOS_EVIDENCE_TESTED_EPOCH )); then
             IOS_TESTFLIGHT_EXACT_BUILD_EVIDENCE_READY=true
             IOS_TESTFLIGHT_UPLOAD_VERIFIED=true
             IOS_TESTFLIGHT_PROCESSING_VERIFIED=true
             IOS_TESTFLIGHT_INSTALL_VERIFIED=true
+            IOS_TESTFLIGHT_WARNINGS_REVIEWED=true
+            IOS_TESTFLIGHT_WARNINGS_REVIEWED_AT="$IOS_EVIDENCE_WARNINGS_REVIEWED_AT"
+            IOS_TESTFLIGHT_PROCESSING_STATE="$IOS_EVIDENCE_PROCESSING_STATE"
             IOS_TESTFLIGHT_IPA_SHA256="$IOS_EVIDENCE_IPA_SHA"
             IOS_TESTFLIGHT_APP_STORE_CONNECT_BUILD_ID="$IOS_EVIDENCE_BUILD_ID"
           fi
@@ -1200,7 +1215,11 @@ privacy_evidence_matches_candidate() {
     --arg artifactSHA "$artifact_sha" \
     --arg recordScope "$MAC_APP_STORE_RECORD_MODE" '
       .releaseEvidenceReady == true and
-      .releaseEvidence.recordScope == $recordScope and
+      (
+        .releaseEvidence.recordScope == $recordScope or
+        ($recordScope == "separate-records" and
+          .releaseEvidence.recordScope == $platform)
+      ) and
       ([.releaseEvidence.archives[]? | select(
         .platform == $platform and .distribution == $distribution and
         .bundleID == $bundle and .version == $version and .build == $build and
@@ -1620,6 +1639,41 @@ if [[ "$FULL_XCODE" == true && "$XCODE_26_HOST_COMPATIBLE" == true && \
   READY_IOS_ARCHIVE=true
 fi
 
+# TestFlight functional readiness deliberately excludes App Store marketing
+# assets. A build can be tested before its final screenshots and store copy are
+# ready, so keep that state independent and compose a stricter App Store review
+# selection gate below.
+READY_FUNCTIONAL_IOS_TESTFLIGHT=false
+if [[ "$READY_IOS_ARCHIVE" == true && "$IOS_SYNC_IMPLEMENTED" == true && \
+    "$IOS_CONTAINER_READY" == true && "$IOS_PRIVACY_READY" == true && \
+    "$IOS_SUPPORT_READY" == true && \
+    "$IOS_CLOUDKIT_PRODUCTION_SCHEMA_VERIFIED" == true && \
+    "$IOS_REAL_DEVICE_SYNC_VERIFIED" == true && \
+    "$IOS_LIVE_ACTIVITY_VERIFIED" == true && "$IOS_REVIEW_PATH_VERIFIED" == true && \
+    "$IOS_TESTFLIGHT_EXACT_BUILD_EVIDENCE_READY" == true && \
+    "$IOS_FUNCTIONAL_QA_EVIDENCE_READY" == true && \
+    "$IOS_FUNCTIONAL_EVIDENCE_BOUND_TO_CANDIDATE" == true && \
+    "$IOS_TESTFLIGHT_UPLOAD_VERIFIED" == true && \
+    "$IOS_TESTFLIGHT_PROCESSING_VERIFIED" == true && \
+    "$IOS_TESTFLIGHT_INSTALL_VERIFIED" == true && \
+    "$IOS_TESTFLIGHT_WARNINGS_REVIEWED" == true && \
+    "$IOS_PRIVACY_RELEASE_EVIDENCE_READY" == true ]]; then
+  READY_FUNCTIONAL_IOS_TESTFLIGHT=true
+fi
+
+# This state means the exact, functionally verified TestFlight build and the
+# iOS-only store materials are ready for a human to select in App Store Connect.
+# It does not claim that the build was selected, added for review, or submitted.
+READY_IOS_APP_STORE_REVIEW_SELECTION=false
+if [[ "$READY_FUNCTIONAL_IOS_TESTFLIGHT" == true && \
+    "$IOS_STORE_SUBMISSION_ASSETS_READY" == true && \
+    "$MAC_APP_STORE_RECORD_MODE_READY" == true && \
+    "$MAC_APP_STORE_RECORD_MODE_BUNDLE_IDS_VALID" == true && \
+    "$IOS_TESTFLIGHT_WARNINGS_REVIEWED" == true && \
+    -n "$IOS_TESTFLIGHT_APP_STORE_CONNECT_BUILD_ID" ]]; then
+  READY_IOS_APP_STORE_REVIEW_SELECTION=true
+fi
+
 READY_MAC_APP_STORE_ARCHIVE=false
 if [[ "$FULL_XCODE" == true && \
     "$CURRENT_MAC_APP_STORE_TOOLCHAIN" == true && \
@@ -1695,6 +1749,8 @@ READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false
   --arg iosTestFlightVerificationEvidencePath "$IOS_TESTFLIGHT_VERIFICATION_EVIDENCE" \
   --arg iosTestFlightIPASHA256 "$IOS_TESTFLIGHT_IPA_SHA256" \
   --arg iosTestFlightAppStoreConnectBuildID "$IOS_TESTFLIGHT_APP_STORE_CONNECT_BUILD_ID" \
+  --arg iosTestFlightProcessingState "$IOS_TESTFLIGHT_PROCESSING_STATE" \
+  --arg iosTestFlightWarningsReviewedAt "$IOS_TESTFLIGHT_WARNINGS_REVIEWED_AT" \
   --arg iosFunctionalQAEvidenceInputPath "$IOS_FUNCTIONAL_QA_EVIDENCE" \
   --arg iosFunctionalQAEvidencePath "$IOS_FUNCTIONAL_QA_EVIDENCE_PATH" \
   --arg iosFunctionalQAEvidenceSHA256 "$IOS_FUNCTIONAL_QA_EVIDENCE_SHA256" \
@@ -1785,6 +1841,7 @@ READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false
   --argjson iosTestFlightUploadVerified "$IOS_TESTFLIGHT_UPLOAD_VERIFIED" \
   --argjson iosTestFlightProcessingVerified "$IOS_TESTFLIGHT_PROCESSING_VERIFIED" \
   --argjson iosTestFlightInstallVerified "$IOS_TESTFLIGHT_INSTALL_VERIFIED" \
+  --argjson iosTestFlightWarningsReviewed "$IOS_TESTFLIGHT_WARNINGS_REVIEWED" \
   --argjson iosTestFlightEvidenceConfigured "$IOS_TESTFLIGHT_EVIDENCE_CONFIGURED" \
   --argjson iosLocalIPAPreflightPassed "$IOS_LOCAL_IPA_PREFLIGHT_READY" \
   --argjson iosTestFlightExactBuildEvidenceReady "$IOS_TESTFLIGHT_EXACT_BUILD_EVIDENCE_READY" \
@@ -1860,6 +1917,8 @@ READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false
   --argjson readyMacAppStoreReviewSelection "$READY_MAC_APP_STORE_REVIEW_SELECTION" \
   --argjson readyFunctionalMacAppStoreSubmission "$READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION" \
   --argjson readyIOSArchive "$READY_IOS_ARCHIVE" \
+  --argjson readyFunctionalIOSTestFlight "$READY_FUNCTIONAL_IOS_TESTFLIGHT" \
+  --argjson readyIOSAppStoreReviewSelection "$READY_IOS_APP_STORE_REVIEW_SELECTION" \
   '{
     hostMacOSVersion: (if $hostMacOSVersion == "" then null else $hostMacOSVersion end),
     minimumHostMacOSForXcode26: $minimumXcode26HostMacOS,
@@ -1931,12 +1990,15 @@ READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false
     iosTestFlightUploadVerified: $iosTestFlightUploadVerified,
     iosTestFlightProcessingVerified: $iosTestFlightProcessingVerified,
     iosTestFlightInstallVerified: $iosTestFlightInstallVerified,
+    iosTestFlightWarningsReviewed: $iosTestFlightWarningsReviewed,
+    iosTestFlightWarningsReviewedAt: (if $iosTestFlightWarningsReviewedAt == "" then null else $iosTestFlightWarningsReviewedAt end),
     iosTestFlightEvidenceConfigured: $iosTestFlightEvidenceConfigured,
     iosLocalIPAPreflightPassed: $iosLocalIPAPreflightPassed,
     iosTestFlightVerificationEvidencePath: (if $iosTestFlightVerificationEvidencePath == "" then null else $iosTestFlightVerificationEvidencePath end),
     iosTestFlightExactBuildEvidenceReady: $iosTestFlightExactBuildEvidenceReady,
     iosTestFlightIPASHA256: (if $iosTestFlightIPASHA256 == "" then null else $iosTestFlightIPASHA256 end),
     iosTestFlightAppStoreConnectBuildID: (if $iosTestFlightAppStoreConnectBuildID == "" then null else $iosTestFlightAppStoreConnectBuildID end),
+    iosTestFlightProcessingState: (if $iosTestFlightProcessingState == "" then null else $iosTestFlightProcessingState end),
     iosFunctionalQAEvidenceConfigured: $iosFunctionalQAEvidenceConfigured,
     iosFunctionalQAEvidenceReady: $iosFunctionalQAEvidenceReady,
     iosFunctionalQAEvidenceInputPath: (if $iosFunctionalQAEvidenceInputPath == "" then null else $iosFunctionalQAEvidenceInputPath end),
@@ -2049,12 +2111,6 @@ READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false
     readyForFunctionalMacAppStoreSubmissionDeprecated: true,
     readyForFunctionalMacAppStoreSubmission: $readyFunctionalMacAppStoreSubmission,
     readyForIOSArchive: $readyIOSArchive,
-    readyForFunctionalIOSTestFlight: ($readyIOSArchive and $iosSyncImplemented and
-      $iosCloudKitContainerConfigured and $iosPrivacyPolicyURLConfigured and $iosSupportURLConfigured and
-      $cloudKitProductionSchemaVerified and $iosRealDeviceSyncVerified and
-      $iosLiveActivityVerified and $iosReviewPathVerified and
-      $iosTestFlightExactBuildEvidenceReady and $iosFunctionalQAEvidenceReady and
-      $iosFunctionalEvidenceBoundToCandidate and
-      $iosTestFlightUploadVerified and $iosTestFlightProcessingVerified and
-      $iosTestFlightInstallVerified and $iosPrivacyReleaseEvidenceReady)
+    readyForFunctionalIOSTestFlight: $readyFunctionalIOSTestFlight,
+    readyForIOSAppStoreReviewSelection: $readyIOSAppStoreReviewSelection
   }'

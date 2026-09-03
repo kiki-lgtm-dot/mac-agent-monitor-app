@@ -52,6 +52,11 @@ for marker in \
   'DeveloperCertificates' \
   'ApplicationIdentifierPrefix.0' \
   'TeamIdentifier.0' \
+  'ios-entitlements-contract.jq' \
+  'validate_entitlement_contract signed-app' \
+  'validate_entitlement_contract profile-app' \
+  'validate_entitlement_contract signed-widget' \
+  'validate_entitlement_contract profile-widget' \
   'IPA App signature/profile failed exact production CloudKit entitlement validation' \
   'IPA Widget signature/profile identifiers are wrong or an iCloud entitlement leaked' \
   '"$PREFLIGHT_ASSERTION" ios-upload "$UPLOAD_PREFLIGHT_REPORT"' \
@@ -81,6 +86,8 @@ INSTRUMENTED_SCRIPT="$INSTRUMENTED_ROOT/scripts/submit-testflight.sh"
   "$INSTRUMENTED_ROOT/Config" "$TEST_ROOT/scripts"
 /bin/cp "$PROJECT_ROOT/ApplePlatforms/iOS/scripts/privacy-manifest-contract.jq" \
   "$INSTRUMENTED_ROOT/scripts/privacy-manifest-contract.jq"
+/bin/cp "$PROJECT_ROOT/ApplePlatforms/iOS/scripts/ios-entitlements-contract.jq" \
+  "$INSTRUMENTED_ROOT/scripts/ios-entitlements-contract.jq"
 /bin/cp "$PROJECT_ROOT/scripts/assert-release-preflight.sh" \
   "$TEST_ROOT/scripts/assert-release-preflight.sh"
 /bin/chmod 0755 "$TEST_ROOT/scripts/assert-release-preflight.sh"
@@ -264,6 +271,8 @@ APP_PROFILE="$APP_PATH/embedded.mobileprovision"
 WIDGET_PROFILE="$WIDGET_PATH/embedded.mobileprovision"
 APP_ENTITLEMENTS="$TEST_ROOT/app-entitlements.json"
 WIDGET_ENTITLEMENTS="$TEST_ROOT/widget-entitlements.json"
+APP_PROFILE_ENTITLEMENTS="$TEST_ROOT/app-profile-entitlements.json"
+WIDGET_PROFILE_ENTITLEMENTS="$TEST_ROOT/widget-profile-entitlements.json"
 LEAF_CERTIFICATE="$TEST_ROOT/leaf-certificate.der"
 METADATA_PATH="$RELEASE_DIRECTORY/release-metadata.json"
 
@@ -292,6 +301,31 @@ SIGNING_CERTIFICATE_SHA1="$(LC_ALL=C LANG=C /usr/bin/shasum -a 1 "$LEAF_CERTIFIC
     "com.apple.developer.team-identifier": $team,
     "get-task-allow": false
   }' >"$WIDGET_ENTITLEMENTS"
+/usr/bin/jq -n \
+  --arg identifier "$APP_IDENTIFIER" \
+  --arg team "$TEAM_ID" \
+  --arg container "$CLOUD_CONTAINER_ID" '{
+    "application-identifier": $identifier,
+    "com.apple.developer.team-identifier": $team,
+    "get-task-allow": false,
+    "beta-reports-active": true,
+    "keychain-access-groups": [($team + ".*"), "com.apple.token"],
+    "com.apple.developer.icloud-container-identifiers": [
+      $container,
+      "iCloud.com.agentisland.profile-only"
+    ],
+    "com.apple.developer.icloud-services": "*",
+    "com.apple.developer.icloud-container-environment": ["Development", "Production"]
+  }' >"$APP_PROFILE_ENTITLEMENTS"
+/usr/bin/jq -n \
+  --arg identifier "$WIDGET_IDENTIFIER" \
+  --arg team "$TEAM_ID" '{
+    "application-identifier": $identifier,
+    "com.apple.developer.team-identifier": $team,
+    "get-task-allow": false,
+    "beta-reports-active": true,
+    "keychain-access-groups": [($team + ".*"), "com.apple.token"]
+  }' >"$WIDGET_PROFILE_ENTITLEMENTS"
 
 write_profiles() {
   /usr/bin/jq -n \
@@ -299,7 +333,7 @@ write_profiles() {
     --arg team "$TEAM_ID" \
     --arg expiration "$PROFILE_EXPIRATION" \
     --arg certificate "$LEAF_CERTIFICATE_BASE64" \
-    --slurpfile entitlements "$APP_ENTITLEMENTS" '{
+    --slurpfile entitlements "$APP_PROFILE_ENTITLEMENTS" '{
       ApplicationIdentifierPrefix: [$prefix],
       TeamIdentifier: [$team],
       ExpirationDate: $expiration,
@@ -311,7 +345,7 @@ write_profiles() {
     --arg team "$TEAM_ID" \
     --arg expiration "$PROFILE_EXPIRATION" \
     --arg certificate "$LEAF_CERTIFICATE_BASE64" \
-    --slurpfile entitlements "$WIDGET_ENTITLEMENTS" '{
+    --slurpfile entitlements "$WIDGET_PROFILE_ENTITLEMENTS" '{
       ApplicationIdentifierPrefix: [$prefix],
       TeamIdentifier: [$team],
       ExpirationDate: $expiration,
@@ -437,6 +471,22 @@ VALID_OUTPUT="$TEST_ROOT/valid.txt"
 "$INSTRUMENTED_SCRIPT" --check "$RELEASE_DIRECTORY" >"$VALID_OUTPUT" 2>&1 \
   || fail "valid synthetic IPA did not pass: $(/bin/cat "$VALID_OUTPUT")"
 contains 'Local TestFlight preflight passed.' "$VALID_OUTPUT"
+
+VALID_APP_ENTITLEMENTS="$TEST_ROOT/valid-app-entitlements.json"
+VALID_WIDGET_ENTITLEMENTS="$TEST_ROOT/valid-widget-entitlements.json"
+/bin/cp "$APP_ENTITLEMENTS" "$VALID_APP_ENTITLEMENTS"
+/bin/cp "$WIDGET_ENTITLEMENTS" "$VALID_WIDGET_ENTITLEMENTS"
+/usr/bin/jq '. + {"aps-environment": "production"}' \
+  "$VALID_APP_ENTITLEMENTS" >"$APP_ENTITLEMENTS"
+refresh_artifact
+expect_rejected 'signed entitlements exceed the release allowlist'
+/bin/cp "$VALID_APP_ENTITLEMENTS" "$APP_ENTITLEMENTS"
+/usr/bin/jq '. + {"com.apple.security.application-groups": ["group.example"]}' \
+  "$VALID_WIDGET_ENTITLEMENTS" >"$WIDGET_ENTITLEMENTS"
+refresh_artifact
+expect_rejected 'signed entitlements exceed the Widget allowlist'
+/bin/cp "$VALID_WIDGET_ENTITLEMENTS" "$WIDGET_ENTITLEMENTS"
+refresh_artifact
 
 /usr/bin/sed 's/^AGENT_ISLAND_DISPLAY_NAME = .*/AGENT_ISLAND_DISPLAY_NAME = Changed current name/' \
   "$INSTRUMENTED_ROOT/Config/Project.xcconfig" >"$TEST_ROOT/config.tmp"
@@ -590,7 +640,7 @@ clear_remote_outputs
 : >"$XCRUN_LOG"
 export AGENT_ISLAND_TEST_RELEASE_IDENTITY_READY=false
 expect_remote_rejected \
-  'ios-upload archive prerequisites are not satisfied' --upload
+  'ios-upload prerequisites are not satisfied' --upload
 [[ ! -s "$XCRUN_LOG" ]] \
   || fail "identity-lock rejection contacted App Store Connect"
 unset AGENT_ISLAND_TEST_RELEASE_IDENTITY_READY
@@ -610,7 +660,7 @@ GATE_METADATA_BASELINE="$TEST_ROOT/gate-metadata-baseline.json"
 /usr/bin/jq '.releaseIdentityLockSHA256 = ("d" * 64)' \
   "$GATE_METADATA_BASELINE" >"$METADATA_PATH"
 expect_remote_rejected \
-  'ios-upload archive prerequisites are not satisfied' --upload
+  'ios-upload prerequisites are not satisfied' --upload
 [[ ! -s "$XCRUN_LOG" ]] \
   || fail "candidate identity-lock mismatch contacted App Store Connect"
 /bin/cp "$GATE_METADATA_BASELINE" "$METADATA_PATH"
@@ -764,7 +814,9 @@ done
   --arg sha "$EXPECTED_IPA_SHA256" '
     .ipaPath == $ipa and
     .ipaSHA256 == $sha and
-    .uploadAccepted == true
+    .uploadAccepted == true and
+    .warningsReviewed == false and
+    .warningsReviewedAt == null
   ' "$DELIVERY_RECORD_PATH" >/dev/null \
   || fail "delivery evidence does not remain bound to the original verified IPA"
 assert_no_transient_delivery_state

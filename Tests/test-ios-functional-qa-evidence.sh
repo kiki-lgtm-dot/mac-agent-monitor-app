@@ -150,6 +150,7 @@ METADATA_SHA256="$(file_sha256 "$METADATA_PATH")"
 
 SUBMITTED_AT="$(/bin/date -u -v-40M '+%Y-%m-%dT%H:%M:%SZ')"
 PROCESSING_VERIFIED_AT="$(/bin/date -u -v-30M '+%Y-%m-%dT%H:%M:%SZ')"
+WARNINGS_REVIEWED_AT="$(/bin/date -u -v-25M '+%Y-%m-%dT%H:%M:%SZ')"
 TESTFLIGHT_TESTED_AT="$(/bin/date -u -v-20M '+%Y-%m-%dT%H:%M:%SZ')"
 FUNCTIONAL_TESTED_AT="$(/bin/date -u -v-10M '+%Y-%m-%dT%H:%M:%SZ')"
 
@@ -202,6 +203,8 @@ run_testflight_confirmation() {
       --processing-state VALID \
       --app-store-connect-build-id "$ASC_BUILD_ID" \
       --processing-verified-at "$PROCESSING_VERIFIED_AT" \
+      --warnings-reviewed \
+      --warnings-reviewed-at "$WARNINGS_REVIEWED_AT" \
       --distributed-to-testers \
       --installed-from-testflight \
       --tested-at "$TESTFLIGHT_TESTED_AT" \
@@ -264,6 +267,52 @@ expect_testflight_confirmation_rejected \
   'delivery record path must not traverse symlink parents' \
   "$RELEASE_DIRECTORY_ALIAS/${DELIVERY_RECORD_PATH:t}"
 
+if AGENT_ISLAND_CONFIRM_TESTFLIGHT_VERIFICATION="$CONFIRMATION_VALUE" \
+    "$TESTFLIGHT_CONFIRM" \
+      --processing-state VALID \
+      --app-store-connect-build-id "$ASC_BUILD_ID" \
+      --processing-verified-at "$PROCESSING_VERIFIED_AT" \
+      --warnings-reviewed-at "$WARNINGS_REVIEWED_AT" \
+      --distributed-to-testers \
+      --installed-from-testflight \
+      --tested-at "$TESTFLIGHT_TESTED_AT" \
+      "$DELIVERY_RECORD_PATH" >"$TEST_ROOT/missing-warning-attestation.txt" 2>&1; then
+  fail "TestFlight confirmation accepted a missing warnings-reviewed attestation"
+fi
+contains '--warnings-reviewed is required' \
+  "$TEST_ROOT/missing-warning-attestation.txt"
+
+if AGENT_ISLAND_CONFIRM_TESTFLIGHT_VERIFICATION="$CONFIRMATION_VALUE" \
+    "$TESTFLIGHT_CONFIRM" \
+      --processing-state VALID \
+      --app-store-connect-build-id "$ASC_BUILD_ID" \
+      --processing-verified-at "$PROCESSING_VERIFIED_AT" \
+      --warnings-reviewed \
+      --warnings-reviewed-at "$(/bin/date -u -v-35M '+%Y-%m-%dT%H:%M:%SZ')" \
+      --distributed-to-testers \
+      --installed-from-testflight \
+      --tested-at "$TESTFLIGHT_TESTED_AT" \
+      "$DELIVERY_RECORD_PATH" >"$TEST_ROOT/early-warning-attestation.txt" 2>&1; then
+  fail "TestFlight confirmation accepted warning review before processing verification"
+fi
+contains 'warningsReviewedAt must not be earlier than processingVerifiedAt' \
+  "$TEST_ROOT/early-warning-attestation.txt"
+
+if AGENT_ISLAND_CONFIRM_TESTFLIGHT_VERIFICATION="$CONFIRMATION_VALUE" \
+    "$TESTFLIGHT_CONFIRM" \
+      --processing-state VALID \
+      --app-store-connect-build-id "$ASC_BUILD_ID" \
+      --processing-verified-at "$PROCESSING_VERIFIED_AT" \
+      --warnings-reviewed \
+      --warnings-reviewed-at "$WARNINGS_REVIEWED_AT" \
+      --distributed-to-testers \
+      --installed-from-testflight \
+      --tested-at "$(/bin/date -u -v+1M '+%Y-%m-%dT%H:%M:%SZ')" \
+      "$DELIVERY_RECORD_PATH" >"$TEST_ROOT/future-test-time.txt" 2>&1; then
+  fail "TestFlight confirmation published evidence whose test time is in the future"
+fi
+contains 'testedAt must not be in the future' "$TEST_ROOT/future-test-time.txt"
+
 run_testflight_confirmation >"$TEST_ROOT/testflight-confirm-valid.txt" 2>&1 \
   || fail "valid TestFlight confirmation fixture was rejected: $(/bin/cat "$TEST_ROOT/testflight-confirm-valid.txt")"
 TESTFLIGHT_VERIFICATION_PATH="$(/usr/bin/sed -n \
@@ -272,6 +321,10 @@ TESTFLIGHT_VERIFICATION_PATH="$(/usr/bin/sed -n \
 [[ -f "$TESTFLIGHT_VERIFICATION_PATH" && \
     "$(/usr/bin/stat -f '%Lp' "$TESTFLIGHT_VERIFICATION_PATH")" == "444" ]] \
   || fail "TestFlight confirmation did not publish mode-0444 evidence"
+/usr/bin/jq -e --arg reviewedAt "$WARNINGS_REVIEWED_AT" '
+  .warningsReviewed == true and .warningsReviewedAt == $reviewedAt
+' "$TESTFLIGHT_VERIFICATION_PATH" >/dev/null \
+  || fail "TestFlight confirmation did not bind the warnings-reviewed attestation"
 
 CLOUDKIT_EVIDENCE="$RELEASE_DIRECTORY/cloudkit-production-report.txt"
 SYNC_EVIDENCE="$RELEASE_DIRECTORY/same-account-sync-report.txt"

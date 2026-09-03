@@ -70,6 +70,7 @@ fi
   "$PROJECT_DIR/ApplePlatforms/iOS/scripts/confirm-functional-qa-evidence.sh" \
   "$PROJECT_DIR/ApplePlatforms/iOS/scripts/validate-functional-qa-evidence.sh" \
   "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh" \
+  "$PROJECT_DIR/Tests/test-ios-entitlements-contract.sh" \
   "$PROJECT_DIR/ApplePlatforms/macOS/scripts/release-macos-app-store.sh" \
   "$PROJECT_DIR/ApplePlatforms/macOS/scripts/submit-macos-app-store.sh" \
   "$PROJECT_DIR/ApplePlatforms/macOS/scripts/confirm-macos-app-store-evidence.sh" \
@@ -90,6 +91,7 @@ fi
 [[ -x "$PROJECT_DIR/ApplePlatforms/iOS/scripts/confirm-functional-qa-evidence.sh" ]]
 [[ -x "$PROJECT_DIR/ApplePlatforms/iOS/scripts/validate-functional-qa-evidence.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh" ]]
+[[ -x "$PROJECT_DIR/Tests/test-ios-entitlements-contract.sh" ]]
 [[ -x "$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-project.sh" ]]
 [[ -x "$PROJECT_DIR/ApplePlatforms/macOS/scripts/release-macos-app-store.sh" ]]
 [[ -x "$PROJECT_DIR/ApplePlatforms/macOS/scripts/submit-macos-app-store.sh" ]]
@@ -149,6 +151,7 @@ done
 "$PROJECT_DIR/Tests/test-release-entrypoint-hardening.sh"
 "$PROJECT_DIR/Tests/test-store-submission.sh"
 "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh"
+"$PROJECT_DIR/Tests/test-ios-entitlements-contract.sh"
 node "$PROJECT_DIR/Tests/test-ios-build-settings.mjs"
 rg -q --fixed-strings 'MARKETING_VERSION = 0.6.1' \
   "$PROJECT_DIR/ApplePlatforms/iOS/Config/Project.xcconfig"
@@ -499,7 +502,8 @@ for READINESS_GATE in \
   'cloudKitProductionSchemaVerified' 'iosRealDeviceSyncVerified' \
   'iosLiveActivityVerified' 'iosReviewPathVerified' \
   'iosTestFlightUploadVerified' 'iosTestFlightProcessingVerified' \
-  'iosTestFlightInstallVerified' 'iosTestFlightEvidenceConfigured' \
+  'iosTestFlightInstallVerified' 'iosTestFlightWarningsReviewed' \
+  'iosTestFlightWarningsReviewedAt' 'iosTestFlightEvidenceConfigured' \
   'iosLocalIPAPreflightPassed' \
   'iosTestFlightExactBuildEvidenceReady' \
   'iosFunctionalQAEvidenceConfigured' 'iosFunctionalQAEvidenceReady' \
@@ -527,6 +531,8 @@ for READINESS_GATE in \
   'macPrivacySourceReady' 'appPrivacyReleaseEvidenceReady' \
   'macPrivacyReleaseEvidenceReady' 'iosPrivacyReleaseEvidenceReady' \
   '.releaseEvidence.recordScope == $recordScope' \
+  '$recordScope == "separate-records"' \
+  '.releaseEvidence.recordScope == $platform' \
   'storeSubmissionAssetsReady' 'storeSubmissionBlockers' \
   'storeSubmissionStructuralErrors' \
   'macStoreSubmissionAssetsReady' 'macStoreSubmissionBlockers' \
@@ -591,12 +597,19 @@ for READINESS_GATE in \
   '$MAC_APP_STORE_PROCESSING_BOUND_TO_DELIVERY' \
   '$MAC_APP_STORE_RECORD_MODE_BUNDLE_IDS_VALID' \
   '$MAC_PRIVACY_SOURCE_READY' '$MAC_PRIVACY_RELEASE_EVIDENCE_READY' '$STORE_SUBMISSION_ASSETS_READY' \
-  '$cloudKitProductionSchemaVerified and $iosRealDeviceSyncVerified' \
-  '$iosLiveActivityVerified and $iosReviewPathVerified' \
-  '$iosTestFlightExactBuildEvidenceReady and $iosFunctionalQAEvidenceReady' \
-  '$iosFunctionalEvidenceBoundToCandidate and' \
-  '$iosTestFlightUploadVerified and $iosTestFlightProcessingVerified' \
-  '$iosTestFlightInstallVerified and $iosPrivacyReleaseEvidenceReady'; do
+  '$IOS_CLOUDKIT_PRODUCTION_SCHEMA_VERIFIED" == true' \
+  '$IOS_REAL_DEVICE_SYNC_VERIFIED" == true' \
+  '$IOS_LIVE_ACTIVITY_VERIFIED" == true' \
+  '$IOS_REVIEW_PATH_VERIFIED" == true' \
+  '$IOS_TESTFLIGHT_EXACT_BUILD_EVIDENCE_READY" == true' \
+  '$IOS_FUNCTIONAL_QA_EVIDENCE_READY" == true' \
+  '$IOS_FUNCTIONAL_EVIDENCE_BOUND_TO_CANDIDATE" == true' \
+  '$IOS_TESTFLIGHT_UPLOAD_VERIFIED" == true' \
+  '$IOS_TESTFLIGHT_PROCESSING_VERIFIED" == true' \
+  '$IOS_TESTFLIGHT_INSTALL_VERIFIED" == true' \
+  '$IOS_TESTFLIGHT_WARNINGS_REVIEWED" == true' \
+  '$IOS_PRIVACY_RELEASE_EVIDENCE_READY" == true' \
+  'READY_FUNCTIONAL_IOS_TESTFLIGHT=true'; do
   if ! rg -q --fixed-strings -- "$READINESS_GATE" \
       "$PROJECT_DIR/scripts/release-readiness.sh"; then
     echo "release readiness is missing contract marker $READINESS_GATE" >&2
@@ -726,6 +739,9 @@ done
   (.iosTestFlightUploadVerified | type == "boolean") and
   (.iosTestFlightProcessingVerified | type == "boolean") and
   (.iosTestFlightInstallVerified | type == "boolean") and
+  (.iosTestFlightWarningsReviewed | type == "boolean") and
+  ((.iosTestFlightWarningsReviewedAt == null) or
+    (.iosTestFlightWarningsReviewedAt | type == "string" and test("Z$"))) and
   (.iosTestFlightEvidenceConfigured | type == "boolean") and
   (.iosLocalIPAPreflightPassed | type == "boolean") and
   (.iosTestFlightExactBuildEvidenceReady | type == "boolean") and
@@ -741,6 +757,9 @@ done
   ((.iosTestFlightVerificationEvidencePath == null) or (.iosTestFlightVerificationEvidencePath | type == "string")) and
   ((.iosTestFlightIPASHA256 == null) or (.iosTestFlightIPASHA256 | test("^[0-9a-f]{64}$"))) and
   ((.iosTestFlightAppStoreConnectBuildID == null) or (.iosTestFlightAppStoreConnectBuildID | type == "string" and length > 0)) and
+  ((.iosTestFlightProcessingState == null) or
+    .iosTestFlightProcessingState == "VALID" or
+    .iosTestFlightProcessingState == "Complete") and
   (.iosProjectConfigured | type == "boolean") and
   (.iosProjectPath | type == "string") and
   (.iosScheme == "AgentIslandMobile") and
@@ -892,6 +911,7 @@ done
   (.readyForFunctionalMacAppStoreSubmission | type == "boolean") and
   (.readyForIOSArchive | type == "boolean") and
   (.readyForFunctionalIOSTestFlight | type == "boolean") and
+  (.readyForIOSAppStoreReviewSelection | type == "boolean") and
   ((.readyForMacAppStoreArchive | not) or .currentMacAppStoreToolchain) and
   ((.readyForMacAppStoreUpload | not) or (
     .releaseIdentityReady and
@@ -914,7 +934,20 @@ done
     .iosFunctionalQAEvidenceReady and .iosFunctionalEvidenceBoundToCandidate and
     .iosTestFlightUploadVerified and
     .iosTestFlightProcessingVerified and .iosTestFlightInstallVerified and
+    .iosTestFlightWarningsReviewed and
+    (.iosTestFlightProcessingState == "VALID" or
+      .iosTestFlightProcessingState == "Complete") and
+    (.iosTestFlightWarningsReviewedAt | type == "string" and
+      test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")) and
     .iosPrivacyReleaseEvidenceReady
+  )) and
+  ((.readyForIOSAppStoreReviewSelection | not) or (
+    .readyForFunctionalIOSTestFlight and .iosStoreSubmissionAssetsReady and
+    .appStoreRecordModeConfigured and .appStoreRecordModeBundleIDsValid and
+    .iosTestFlightWarningsReviewed and
+    (.iosTestFlightProcessingState == "VALID" or
+      .iosTestFlightProcessingState == "Complete") and
+    (.iosTestFlightAppStoreConnectBuildID | type == "string" and length > 0)
   )) and
   (.iosDevelopmentTeamConfigured == false) and
   (.developerIDIdentityConfigured == false) and
@@ -931,6 +964,9 @@ done
   (.iosTestFlightUploadVerified == false) and
   (.iosTestFlightProcessingVerified == false) and
   (.iosTestFlightInstallVerified == false) and
+  (.iosTestFlightWarningsReviewed == false) and
+  (.iosTestFlightWarningsReviewedAt == null) and
+  (.iosTestFlightProcessingState == null) and
   (.iosTestFlightEvidenceConfigured == false) and
   (.iosLocalIPAPreflightPassed == false) and
   (.iosTestFlightExactBuildEvidenceReady == false) and
@@ -1000,7 +1036,8 @@ done
   (.readyForMacAppStoreUpload == false) and
   (.readyForMacAppStoreReviewSelection == false) and
   (.readyForFunctionalMacAppStoreSubmission == false) and
-  (.readyForFunctionalIOSTestFlight == false)
+  (.readyForFunctionalIOSTestFlight == false) and
+  (.readyForIOSAppStoreReviewSelection == false)
 ' >/dev/null
 
 RECORD_FIXTURE_ROOT="$VERIFY_ROOT/release-readiness-record-fixture"
@@ -1752,6 +1789,7 @@ print -rn -- "$IOS_EVIDENCE_IPA_SHA  ${IOS_EVIDENCE_IPA:t}" >"$IOS_EVIDENCE_IPA.
 IOS_EVIDENCE_METADATA_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDENCE_METADATA" | /usr/bin/awk '{print $1}')"
 IOS_EVIDENCE_SUBMITTED_AT="$(/bin/date -u -v-40M '+%Y-%m-%dT%H:%M:%SZ')"
 IOS_EVIDENCE_PROCESSING_AT="$(/bin/date -u -v-30M '+%Y-%m-%dT%H:%M:%SZ')"
+IOS_EVIDENCE_WARNINGS_REVIEWED_AT="$(/bin/date -u -v-25M '+%Y-%m-%dT%H:%M:%SZ')"
 IOS_EVIDENCE_TESTED_AT="$(/bin/date -u -v-20M '+%Y-%m-%dT%H:%M:%SZ')"
 IOS_EVIDENCE_CREATED_AT="$(/bin/date -u -v-15M '+%Y-%m-%dT%H:%M:%SZ')"
 IOS_FUNCTIONAL_QA_TESTED_AT="$(/bin/date -u -v-10M '+%Y-%m-%dT%H:%M:%SZ')"
@@ -1781,6 +1819,8 @@ IOS_FUNCTIONAL_QA_TESTED_AT="$(/bin/date -u -v-10M '+%Y-%m-%dT%H:%M:%SZ')"
     appStoreConnectBuildID: null,
     processingVerified: false,
     processingVerifiedAt: null,
+    warningsReviewed: false,
+    warningsReviewedAt: null,
     distributedToTesters: false,
     installedFromTestFlight: false,
     testedAt: null,
@@ -1791,6 +1831,7 @@ IOS_FUNCTIONAL_QA_TESTED_AT="$(/bin/date -u -v-10M '+%Y-%m-%dT%H:%M:%SZ')"
 IOS_EVIDENCE_DELIVERY_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDENCE_DELIVERY" | /usr/bin/awk '{print $1}')"
 /usr/bin/jq -n \
   --arg processingAt "$IOS_EVIDENCE_PROCESSING_AT" \
+  --arg warningsReviewedAt "$IOS_EVIDENCE_WARNINGS_REVIEWED_AT" \
   --arg testedAt "$IOS_EVIDENCE_TESTED_AT" \
   --arg createdAt "$IOS_EVIDENCE_CREATED_AT" \
   --arg ipa "$IOS_EVIDENCE_IPA" --arg ipaSHA "$IOS_EVIDENCE_IPA_SHA" \
@@ -1811,6 +1852,8 @@ IOS_EVIDENCE_DELIVERY_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDEN
     appStoreConnectBuildID: "fixture-build-id",
     processingState: "VALID",
     processingVerifiedAt: $processingAt,
+    warningsReviewed: true,
+    warningsReviewedAt: $warningsReviewedAt,
     distributedToTesters: true,
     installedFromTestFlight: true,
     testedAt: $testedAt,
@@ -1840,6 +1883,24 @@ IOS_EVIDENCE_DELIVERY_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IOS_EVIDEN
 # Production readiness always invokes the repository's full --check script.
 /bin/cp /usr/bin/true \
   "$RECORD_FIXTURE_ROOT/ApplePlatforms/iOS/scripts/submit-testflight.sh"
+
+# Raw values from an invalid verification record must never leak into the
+# public readiness report. Only a fully verified processing state is exposed.
+IOS_INVALID_PROCESSING_EVIDENCE="$IOS_EVIDENCE_RELEASE_DIR/testflight-verification-invalid-processing.json"
+/usr/bin/jq '.processingState = "BROKEN"' "$IOS_EVIDENCE_RECORD" \
+  >"$IOS_INVALID_PROCESSING_EVIDENCE"
+/bin/chmod 0444 "$IOS_INVALID_PROCESSING_EVIDENCE"
+/usr/bin/env \
+  DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
+  AGENT_ISLAND_IOS_TESTFLIGHT_VERIFICATION_EVIDENCE="$IOS_INVALID_PROCESSING_EVIDENCE" \
+  "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e '
+    .iosTestFlightEvidenceConfigured == true and
+    .iosLocalIPAPreflightPassed == true and
+    .iosTestFlightExactBuildEvidenceReady == false and
+    .iosTestFlightProcessingVerified == false and
+    .iosTestFlightProcessingState == null
+  ' >/dev/null
+
 IOS_FUNCTIONAL_QA_CLOUDKIT="$IOS_EVIDENCE_RELEASE_DIR/cloudkit-production-report.txt"
 IOS_FUNCTIONAL_QA_SYNC="$IOS_EVIDENCE_RELEASE_DIR/same-account-sync-report.txt"
 IOS_FUNCTIONAL_QA_LIVE="$IOS_EVIDENCE_RELEASE_DIR/live-activity-report.txt"
@@ -1873,12 +1934,16 @@ AGENT_ISLAND_CONFIRM_IOS_FUNCTIONAL_QA="com.agentisland.mobile:0.6.1:8:$IOS_EVID
   AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE="$IOS_FUNCTIONAL_QA_EVIDENCE" \
   "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e \
   --arg sha "$IOS_EVIDENCE_IPA_SHA" \
+  --arg warningsReviewedAt "$IOS_EVIDENCE_WARNINGS_REVIEWED_AT" \
   --arg qaPath "$IOS_FUNCTIONAL_QA_EVIDENCE" '
     .iosLocalIPAPreflightPassed == true and
     .iosTestFlightExactBuildEvidenceReady == true and
     .iosTestFlightUploadVerified == true and
     .iosTestFlightProcessingVerified == true and
     .iosTestFlightInstallVerified == true and
+    .iosTestFlightWarningsReviewed == true and
+    .iosTestFlightWarningsReviewedAt == $warningsReviewedAt and
+    .iosTestFlightProcessingState == "VALID" and
     .iosFunctionalQAEvidenceConfigured == true and
     .iosFunctionalQAEvidenceReady == true and
     .iosFunctionalQAEvidencePath == $qaPath and
@@ -1992,6 +2057,7 @@ AGENT_ISLAND_APP_PRIVACY_EVIDENCE="$COMBINED_PRIVACY_CONFIG_RELATIVE" \
 
 record_fixture_readiness() {
   local privacy_evidence="$1"
+  local record_mode="${2:-universal-purchase}"
   /usr/bin/env \
     DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
     AGENT_ISLAND_TEST_EXPECTED_RELEASE_DIRECTORY="$MAC_EVIDENCE_RELEASE_DIR" \
@@ -2001,7 +2067,7 @@ record_fixture_readiness() {
     AGENT_ISLAND_PRIVACY_POLICY_URL='https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/' \
     AGENT_ISLAND_SUPPORT_URL='https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/' \
     AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
-    AGENT_ISLAND_APP_STORE_RECORD_MODE='universal-purchase' \
+    AGENT_ISLAND_APP_STORE_RECORD_MODE="$record_mode" \
     AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$MAC_EVIDENCE_METADATA" \
     AGENT_ISLAND_IOS_TESTFLIGHT_VERIFICATION_EVIDENCE="$IOS_EVIDENCE_RECORD" \
     AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE="$IOS_FUNCTIONAL_QA_EVIDENCE" \
@@ -2025,6 +2091,17 @@ record_fixture_readiness "$COMBINED_PRIVACY_CONFIG_RELATIVE" | /usr/bin/jq -e '
   .iosTestFlightExactBuildEvidenceReady == true and
   .appPrivacyReleaseEvidenceReady == true and
   .macPrivacyReleaseEvidenceReady == true and
+  .iosPrivacyReleaseEvidenceReady == true
+' >/dev/null
+record_fixture_readiness "$MAC_ONLY_PRIVACY_CONFIG_RELATIVE" separate-records | /usr/bin/jq -e '
+  .appPrivacyReleaseEvidenceReady == true and
+  .macPrivacyReleaseEvidenceReady == true and
+  .iosPrivacyReleaseEvidenceReady == false
+' >/dev/null
+record_fixture_readiness "$IOS_ONLY_PRIVACY_CONFIG_RELATIVE" separate-records | /usr/bin/jq -e '
+  .iosTestFlightExactBuildEvidenceReady == true and
+  .appPrivacyReleaseEvidenceReady == true and
+  .macPrivacyReleaseEvidenceReady == false and
   .iosPrivacyReleaseEvidenceReady == true
 ' >/dev/null
 

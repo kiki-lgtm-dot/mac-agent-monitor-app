@@ -5,6 +5,7 @@ IOS_ROOT="${0:A:h:h}"
 PRODUCT_ROOT="${IOS_ROOT:h:h}"
 DIST_ROOT="$PRODUCT_ROOT/dist/ios"
 PRIVACY_CONTRACT="$IOS_ROOT/scripts/privacy-manifest-contract.jq"
+IOS_ENTITLEMENTS_CONTRACT="$IOS_ROOT/scripts/ios-entitlements-contract.jq"
 PREFLIGHT_ASSERTION="$PRODUCT_ROOT/scripts/assert-release-preflight.sh"
 PROJECT_PATH="$IOS_ROOT/AgentIsland.xcodeproj"
 SCHEME="AgentIslandMobile"
@@ -27,6 +28,22 @@ EOF
 fail() {
   print -u2 -r -- "iOS release failed: $*"
   exit 2
+}
+
+validate_entitlement_contract() {
+  local mode="$1"
+  local input="$2"
+  local identifier="$3"
+  local team="$4"
+  local container="$5"
+  local error_message="$6"
+  /usr/bin/jq -e \
+    --arg mode "$mode" \
+    --arg identifier "$identifier" \
+    --arg team "$team" \
+    --arg container "$container" \
+    -f "$IOS_ENTITLEMENTS_CONTRACT" "$input" >/dev/null \
+    || fail "$error_message"
 }
 
 while (( $# > 0 )); do
@@ -52,6 +69,8 @@ command -v jq >/dev/null 2>&1 || fail "jq is required"
 command -v plutil >/dev/null 2>&1 || fail "plutil is required"
 [[ -f "$PRIVACY_CONTRACT" ]] \
   || fail "privacy-manifest-contract.jq is required"
+[[ -f "$IOS_ENTITLEMENTS_CONTRACT" && ! -L "$IOS_ENTITLEMENTS_CONTRACT" ]] \
+  || fail "ios-entitlements-contract.jq is required and must not be a symlink"
 [[ -f "$PREFLIGHT_ASSERTION" && ! -L "$PREFLIGHT_ASSERTION" ]] \
   || fail "release preflight assertion is missing or unsafe"
 
@@ -554,49 +573,18 @@ validate_app_store_profile_shape "$WIDGET_PROFILE_PLIST" "Widget" \
 
 EXPECTED_APP_IDENTIFIER="$APP_ID_PREFIX.$APP_BUNDLE_ID"
 EXPECTED_WIDGET_IDENTIFIER="$WIDGET_ID_PREFIX.$APP_BUNDLE_ID.liveactivity"
-/usr/bin/jq -e -s \
-  --arg applicationIdentifier "$EXPECTED_APP_IDENTIFIER" \
-  --arg team "$TEAM_ID" \
-  --arg container "$CLOUD_CONTAINER_ID" '
-    .[0] as $signed
-    | .[1] as $profile
-    | $signed."application-identifier" == $applicationIdentifier
-      and $profile."application-identifier" == $applicationIdentifier
-      and $signed."application-identifier" == $profile."application-identifier"
-      and $signed."com.apple.developer.team-identifier" == $team
-      and $profile."com.apple.developer.team-identifier" == $team
-      and (($signed."get-task-allow" // false) == false)
-      and (($profile."get-task-allow" // false) == false)
-      and $signed."com.apple.developer.icloud-container-identifiers" == [$container]
-      and $profile."com.apple.developer.icloud-container-identifiers" == [$container]
-      and $signed."com.apple.developer.icloud-services" == ["CloudKit"]
-      and $profile."com.apple.developer.icloud-services" == ["CloudKit"]
-      and $signed."com.apple.developer.icloud-container-environment" == "Production"
-      and $profile."com.apple.developer.icloud-container-environment" == "Production"
-  ' "$APP_ENTITLEMENTS_JSON" "$APP_PROFILE_ENTITLEMENTS_JSON" >/dev/null \
-  || fail "App signature/profile identifiers, team, or production CloudKit entitlements do not match exactly"
-
-/usr/bin/jq -e -s \
-  --arg applicationIdentifier "$EXPECTED_WIDGET_IDENTIFIER" \
-  --arg team "$TEAM_ID" '
-    def no_icloud:
-      [keys[] | select(
-        startswith("com.apple.developer.icloud")
-        or startswith("com.apple.developer.ubiquity")
-      )] | length == 0;
-    .[0] as $signed
-    | .[1] as $profile
-    | $signed."application-identifier" == $applicationIdentifier
-      and $profile."application-identifier" == $applicationIdentifier
-      and $signed."application-identifier" == $profile."application-identifier"
-      and $signed."com.apple.developer.team-identifier" == $team
-      and $profile."com.apple.developer.team-identifier" == $team
-      and (($signed."get-task-allow" // false) == false)
-      and (($profile."get-task-allow" // false) == false)
-      and ($signed | no_icloud)
-      and ($profile | no_icloud)
-  ' "$WIDGET_ENTITLEMENTS_JSON" "$WIDGET_PROFILE_ENTITLEMENTS_JSON" >/dev/null \
-  || fail "Widget signature/profile identifiers or team do not match exactly, or iCloud entitlements leaked into the extension"
+validate_entitlement_contract signed-app "$APP_ENTITLEMENTS_JSON" \
+  "$EXPECTED_APP_IDENTIFIER" "$TEAM_ID" "$CLOUD_CONTAINER_ID" \
+  "archived App signed entitlements exceed the CloudKit-only production allowlist"
+validate_entitlement_contract profile-app "$APP_PROFILE_ENTITLEMENTS_JSON" \
+  "$EXPECTED_APP_IDENTIFIER" "$TEAM_ID" "$CLOUD_CONTAINER_ID" \
+  "archived App provisioning profile does not authorize the expected App Store identity and production CloudKit access"
+validate_entitlement_contract signed-widget "$WIDGET_ENTITLEMENTS_JSON" \
+  "$EXPECTED_WIDGET_IDENTIFIER" "$TEAM_ID" "" \
+  "archived Widget signed entitlements exceed the identity-only allowlist"
+validate_entitlement_contract profile-widget "$WIDGET_PROFILE_ENTITLEMENTS_JSON" \
+  "$EXPECTED_WIDGET_IDENTIFIER" "$TEAM_ID" "" \
+  "archived Widget provisioning profile is not an App Store profile for the expected identity, or authorizes iCloud"
 
 EXPORTED_IPA=""
 IPA_SHA256=""
@@ -742,50 +730,18 @@ if [[ "$EXPORT_IPA" == true ]]; then
   validate_app_store_profile_shape "$EXPORTED_WIDGET_PROFILE_PLIST" "exported Widget" \
     "$EXPORTED_WIDGET_EXPIRATION"
 
-  /usr/bin/jq -e -s \
-    --arg applicationIdentifier "$EXPECTED_APP_IDENTIFIER" \
-    --arg team "$TEAM_ID" \
-    --arg container "$CLOUD_CONTAINER_ID" '
-      .[0] as $signed
-      | .[1] as $profile
-      | $signed."application-identifier" == $applicationIdentifier
-        and $profile."application-identifier" == $applicationIdentifier
-        and $signed."application-identifier" == $profile."application-identifier"
-        and $signed."com.apple.developer.team-identifier" == $team
-        and $profile."com.apple.developer.team-identifier" == $team
-        and (($signed."get-task-allow" // false) == false)
-        and (($profile."get-task-allow" // false) == false)
-        and $signed."com.apple.developer.icloud-container-identifiers" == [$container]
-        and $profile."com.apple.developer.icloud-container-identifiers" == [$container]
-        and $signed."com.apple.developer.icloud-services" == ["CloudKit"]
-        and $profile."com.apple.developer.icloud-services" == ["CloudKit"]
-        and $signed."com.apple.developer.icloud-container-environment" == "Production"
-        and $profile."com.apple.developer.icloud-container-environment" == "Production"
-    ' "$EXPORTED_APP_ENTITLEMENTS_JSON" \
-      "$EXPORTED_APP_PROFILE_ENTITLEMENTS_JSON" >/dev/null \
-    || fail "exported App signature/profile failed exact production entitlement validation"
-  /usr/bin/jq -e -s \
-    --arg applicationIdentifier "$EXPECTED_WIDGET_IDENTIFIER" \
-    --arg team "$TEAM_ID" '
-      def no_icloud:
-        [keys[] | select(
-          startswith("com.apple.developer.icloud")
-          or startswith("com.apple.developer.ubiquity")
-        )] | length == 0;
-      .[0] as $signed
-      | .[1] as $profile
-      | $signed."application-identifier" == $applicationIdentifier
-        and $profile."application-identifier" == $applicationIdentifier
-        and $signed."application-identifier" == $profile."application-identifier"
-        and $signed."com.apple.developer.team-identifier" == $team
-        and $profile."com.apple.developer.team-identifier" == $team
-        and (($signed."get-task-allow" // false) == false)
-        and (($profile."get-task-allow" // false) == false)
-        and ($signed | no_icloud)
-        and ($profile | no_icloud)
-    ' "$EXPORTED_WIDGET_ENTITLEMENTS_JSON" \
-      "$EXPORTED_WIDGET_PROFILE_ENTITLEMENTS_JSON" >/dev/null \
-    || fail "exported Widget signature/profile failed exact no-iCloud validation"
+  validate_entitlement_contract signed-app "$EXPORTED_APP_ENTITLEMENTS_JSON" \
+    "$EXPECTED_APP_IDENTIFIER" "$TEAM_ID" "$CLOUD_CONTAINER_ID" \
+    "exported App signed entitlements exceed the CloudKit-only production allowlist"
+  validate_entitlement_contract profile-app "$EXPORTED_APP_PROFILE_ENTITLEMENTS_JSON" \
+    "$EXPECTED_APP_IDENTIFIER" "$TEAM_ID" "$CLOUD_CONTAINER_ID" \
+    "exported App provisioning profile does not authorize the expected App Store identity and production CloudKit access"
+  validate_entitlement_contract signed-widget "$EXPORTED_WIDGET_ENTITLEMENTS_JSON" \
+    "$EXPECTED_WIDGET_IDENTIFIER" "$TEAM_ID" "" \
+    "exported Widget signed entitlements exceed the identity-only allowlist"
+  validate_entitlement_contract profile-widget "$EXPORTED_WIDGET_PROFILE_ENTITLEMENTS_JSON" \
+    "$EXPECTED_WIDGET_IDENTIFIER" "$TEAM_ID" "" \
+    "exported Widget provisioning profile is not an App Store profile for the expected identity, or authorizes iCloud"
 
   IPA_SHA256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$EXPORTED_IPA" | /usr/bin/awk '{print $1}')"
   print -r -- "$IPA_SHA256  ${EXPORTED_IPA:t}" >"$EXPORTED_IPA.sha256"

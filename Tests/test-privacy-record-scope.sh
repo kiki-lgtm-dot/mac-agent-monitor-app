@@ -16,8 +16,10 @@ FUNCTION_SOURCE="$(/usr/bin/awk '
   capture { print }
   capture && /^}$/ { exit }
 ' "$READINESS")"
-[[ "$FUNCTION_SOURCE" == *'.releaseEvidence.recordScope == $recordScope'* ]] \
-  || fail "readiness helper is missing the exact recordScope comparison"
+[[ "$FUNCTION_SOURCE" == *'.releaseEvidence.recordScope == $recordScope'* && \
+    "$FUNCTION_SOURCE" == *'$recordScope == "separate-records"'* && \
+    "$FUNCTION_SOURCE" == *'.releaseEvidence.recordScope == $platform'* ]] \
+  || fail "readiness helper is missing record-mode-aware scope binding"
 eval "$FUNCTION_SOURCE"
 
 APP_PRIVACY_RELEASE_EVIDENCE_READY=true
@@ -74,6 +76,26 @@ if privacy_evidence_matches_candidate \
     'macOS' 'mac-app-store' 'com.agentisland.release' '0.6.1' '8' \
     "$CANDIDATE_SHA"; then
   fail "universal-purchase evidence opened a separate-records platform gate"
+fi
+write_fixture 'macOS'
+privacy_evidence_matches_candidate \
+  'macOS' 'mac-app-store' 'com.agentisland.release' '0.6.1' '8' \
+  "$CANDIDATE_SHA" \
+  || fail "Mac record evidence was rejected in separate-records mode"
+if privacy_evidence_matches_candidate \
+    'iOS' 'app-store' 'com.agentisland.release' '0.6.1' '8' \
+    "$CANDIDATE_SHA"; then
+  fail "Mac record evidence opened the iOS separate-record gate"
+fi
+write_fixture 'iOS' 'iOS' 'app-store' 'com.agentisland.release'
+privacy_evidence_matches_candidate \
+  'iOS' 'app-store' 'com.agentisland.release' '0.6.1' '8' \
+  "$CANDIDATE_SHA" \
+  || fail "iOS record evidence was rejected in separate-records mode"
+if privacy_evidence_matches_candidate \
+    'macOS' 'mac-app-store' 'com.agentisland.release' '0.6.1' '8' \
+    "$CANDIDATE_SHA"; then
+  fail "iOS record evidence opened the Mac separate-record gate"
 fi
 write_fixture 'separate-records'
 privacy_evidence_matches_candidate \

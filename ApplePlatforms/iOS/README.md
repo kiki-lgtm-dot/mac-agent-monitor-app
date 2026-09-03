@@ -285,20 +285,22 @@ team. For both the App and Live Activity extension it then verifies that:
 
 - the archived `CFBundleIdentifier` and configurable display name are the exact
   configured values;
-- the signed `application-identifier` exactly equals the provisioning
-  profile value and exactly equals that profile's sole App ID prefix plus the
-  full bundle ID (a suffix-only match is not accepted);
-- the signed entitlement, profile entitlement, profile `TeamIdentifier`, and
-  certificate team all agree;
+- the signed `application-identifier` exactly equals the profile's explicit
+  App ID prefix plus the full bundle ID (a suffix-only match is not accepted),
+  while the profile authorizes that exact identifier;
+- the signed entitlement, profile `TeamIdentifier`, and certificate team all
+  agree with the configured release identity;
 - the exact SHA-1 fingerprint of the signing leaf certificate is the selected
   Apple Distribution identity and occurs in each target profile's
   `DeveloperCertificates` authorization list;
 - the profile is unexpired, is not device-scoped or all-device, and neither
   signature nor profile enables `get-task-allow`;
-- the App signature and profile each contain exactly the configured CloudKit
-  container, only the `CloudKit` iCloud service, and the `Production`
-  container environment;
-- the Widget signature and profile contain no iCloud or ubiquity entitlement;
+- the App signature is fail-closed to the reviewed production CloudKit and
+  Apple signing-baseline keys; the profile may expose a broader authorization
+  allowlist but must authorize the configured container, CloudKit and
+  Production environment;
+- the Widget signature is fail-closed to identity/signing-baseline keys, and
+  its profile contains no iCloud or ubiquity authorization;
 - the App and Widget each contain their own exact reviewed privacy manifest,
   and neither manifest changes during IPA export.
 
@@ -351,9 +353,11 @@ split URL slash setting); metadata alone is not accepted as evidence of the
 packaged identity. For both embedded provisioning
 profiles, the preflight also requires a future expiration, App Store distribution
 shape (no device list or all-device authorization), the actual signing leaf in
-`DeveloperCertificates`, and exact agreement between signed/profile team,
-application-identifier, `get-task-allow`, CloudKit, and Widget no-iCloud
-entitlements. It prints an artifact-specific confirmation value but performs no
+`DeveloperCertificates`, and the same shared entitlement contract used during
+archive creation. Executable signatures use a strict key allowlist; profiles
+are treated as authorization ceilings, including Apple-managed wildcard and
+baseline entries, rather than incorrectly requiring byte-for-byte entitlement
+equality. It prints an artifact-specific confirmation value but performs no
 network request.
 
 Apple requires an App Store Connect app record before accepting a build. Once
@@ -383,6 +387,21 @@ Chinese/English metadata, iPhone screenshots, App Icon, and shared privacy and
 support materials, but does not depend on macOS-only metadata or screenshots.
 The aggregate `storeSubmissionAssetsReady` becomes true only when both platform
 gates are ready.
+
+Do not combine that asset flag with TestFlight readiness by eye. Generate an
+absolute readiness report and run the dedicated composition gate:
+
+```bash
+../../scripts/release-readiness.sh --json > /absolute/path/readiness.json
+../../scripts/assert-release-preflight.sh ios-app-store-review \
+  /absolute/path/readiness.json
+```
+
+The command passes only when `readyForIOSAppStoreReviewSelection` is true: the
+same processed, installed, functionally verified TestFlight candidate has
+candidate-bound privacy evidence, a non-empty App Store Connect Build ID, a
+valid App Store record mode, and complete iOS-only store assets. It never
+selects the build or claims that Add for Review or Submit for Review happened.
 
 ```bash
 AGENT_ISLAND_ASC_API_KEY_ID='XXXXXXXXXX' \
@@ -417,6 +436,8 @@ AGENT_ISLAND_CONFIRM_TESTFLIGHT_VERIFICATION='<exact bundle:version:build:IPA-SH
   --processing-state VALID \
   --app-store-connect-build-id '<Build ID shown by App Store Connect>' \
   --processing-verified-at 'YYYY-MM-DDTHH:MM:SSZ' \
+  --warnings-reviewed \
+  --warnings-reviewed-at 'YYYY-MM-DDTHH:MM:SSZ' \
   --distributed-to-testers \
   --installed-from-testflight \
   --tested-at 'YYYY-MM-DDTHH:MM:SSZ' \
@@ -427,7 +448,10 @@ The confirmation script is offline and changes neither Apple state nor the
 original delivery record. It re-hashes the IPA, release metadata, delivery,
 validation, and upload records, independently rechecks both stored Apple
 responses for the same strict success semantics, then writes a new no-overwrite
-`testflight-verification-*.json`. Point
+`testflight-verification-*.json`. The explicit warning attestation records that
+the operator inspected every processing warning after processing verification
+and before the TestFlight installation test; it is not inferred from a success
+response. Point
 `AGENT_ISLAND_IOS_TESTFLIGHT_VERIFICATION_EVIDENCE` at that file before running
 release readiness.
 
