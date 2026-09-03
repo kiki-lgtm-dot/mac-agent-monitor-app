@@ -115,10 +115,12 @@ Use Xcode 26 or newer. The project deployment target is iOS 17.0.
    - `iCloud.com.example.agentisland` with a CloudKit container registered to
      that App ID.
    - the empty `AGENT_ISLAND_DEVELOPMENT_TEAM` with your 10-character Team ID.
-   - both `example.invalid` privacy-policy and support destinations with public
-     HTTPS pages controlled by you. Keep the existing split-slash expression
-     (`https:$(AGENT_ISLAND_URL_SLASH)...`) so xcconfig does not interpret a
-     literal `//` as a comment.
+   - the configured GitHub Pages privacy-policy and support destinations remain
+     public, accurate, and controlled by you. Keep the existing split-slash
+     expression (`https:$(AGENT_ISLAND_URL_SLASH)...`) so xcconfig does not
+     interpret a literal `//` as a comment.
+   - `MARKETING_VERSION = 0.6.1` and `CURRENT_PROJECT_VERSION = 8` still match
+     the macOS release candidate and release environment.
 3. Register the Widget bundle ID as the app bundle ID plus `.liveactivity` and
    keep that exact child identifier; the release validator enforces it.
 4. Select the `AgentIslandMobile` shared scheme and your iPhone or a simulator.
@@ -245,8 +247,9 @@ corresponding title-sync consent flag. It also verifies that example mode does
 not consume the production provider, persists only its Boolean switch, rejects
 unlabelled provider data, and returns to the real provider after reset.
 
-Before archiving, run the release-mode static check as well. It intentionally
-fails while the privacy-policy or support URL still points at `example.invalid`:
+Before archiving, run the release-mode check as well. It intentionally fails
+while the App/Widget identifiers, Team ID, or CloudKit container are still
+placeholders; with full Xcode it also verifies both targets' resolved settings:
 
 ```bash
 ./scripts/validate-project.sh --release

@@ -74,8 +74,8 @@ If sync is not configured and example mode is off, the app deliberately displays
 
 ### Privacy and support
 
-Privacy Policy: `[Privacy Policy URL]`
-Support: `[Support URL]`
+Privacy Policy: `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/`
+Support: `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/`
 
 The App target's `Config/PrivacyInfo.xcprivacy` declares linked Other Usage Data and conditional Other User Content (the separately opted-in conversation-title field) for App Functionality, no tracking, and no tracking domains. It declares `NSPrivacyAccessedAPICategoryUserDefaults` reason `CA92.1` for the app-owned example-mode Boolean. The Widget Extension has its own `WidgetExtension/PrivacyInfo.xcprivacy`, declaring no collected data, no accessed API categories, no tracking, and no tracking domains; it has no iCloud entitlement. The final App Privacy answers in App Store Connect must match both declared data categories while optional full-title sync remains in the submitted build. This build has no APNs remote Live Activity update path.
 
@@ -124,8 +124,8 @@ iPhone 只把最新的已验证生产摘要保存在按当前 iCloud 账号隔�
 
 未配置同步且示例模式关闭时，App 只显示空状态和零数据，不会暗中用示例替换生产刷新。审核人员可用顶部可见入口主动进入带明确标识的示例模式；若入口不可用，请联系 `[审核联系邮箱]`。
 
-隐私政策：`[隐私政策URL]`
-支持页面：`[支持URL]`
+隐私政策：`https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/`
+支持页面：`https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/`
 
 App 目标的 `Config/PrivacyInfo.xcprivacy` 已申报用于 App 功能的“其他使用数据”和条件性“其他用户内容”（单独选择同步的对话标题），两者均与用户关联、不用于追踪；并为应用自身的示例模式布尔开关申报 `NSPrivacyAccessedAPICategoryUserDefaults` 的 `CA92.1` 理由。App Store Connect 的 App Privacy 回答必须与这两类数据申报一致。Widget Extension 单独声明不收集数据、不使用必需原因 API、不追踪，且没有 iCloud entitlement。
 

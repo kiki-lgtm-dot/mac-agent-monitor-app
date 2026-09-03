@@ -54,10 +54,13 @@ fi
 /bin/zsh -n "$PROJECT_DIR/scripts/build-app.sh" "$PROJECT_DIR/scripts/release-macos.sh" \
   "$PROJECT_DIR/scripts/release-readiness.sh" "$PROJECT_DIR/scripts/render-app-icons.sh" \
   "$PROJECT_DIR/scripts/apply-release-identity.sh" "$PROJECT_DIR/Tests/test-release-identity.sh"
+/bin/bash -n "$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-project.sh"
 [[ -x "$PROJECT_DIR/scripts/release-macos.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/release-readiness.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/apply-release-identity.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-release-identity.sh" ]]
+[[ -x "$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-project.sh" ]]
+"$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-project.sh"
 /usr/bin/jq -e '
   .schemaVersion == 1 and
   .widgetBundleIdentifier == (.primaryBundleIdentifier + ".liveactivity") and
@@ -77,6 +80,39 @@ for marker in '--check' '--apply' 'identity.lock.json' 'identity-backup' \
 done
 "$PROJECT_DIR/Tests/test-release-identity.sh"
 "$PROJECT_DIR/Tests/test-store-submission.sh"
+node "$PROJECT_DIR/Tests/test-ios-build-settings.mjs"
+rg -q --fixed-strings 'MARKETING_VERSION = 0.6.1' \
+  "$PROJECT_DIR/ApplePlatforms/iOS/Config/Project.xcconfig"
+rg -q --fixed-strings 'CURRENT_PROJECT_VERSION = 8' \
+  "$PROJECT_DIR/ApplePlatforms/iOS/Config/Project.xcconfig"
+for IOS_CI_MARKER in \
+  'runs-on: macos-15' \
+  'Select Xcode 26 with the iOS 26 SDK' \
+  'xcode_major >= 26 && sdk_major >= 26' \
+  'simctl list devices available -j' \
+  'AGENT_ISLAND_IOS_TEST_DESTINATION=' \
+  'validate-project.sh --test' \
+  'validate-project.sh --build'; do
+  rg -q --fixed-strings -- "$IOS_CI_MARKER" "$PROJECT_DIR/.github/workflows/verify.yml"
+done
+[[ -f "$PROJECT_DIR/scripts/validate-pages-site.mjs" ]]
+[[ -f "$PROJECT_DIR/.github/workflows/pages.yml" ]]
+PUBLIC_SITE_RESULT="$VERIFY_ROOT/public-site-validation.json"
+node "$PROJECT_DIR/scripts/validate-pages-site.mjs" >"$PUBLIC_SITE_RESULT"
+/usr/bin/jq -e '
+  .ok == true and
+  .productName == "MAC版灵动岛--Agent运行监测" and
+  .privacyURL == "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/" and
+  .supportURL == "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/" and
+  .languages == ["zh-CN", "en"]
+' "$PUBLIC_SITE_RESULT" >/dev/null
+for PAGES_MARKER in \
+  'name: Publish support site' \
+  'actions/configure-pages@v6' \
+  'actions/upload-pages-artifact@v5' \
+  'actions/deploy-pages@v5'; do
+  rg -q --fixed-strings -- "$PAGES_MARKER" "$PROJECT_DIR/.github/workflows/pages.yml"
+done
 [[ -f "$PROJECT_DIR/scripts/validate-app-privacy.mjs" ]]
 [[ -f "$PROJECT_DIR/docs/release/APP_PRIVACY_SUBMISSION_WORKSHEET.md" ]]
 APP_PRIVACY_RESULT="$VERIFY_ROOT/app-privacy-validation.json"
@@ -386,9 +422,13 @@ for READINESS_GATE in \
   'productionDisplayNameConfigured' 'provisioningProfileSigningCertificateConfigured' \
   'iosDevelopmentTeamConfigured' 'iosCloudKitContainerConfigured' \
   'iosPrivacyPolicyURLConfigured' 'iosSupportURLConfigured' \
+  'iosProjectReleaseValidationPassed' 'iosBuildSettingsResolved' \
+  'iosTargetBuildSettingsConfigured' 'iosProductionBuildSettingsConfigured' \
+  'iosBuildSettingsMatchEnvironment' 'iosBuildSettingsMismatches' \
   'cloudKitProductionSchemaVerified' 'iosRealDeviceSyncVerified' \
   'iosLiveActivityVerified' 'iosReviewPathVerified' \
   'appleDistributionTeamIdentityConfigured' \
+  'macAppStoreStaticProjectValidationPassed' \
   'macAppStoreXcodeProjectConfigured' 'macAppStoreTargetMembershipConfigured' \
   'macAppStoreRuntimeResourcesInTarget' 'macAppStoreBuildSettingsMatch' \
   'macPrivacyManifestInAppTarget' 'macAppStoreInfoPlistConfigured' \
@@ -406,6 +446,10 @@ for READINESS_GATE in \
   'macDeveloperIDToolchainConfigured' '$MAC_DEVELOPER_ID_TOOLCHAIN' \
   '$ENTITLEMENTS_READY' '$CLOUDKIT_CONTAINER_READY' '$PROVISIONING_PROFILE_READY' '$RELEASE_PRIVACY_READY' '$RELEASE_SUPPORT_READY' \
   '$APPLE_DISTRIBUTION_TEAM_IDENTITY_READY' \
+  '$IOS_PROJECT_RELEASE_VALIDATION' '$IOS_BUILD_SETTINGS_RESOLVED' \
+  '$IOS_TARGET_BUILD_SETTINGS_CONFIGURED' '$IOS_PRODUCTION_BUILD_SETTINGS_CONFIGURED' \
+  '$IOS_BUILD_SETTINGS_MATCH_ENVIRONMENT' \
+  '$MAC_APP_STORE_STATIC_PROJECT_VALIDATION' \
   '$MAC_APP_STORE_XCODE_PROJECT' '$MAC_APP_STORE_TARGET_MEMBERSHIP' \
   '$MAC_APP_STORE_RUNTIME_RESOURCES_IN_TARGET' '$MAC_APP_STORE_BUILD_SETTINGS_MATCH' \
   '$MAC_APP_STORE_INFO_PLIST_CONFIGURED' '$MAC_APP_STORE_ENTITLEMENTS_READY' \
@@ -423,6 +467,8 @@ done
   -u AGENT_ISLAND_ENTITLEMENTS \
   -u AGENT_ISLAND_PROVISIONING_PROFILE \
   -u AGENT_ISLAND_DISPLAY_NAME \
+  -u AGENT_ISLAND_VERSION \
+  -u AGENT_ISLAND_BUILD_NUMBER \
   -u AGENT_ISLAND_PRIVACY_POLICY_URL \
   -u AGENT_ISLAND_SUPPORT_URL \
   -u AGENT_ISLAND_DEVELOPMENT_TEAM \
@@ -480,6 +526,38 @@ done
   (.iosLiveActivityVerified | type == "boolean") and
   (.iosReviewPathVerified | type == "boolean") and
   (.iosProjectConfigured | type == "boolean") and
+  (.iosProjectPath | type == "string") and
+  (.iosScheme == "AgentIslandMobile") and
+  (.iosProjectReleaseValidationPassed | type == "boolean") and
+  (.iosBuildSettingsResolved | type == "boolean") and
+  (.iosTargetBuildSettingsConfigured | type == "boolean") and
+  (.iosProductionBuildSettingsConfigured | type == "boolean") and
+  (.iosBuildSettingsMatchEnvironment | type == "boolean") and
+  (.iosBuildSettingsMismatches | type == "array") and
+  ((.iosDisplayName == null) or (.iosDisplayName | type == "string")) and
+  ((.iosMarketingVersion == null) or (.iosMarketingVersion | type == "string")) and
+  ((.iosBuildNumber == null) or (.iosBuildNumber | type == "string")) and
+  ((.iosTargetBuildSettingsConfigured | not) or .iosBuildSettingsResolved) and
+  ((.iosProductionBuildSettingsConfigured | not) or .iosTargetBuildSettingsConfigured) and
+  ((.readyForIOSArchive | not) or (
+    .fullXcode and
+    .currentUploadToolchain and
+    .appleDistributionTeamIdentityConfigured and
+    .iosProjectConfigured and
+    .iosProjectReleaseValidationPassed and
+    .iosBuildSettingsResolved and
+    .iosTargetBuildSettingsConfigured and
+    .iosProductionBuildSettingsConfigured and
+    .iosBuildSettingsMatchEnvironment and
+    .iosPrivacyManifestPresent and
+    .iosAppIconPresent and
+    .iosAppBundleIDConfigured and
+    .iosWidgetBundleIDConfigured and
+    .iosDevelopmentTeamConfigured and
+    .iosCloudKitContainerConfigured and
+    .iosPrivacyPolicyURLConfigured and
+    .iosSupportURLConfigured
+  )) and
   (.iosPrivacyManifestPresent | type == "boolean") and
   (.iosAppIconPresent | type == "boolean") and
   (.iosSyncTransportImplemented | type == "boolean") and
@@ -488,6 +566,7 @@ done
   ((.macAppStoreTargetName == null) or (.macAppStoreTargetName | type == "string")) and
   ((.macAppStoreEntitlementsPath == null) or (.macAppStoreEntitlementsPath | type == "string")) and
   ((.macAppStoreInfoPlistPath == null) or (.macAppStoreInfoPlistPath | type == "string")) and
+  (.macAppStoreStaticProjectValidationPassed == true) and
   (.macAppStoreXcodeProjectConfigured | type == "boolean") and
   (.macAppStoreTargetMembershipConfigured | type == "boolean") and
   (.macAppStoreRuntimeResourcesInTarget | type == "boolean") and
@@ -525,8 +604,8 @@ done
   (.provisioningProfileSigningCertificateConfigured == false) and
   (.cloudKitContainerConfigured == false) and
   (.iosCloudKitContainerConfigured == false) and
-  (.iosPrivacyPolicyURLConfigured == false) and
-  (.iosSupportURLConfigured == false) and
+  (.iosPrivacyPolicyURLConfigured == true) and
+  (.iosSupportURLConfigured == true) and
   (.cloudKitProductionSchemaVerified == false) and
   (.iosRealDeviceSyncVerified == false) and
   (.iosLiveActivityVerified == false) and
@@ -546,29 +625,74 @@ done
   (.readyForFunctionalIOSTestFlight == false)
 ' >/dev/null
 
+RECORD_FIXTURE_ROOT="$VERIFY_ROOT/release-readiness-record-fixture"
+/bin/mkdir -p "$RECORD_FIXTURE_ROOT/scripts" "$RECORD_FIXTURE_ROOT/ApplePlatforms"
+/bin/cp "$PROJECT_DIR/scripts/release-readiness.sh" "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh"
+/bin/cp -R "$PROJECT_DIR/ApplePlatforms/iOS" "$RECORD_FIXTURE_ROOT/ApplePlatforms/iOS"
+for RECORD_FIXTURE_ITEM in Native dist docs Resources Web Config .release; do
+  /bin/ln -s "$PROJECT_DIR/$RECORD_FIXTURE_ITEM" "$RECORD_FIXTURE_ROOT/$RECORD_FIXTURE_ITEM"
+done
+/bin/ln -s "$PROJECT_DIR/ApplePlatforms/macOS" "$RECORD_FIXTURE_ROOT/ApplePlatforms/macOS"
+for RECORD_FIXTURE_SCRIPT in validate-app-privacy.mjs validate-store-submission.mjs; do
+  /bin/ln -s "$PROJECT_DIR/scripts/$RECORD_FIXTURE_SCRIPT" \
+    "$RECORD_FIXTURE_ROOT/scripts/$RECORD_FIXTURE_SCRIPT"
+done
+RECORD_FIXTURE_XCCONFIG="$RECORD_FIXTURE_ROOT/ApplePlatforms/iOS/Config/Project.xcconfig"
+/usr/bin/sed -i '' \
+  -e 's/com\.example\.agentisland/com.agentisland.mobile/g' \
+  -e 's/^AGENT_ISLAND_DEVELOPMENT_TEAM =.*$/AGENT_ISLAND_DEVELOPMENT_TEAM = ABCDE12345/' \
+  "$RECORD_FIXTURE_XCCONFIG"
+
 /usr/bin/env \
-  AGENT_ISLAND_BUNDLE_ID='com.agentisland.release' \
-  AGENT_ISLAND_IOS_BUNDLE_ID='com.agentisland.release' \
+  DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
+  AGENT_ISLAND_BUNDLE_ID='com.agentisland.mobile' \
+  AGENT_ISLAND_IOS_BUNDLE_ID='com.agentisland.mobile' \
+  AGENT_ISLAND_IOS_WIDGET_BUNDLE_ID='com.agentisland.mobile.liveactivity' \
+  AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
+  AGENT_ISLAND_ICLOUD_CONTAINER_ID='iCloud.com.agentisland.mobile' \
+  AGENT_ISLAND_PRIVACY_POLICY_URL='https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/' \
+  AGENT_ISLAND_SUPPORT_URL='https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/' \
+  AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
+  AGENT_ISLAND_VERSION='0.6.1' \
+  AGENT_ISLAND_BUILD_NUMBER='8' \
   AGENT_ISLAND_APP_STORE_RECORD_MODE='universal-purchase' \
-  "$PROJECT_DIR/scripts/release-readiness.sh" | /usr/bin/jq -e '
+  "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e '
     .appStoreRecordModeConfigured == true and
     .universalPurchaseBundleIDsMatch == true and
     .appStoreRecordModeBundleIDsValid == true
   ' >/dev/null
 /usr/bin/env \
-  AGENT_ISLAND_BUNDLE_ID='com.agentisland.release' \
-  AGENT_ISLAND_IOS_BUNDLE_ID='com.agentisland.release' \
+  DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
+  AGENT_ISLAND_BUNDLE_ID='com.agentisland.mobile' \
+  AGENT_ISLAND_IOS_BUNDLE_ID='com.agentisland.mobile' \
+  AGENT_ISLAND_IOS_WIDGET_BUNDLE_ID='com.agentisland.mobile.liveactivity' \
+  AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
+  AGENT_ISLAND_ICLOUD_CONTAINER_ID='iCloud.com.agentisland.mobile' \
+  AGENT_ISLAND_PRIVACY_POLICY_URL='https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/' \
+  AGENT_ISLAND_SUPPORT_URL='https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/' \
+  AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
+  AGENT_ISLAND_VERSION='0.6.1' \
+  AGENT_ISLAND_BUILD_NUMBER='8' \
   AGENT_ISLAND_APP_STORE_RECORD_MODE='separate-records' \
-  "$PROJECT_DIR/scripts/release-readiness.sh" | /usr/bin/jq -e '
+  "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e '
     .appStoreRecordModeConfigured == true and
     .universalPurchaseBundleIDsMatch == true and
     .appStoreRecordModeBundleIDsValid == false
   ' >/dev/null
 /usr/bin/env \
+  DEVELOPER_DIR='/Library/Developer/CommandLineTools' \
   AGENT_ISLAND_BUNDLE_ID='com.agentisland.mac' \
-  AGENT_ISLAND_IOS_BUNDLE_ID='com.agentisland.ios' \
+  AGENT_ISLAND_IOS_BUNDLE_ID='com.agentisland.mobile' \
+  AGENT_ISLAND_IOS_WIDGET_BUNDLE_ID='com.agentisland.mobile.liveactivity' \
+  AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
+  AGENT_ISLAND_ICLOUD_CONTAINER_ID='iCloud.com.agentisland.mobile' \
+  AGENT_ISLAND_PRIVACY_POLICY_URL='https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/' \
+  AGENT_ISLAND_SUPPORT_URL='https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/' \
+  AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
+  AGENT_ISLAND_VERSION='0.6.1' \
+  AGENT_ISLAND_BUILD_NUMBER='8' \
   AGENT_ISLAND_APP_STORE_RECORD_MODE='separate-records' \
-  "$PROJECT_DIR/scripts/release-readiness.sh" | /usr/bin/jq -e '
+  "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh" | /usr/bin/jq -e '
     .appStoreRecordModeConfigured == true and
     .universalPurchaseBundleIDsMatch == false and
     .appStoreRecordModeBundleIDsValid == true
@@ -589,6 +713,8 @@ fi
   AGENT_ISLAND_ENTITLEMENTS="$PROJECT_DIR/Tests/Fixtures/release-cloudkit.entitlements" \
   AGENT_ISLAND_PROVISIONING_PROFILE="$PROJECT_DIR/Tests/Fixtures/release-cloudkit.entitlements" \
   AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
+  AGENT_ISLAND_VERSION='0.6.1' \
+  AGENT_ISLAND_BUILD_NUMBER='8' \
   AGENT_ISLAND_PRIVACY_POLICY_URL='https://agentisland.app/privacy' \
   AGENT_ISLAND_SUPPORT_URL='https://agentisland.app/support' \
   AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
@@ -602,10 +728,16 @@ fi
     (.provisioningProfileSigningCertificateConfigured == false) and
     (.privacyPolicyURLConfigured == true) and
     (.supportURLConfigured == true) and
-    (.iosDevelopmentTeamConfigured == true) and
-    (.iosCloudKitContainerConfigured == true) and
+    (.iosAppBundleID == "com.example.agentisland") and
+    (.iosWidgetBundleID == "com.example.agentisland.liveactivity") and
+    (.iosAppBundleIDConfigured == false) and
+    (.iosWidgetBundleIDConfigured == false) and
+    (.iosDevelopmentTeamConfigured == false) and
+    (.iosCloudKitContainerConfigured == false) and
     (.iosPrivacyPolicyURLConfigured == true) and
-    (.iosSupportURLConfigured == true)
+    (.iosSupportURLConfigured == true) and
+    (.iosBuildSettingsMatchEnvironment == false) and
+    (.readyForIOSArchive == false)
   ' >/dev/null
 [[ -f "$APP_PATH/Contents/Resources/THIRD_PARTY_NOTICES.md" ]]
 [[ -f "$APP_PATH/Contents/Resources/AgentIsland.icns" ]]
@@ -652,6 +784,28 @@ if rg -q 'NSPasteboard|AXUIElement|CGEventTap' "$PROJECT_DIR/Native/AgentIsland.
   echo "Standard editing shortcuts must not use pasteboard polling, Accessibility, or event taps" >&2
   exit 1
 fi
+for SANDBOX_ACCESS_MARKER in \
+  'AgentIslandHomeAccessBookmarkV1' \
+  'NSURLBookmarkCreationWithSecurityScope' \
+  'NSURLBookmarkResolutionWithSecurityScope' \
+  'NSURLBookmarkCreationSecurityScopeAllowOnlyReadAccess' \
+  'startAccessingSecurityScopedResource' \
+  'stopAccessingSecurityScopedResource' \
+  'AIUserHomeDirectory()' \
+  'AIPathIsInsideDirectory' \
+  'homeAccessAuthorized' \
+  'homeAccessStored' \
+  'activeHomeSecurityScope'; do
+  rg -q --fixed-strings -- "$SANDBOX_ACCESS_MARKER" "$PROJECT_DIR/Native/AgentIsland.m"
+done
+for SANDBOX_UI_MARKER in \
+  'data-action="authorizeHomeAccess"' \
+  'data-action="revokeHomeAccess"' \
+  'homeAccessRequired' \
+  'homeAccessAuthorized' \
+  'homeAccessStored'; do
+  rg -q --fixed-strings -- "$SANDBOX_UI_MARKER" "$PROJECT_DIR/Web/index.html"
+done
 for CLOUDKIT_CONTRACT in \
   'AGENT_ISLAND_CLOUDKIT_RECORD_TYPE = AgentIslandSnapshot' \
   'AGENT_ISLAND_CLOUDKIT_RECORD_NAME = latest' \
@@ -702,7 +856,9 @@ function run(argv) {
     "readableHistoryTotal", "historyBreakdown", "historyRecords", "localHistoryDisclaimer", "cloudSyncTitle",
     "staysOnMac", "sentToPrivateCloud", "enableCloudSync", "includeConversationTitles", "privacyAndSupport",
     "cloudAccountBindingDetail", "confirmRebindCloud", "dataAccessTitle", "readOnlyMonitoring",
-    "contentExcluded", "noSensitivePermissions", "monitoringControl", "reviewDataAccess", "checkUpdates", "safeUpdateHint",
+    "contentExcluded", "noSensitivePermissions", "monitoringControl", "reviewDataAccess", "homeFolderAccess",
+    "homeFolderAccessHint", "authorizeHomeFolder", "reauthorizeHomeFolder", "revokeHomeFolder",
+    "homeAuthorizationRequired", "checkUpdates", "safeUpdateHint",
     "translationTransferNoticeDeepSeek", "translationConsentEyebrow", "translationConsentTitle",
     "translationConsentDeepSeek", "translationConsentCustom", "translationConsentAuthority",
     "translationConsentCancel", "translationConsentContinue", "studySearchRegion", "searchStudy",
@@ -718,7 +874,8 @@ function run(argv) {
     "translatorBaseURL", "translatorModel", "translatorAPIKey", "monitor-live", "monitor-history", "historyStats",
     "historyBreakdown", "historyToolTotals", "historySearch", "historyToolFilter", "historyRecords", "historyMore",
     "cloudSyncCard", "cloudSyncSwitch", "cloudTitlesSwitch", "syncCloudNowButton", "cloudSyncStatus",
-    "dataAccessCard", "monitoringSwitch", "reviewDataAccessButton", "dataAccessStatus",
+    "dataAccessCard", "monitoringSwitch", "homeAccessRow", "authorizeHomeAccessButton",
+    "revokeHomeAccessButton", "reviewDataAccessButton", "dataAccessStatus",
     "privacyPolicyButton", "supportButton", "checkUpdatesButton", "releaseLinksStatus",
     "translationConsentDialog", "translationConsentBody", "deepSeekPolicyLinks", "deepSeekPrivacyButton",
     "deepSeekTermsButton", "translationAppPrivacyButton"]) {
@@ -729,7 +886,8 @@ function run(argv) {
     "conversationTitle", "sessionConversationTitle",
     "workspaceSave", "openURL", "configureTranslator", "translate", "translationResult", "snapshot.cloudSync",
     "configureCloudSync", "syncCloudNow", "openReleaseLink", "cloudSyncResult", "releaseLinkResult",
-    "reviewDataAccess", "setMonitoringEnabled", "dataAccessResult"]) {
+    "reviewDataAccess", "authorizeHomeAccess", "revokeHomeAccess", "homeAccessStored",
+    "setMonitoringEnabled", "dataAccessResult"]) {
     if (!source.includes(required)) throw new Error("Missing Web integration: " + required)
   }
   for (const consentMarker of ["translationTransferNotice", "translationTransferNoticeDeepSeek",
@@ -754,6 +912,8 @@ function run(argv) {
     /bridge\("syncCloudNow",\{requestId:id\("cloud-sync-now"\)\}\)/,
     /bridge\("setMonitoringEnabled",\{enabled:enableMonitoring\}\)/,
     /bridge\("reviewDataAccess"\)/,
+    /bridge\("authorizeHomeAccess"\)/,
+    /bridge\("revokeHomeAccess"\)/,
     /bridge\("openReleaseLink",\{kind:actionButton\.dataset\.kind\|\|""\}\)/
   ]) {
     if (!bridgeContract.test(source)) throw new Error("Missing or malformed Web bridge contract: " + bridgeContract)
@@ -935,8 +1095,25 @@ function run(argv) {
     throw new Error("Every GUI snapshot read must be guarded by current monitoring consent")
   const disclosureMethod = nativeSource.match(/- \(void\)presentDataAccessDisclosureAllowingStart:[\s\S]*?\n}\n\n- \(void\)setMonitoringEnabledFromBody:/)
   for (const marker of ["Codex", "Claude", "IDE Agent", "prompt", "response bodies", "iPhone/iCloud sync",
+    "Agent/tool/provider names", "model names", "project paths", "source-attribution metadata",
     "Camera", "Microphone", "Screen Recording", "Accessibility", "AIDataAccessConsentVersion"]) {
     if (!disclosureMethod || !disclosureMethod[0].includes(marker)) throw new Error("Data-access notice is incomplete: " + marker)
+  }
+  if (!/AIDataAccessConsentVersion\s*=\s*2/.test(nativeSource))
+    throw new Error("Expanded local-data disclosure must force existing users to consent again")
+  for (const marker of ["tool/Agent/provider names", "conversation titles", "models", "project paths", "source attribution"]) {
+    if (!source.includes(marker)) throw new Error("Web local-data disclosure is incomplete: " + marker)
+  }
+  const codexCollector = nativeSource.match(/static NSArray<NSDictionary \*> \*AIScanCodex[\s\S]*?\n}\n\nstatic NSArray<NSDictionary \*> \*AIScanClaudeAtRoot/)
+  for (const marker of ["sessionsRoot", "archivedSessionsRoot", "trustedRolloutPath", "canonicalRolloutPath",
+    "Ignored a log path outside known Codex session directories"]) {
+    if (!codexCollector || !codexCollector[0].includes(marker)) throw new Error("Codex rollout path trust boundary is missing: " + marker)
+  }
+  const customSourceList = nativeSource.match(/static NSArray<NSDictionary \*> \*AICustomSources\(void\)[\s\S]*?\n}\n\nstatic NSString \*AICustomStatus/)
+  for (const forbidden of ["AIResolvedHomeAccessURL", "AIValidatedCustomSourcePath", "attributesOfItemAtPath",
+    "startAccessingSecurityScopedResource", "stringByResolvingSymlinksInPath"]) {
+    if (!customSourceList || customSourceList[0].includes(forbidden))
+      throw new Error("Listing saved custom sources must not access the filesystem: " + forbidden)
   }
   if (!/data-kind="update"/.test(html) || !/safeUpdateHint/.test(source) ||
       !/\[kind isEqual:@"update"\][\s\S]{0,500}@"AgentIslandSupportURL"/.test(nativeSource))

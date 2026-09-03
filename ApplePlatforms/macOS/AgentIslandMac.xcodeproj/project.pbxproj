@@ -1,0 +1,384 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C10300000000000000000001 /* AgentIsland.m in Sources */ = {isa = PBXBuildFile; fileRef = C10100000000000000000001 /* AgentIsland.m */; };
+		C10300000000000000000002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C10100000000000000000002 /* PrivacyInfo.xcprivacy */; };
+		C10300000000000000000003 /* AgentIsland.icns in Resources */ = {isa = PBXBuildFile; fileRef = C10100000000000000000003 /* AgentIsland.icns */; };
+		C10300000000000000000004 /* THIRD_PARTY_NOTICES.md in Resources */ = {isa = PBXBuildFile; fileRef = C10100000000000000000004 /* THIRD_PARTY_NOTICES.md */; };
+		C10300000000000000000005 /* index.html in Copy Web Interface */ = {isa = PBXBuildFile; fileRef = C10100000000000000000005 /* index.html */; };
+		C10300000000000000000011 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10100000000000000000011 /* Cocoa.framework */; };
+		C10300000000000000000012 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10100000000000000000012 /* WebKit.framework */; };
+		C10300000000000000000013 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10100000000000000000013 /* QuartzCore.framework */; };
+		C10300000000000000000014 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10100000000000000000014 /* UniformTypeIdentifiers.framework */; };
+		C10300000000000000000015 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10100000000000000000015 /* Security.framework */; };
+		C10300000000000000000016 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C10100000000000000000016 /* CloudKit.framework */; };
+		C10300000000000000000017 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = C10100000000000000000017 /* libsqlite3.tbd */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C10400000000000000000004 /* Copy Web Interface */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Web;
+			dstSubfolderSpec = 7;
+			files = (
+				C10300000000000000000005 /* index.html in Copy Web Interface */,
+			);
+			name = "Copy Web Interface";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		C10100000000000000000001 /* AgentIsland.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AgentIsland.m; path = ../../Native/AgentIsland.m; sourceTree = "<group>"; };
+		C10100000000000000000002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = ../../Resources/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		C10100000000000000000003 /* AgentIsland.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = AgentIsland.icns; path = ../../Resources/AgentIsland.icns; sourceTree = "<group>"; };
+		C10100000000000000000004 /* THIRD_PARTY_NOTICES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = THIRD_PARTY_NOTICES.md; path = ../../THIRD_PARTY_NOTICES.md; sourceTree = "<group>"; };
+		C10100000000000000000005 /* index.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = index.html; path = ../../Web/index.html; sourceTree = "<group>"; };
+		C10100000000000000000006 /* Mac-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Mac-Info.plist"; sourceTree = "<group>"; };
+		C10100000000000000000007 /* AgentIslandMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AgentIslandMac.entitlements; sourceTree = "<group>"; };
+		C10100000000000000000008 /* Project.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Project.xcconfig; sourceTree = "<group>"; };
+		C10100000000000000000009 /* AgentIslandMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AgentIslandMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10100000000000000000011 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		C10100000000000000000012 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		C10100000000000000000013 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		C10100000000000000000014 /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
+		C10100000000000000000015 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		C10100000000000000000016 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
+		C10100000000000000000017 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.text-based-dylib-definition; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C10400000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10300000000000000000011 /* Cocoa.framework in Frameworks */,
+				C10300000000000000000012 /* WebKit.framework in Frameworks */,
+				C10300000000000000000013 /* QuartzCore.framework in Frameworks */,
+				C10300000000000000000014 /* UniformTypeIdentifiers.framework in Frameworks */,
+				C10300000000000000000015 /* Security.framework in Frameworks */,
+				C10300000000000000000016 /* CloudKit.framework in Frameworks */,
+				C10300000000000000000017 /* libsqlite3.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C10200000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				C10200000000000000000002 /* Source */,
+				C10200000000000000000003 /* Resources */,
+				C10200000000000000000004 /* Config */,
+				C10200000000000000000005 /* Frameworks */,
+				C10200000000000000000006 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C10200000000000000000002 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				C10100000000000000000001 /* AgentIsland.m */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		C10200000000000000000003 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				C10100000000000000000002 /* PrivacyInfo.xcprivacy */,
+				C10100000000000000000003 /* AgentIsland.icns */,
+				C10100000000000000000004 /* THIRD_PARTY_NOTICES.md */,
+				C10100000000000000000005 /* index.html */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		C10200000000000000000004 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				C10100000000000000000006 /* Mac-Info.plist */,
+				C10100000000000000000007 /* AgentIslandMac.entitlements */,
+				C10100000000000000000008 /* Project.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		C10200000000000000000005 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C10100000000000000000011 /* Cocoa.framework */,
+				C10100000000000000000012 /* WebKit.framework */,
+				C10100000000000000000013 /* QuartzCore.framework */,
+				C10100000000000000000014 /* UniformTypeIdentifiers.framework */,
+				C10100000000000000000015 /* Security.framework */,
+				C10100000000000000000016 /* CloudKit.framework */,
+				C10100000000000000000017 /* libsqlite3.tbd */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		C10200000000000000000006 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C10100000000000000000009 /* AgentIslandMac.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C10500000000000000000001 /* AgentIslandMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C10900000000000000000002 /* Build configuration list for PBXNativeTarget "AgentIslandMac" */;
+			buildPhases = (
+				C10400000000000000000001 /* Sources */,
+				C10400000000000000000002 /* Frameworks */,
+				C10400000000000000000003 /* Resources */,
+				C10400000000000000000004 /* Copy Web Interface */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AgentIslandMac;
+			packageProductDependencies = (
+			);
+			productName = AgentIslandMac;
+			productReference = C10100000000000000000009 /* AgentIslandMac.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C10000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					C10500000000000000000001 = {
+						CreatedOnToolsVersion = 26.0;
+						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.AppSandbox = {
+								enabled = 1;
+							};
+							com.apple.iCloud = {
+								enabled = 1;
+							};
+						};
+					};
+				};
+			};
+			buildConfigurationList = C10900000000000000000001 /* Build configuration list for PBXProject "AgentIslandMac" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = C10200000000000000000001;
+			productRefGroup = C10200000000000000000006 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C10500000000000000000001 /* AgentIslandMac */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C10400000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10300000000000000000002 /* PrivacyInfo.xcprivacy in Resources */,
+				C10300000000000000000003 /* AgentIsland.icns in Resources */,
+				C10300000000000000000004 /* THIRD_PARTY_NOTICES.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C10400000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10300000000000000000001 /* AgentIsland.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C10800000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C10100000000000000000008 /* Project.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		C10800000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C10100000000000000000008 /* Project.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ONLY_ACTIVE_ARCH = NO;
+				SDKROOT = macosx;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		C10800000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CODE_SIGN_ENTITLEMENTS = Config/AgentIslandMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "$(AGENT_ISLAND_DEVELOPMENT_TEAM)";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/Mac-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AGENT_ISLAND_APP_BUNDLE_ID)";
+				PRODUCT_NAME = AgentIslandMac;
+				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = macosx;
+			};
+			name = Debug;
+		};
+		C10800000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CODE_SIGN_ENTITLEMENTS = Config/AgentIslandMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "$(AGENT_ISLAND_DEVELOPMENT_TEAM)";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/Mac-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(AGENT_ISLAND_APP_BUNDLE_ID)";
+				PRODUCT_NAME = AgentIslandMac;
+				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C10900000000000000000001 /* Build configuration list for PBXProject "AgentIslandMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C10800000000000000000001 /* Debug */,
+				C10800000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C10900000000000000000002 /* Build configuration list for PBXNativeTarget "AgentIslandMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C10800000000000000000011 /* Debug */,
+				C10800000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = C10000000000000000000001 /* Project object */;
+}

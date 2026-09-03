@@ -3,7 +3,7 @@
 Effective date: [Effective Date: YYYY-MM-DD]
 Developer: [Developer Legal Name]
 Contact email: [Support Email]
-Privacy policy URL: [Privacy Policy URL]
+Privacy policy URL: https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/
 
 > Publication note: This draft reflects MAC版灵动岛--Agent运行监测 0.6.1 as currently implemented and is not legal advice. Replace every placeholder and review the policy against the shipping build, the final translation-service arrangement, and applicable laws before publication.
 
@@ -100,7 +100,7 @@ On-device data remains until the user deletes the relevant content or local file
 - translation API keys can be cleared in translator settings;
 - original Codex, Claude Code, and other tool logs are controlled by those tools and are never deleted or modified by the App;
 - when the user turns off private sync on the Mac, the App immediately stops uploads and requests deletion of the `latest` record from the user's private CloudKit database. Cloud deletion requires iCloud/network availability, so the user should confirm the displayed status or retry if needed. When the iPhone next refreshes and finds that record missing, it clears only the current iCloud account's local cache; and
-- removing the App may leave Application Support files, preferences, and Keychain items in macOS. Users can follow the removal instructions at [Support URL] or contact [Support Email].
+- removing the App may leave Application Support files, preferences, and Keychain items in macOS. Users can follow the removal instructions on the [support page](https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/) or contact [Support Email].
 
 The app has no developer-operated account or data server. The developer therefore generally cannot view, export, or delete on-device data or data in a user's private CloudKit database on the user's behalf; users should use the in-app deletion controls and private-sync switch described above.
 
@@ -122,4 +122,4 @@ Questions about this policy or the app's privacy practices can be directed to:
 
 - Developer: [Developer Legal Name]
 - Email: [Support Email]
-- Support page: [Support URL]
+- Support page: https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/

@@ -1,6 +1,6 @@
 # iOS App Store 与 TestFlight 元数据草案
 
-> 状态：**不可提交**。当前 iOS 工程版本为 0.1.0（Build 1），SwiftUI 看板、Widget/Live Activity Extension、按 iCloud 账号隔离的私有 CloudKit receiver、离线缓存、双语资源和图标已经存在；Mac producer 也已实现并通过本地 CLI/回归。但 Bundle/Container ID 与 Team 仍为占位配置，真实 Developer ID CloudKit entitlement/profile、Production schema、同一 iCloud 账号 Mac→iPhone 真机链路以及完整 Xcode+iOS SDK 编译、真机 Live Activity 和 Archive 验证均未完成。以下产品文案只可在这些发布门槛通过后使用。
+> 状态：**不可提交**。当前 iOS 工程已与 macOS 统一为 0.6.1（Build 8），SwiftUI 看板、Widget/Live Activity Extension、按 iCloud 账号隔离的私有 CloudKit receiver、离线缓存、双语资源和图标已经存在；Mac producer 也已实现并通过本地 CLI/回归。但 Bundle/Container ID 与 Team 仍为占位配置，真实 Developer ID CloudKit entitlement/profile、Production schema、同一 iCloud 账号 Mac→iPhone 真机链路以及完整 Xcode+iOS SDK 编译、真机 Live Activity 和 Archive 验证均未完成。以下产品文案只可在这些发布门槛通过后使用。
 
 ## 1. App Store 全局信息
 
@@ -17,10 +17,10 @@
 | 次类别 | Productivity |
 | 价格 | `[免费或具体价格档位]` |
 | 版权 | `[年份] [版权所有者]` |
-| 隐私政策 URL | `[隐私政策URL]` |
-| 支持 URL | `[支持URL]` |
+| 隐私政策 URL | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/` |
+| 支持 URL | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/` |
 | 营销 URL | `[营销URL，可选]` |
-| 实际提交版本 | `[例如 1.0.0]`；不要直接沿用开发骨架 0.1.0 |
+| 实际提交版本 | `0.6.1`（Build `8`） |
 | 最低系统 | iOS 17.0（当前工程配置） |
 | 支持设备 | iPhone；是否开放 iPad 兼容安装须以最终 Target/QA 决定 |
 | 登录/IAP | 当前无应用账号、订阅或 App 内购买 |

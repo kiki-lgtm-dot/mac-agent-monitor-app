@@ -16,8 +16,8 @@
 | 价格 | `[免费或具体价格档位]` |
 | 版权 | `[年份] [版权所有者]` |
 | 内容版权 | 不含需要额外授权的第三方内容；提交前复核 `THIRD_PARTY_NOTICES.md` |
-| 隐私政策 URL | `[隐私政策URL]`（macOS 必填，必须公开可访问） |
-| 支持 URL | `[支持URL]`（必须包含真实联系方式） |
+| 隐私政策 URL | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/` |
+| 支持 URL | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/` |
 | 营销 URL | `[营销URL，可选]` |
 | 版本号 | `[实际提交版本，例如 1.0.0]` |
 | 最低系统 | macOS 13.0（与当前 `Info.plist` 一致） |

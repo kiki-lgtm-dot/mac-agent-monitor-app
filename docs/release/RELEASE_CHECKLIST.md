@@ -1,6 +1,6 @@
 # MAC版灵动岛--Agent运行监测 发布检查清单
 
-> 当前状态：macOS 0.6.1（Build 8）仍是 `local.agentisland.desktop` + ad-hoc 签名的本机开发预览；iOS 0.1.0（Build 1）已有 SwiftUI App、Widget/Live Activity Extension、按 iCloud 账号隔离的私有 CloudKit 接收器、离线缓存、Xcode 工程和图标，Mac CloudKit producer 也已实现并通过本地 CLI/回归。当前仍使用 `com.example.agentisland`/`iCloud.com.example.agentisland`/空 Team ID，且真实 Developer ID CloudKit entitlement/profile、Production schema、同账号 Mac→iPhone 真机验证和经完整 Xcode+iOS SDK 验证的 Archive 均未完成。下面分别覆盖 Developer ID、Mac App Store 和 iOS TestFlight/App Store。
+> 当前状态：macOS 与 iOS 已统一为 0.6.1（Build 8）。macOS 仍是 `local.agentisland.desktop` + ad-hoc 签名的本机开发预览；iOS 已有 SwiftUI App、Widget/Live Activity Extension、按 iCloud 账号隔离的私有 CloudKit 接收器、离线缓存、Xcode 工程和图标，Mac CloudKit producer 也已实现并通过本地 CLI/回归。当前仍使用 `com.example.agentisland`/`iCloud.com.example.agentisland`/空 Team ID，且真实 Developer ID CloudKit entitlement/profile、Production schema、同账号 Mac→iPhone 真机验证和经完整 Xcode+iOS SDK 验证的 Archive 均未完成。下面分别覆盖 Developer ID、Mac App Store 和 iOS TestFlight/App Store。
 
 ## 0. 确定本次发布范围
 
@@ -31,8 +31,8 @@
 ## 2. 法务、隐私与支持页面
 
 - [ ] 填写 `[开发者法定姓名]`、`[支持邮箱]`，不得把个人开发者写成不存在的公司。
-- [ ] 将最终中文和英文隐私政策发布到稳定 HTTPS 页面：`[隐私政策URL]`。
-- [ ] 建立支持页面：`[支持URL]`，包含真实联系方式、系统要求、常见问题、卸载和本地数据清理方法。
+- [ ] 将最终中文和英文隐私政策发布到稳定 HTTPS 页面：`https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/`。
+- [ ] 建立支持页面：`https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/`，包含联系入口、系统要求、常见问题、卸载和本地数据清理方法。
 - [ ] 如提供营销页，填写 `[营销URL，可选]`。
 - [ ] 删除所有上线材料中的方括号占位符和“草案”提示。
 - [ ] 复核 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`，把第三方声明随最终应用分发。

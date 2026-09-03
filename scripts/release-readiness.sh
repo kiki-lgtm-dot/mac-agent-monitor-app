@@ -6,7 +6,7 @@ PROJECT_DIR="${0:A:h:h}"
 READINESS_ROOT="$(mktemp -d /private/tmp/agentisland-readiness.XXXXXX)"
 trap '[[ "$READINESS_ROOT" == /private/tmp/agentisland-readiness.* ]] && /bin/rm -rf "$READINESS_ROOT"' EXIT HUP INT TERM
 trap 'rc=$?; print -u2 -- "release-readiness.sh failed at line $LINENO (exit $rc)"; trap - ZERR; exit $rc' ZERR
-DEVELOPER_PATH="$(/usr/bin/xcode-select -p 2>/dev/null || true)"
+DEVELOPER_PATH="${DEVELOPER_DIR:-$(/usr/bin/xcode-select -p 2>/dev/null || true)}"
 FULL_XCODE=false
 [[ "$DEVELOPER_PATH" == */Xcode*.app/Contents/Developer ]] && FULL_XCODE=true
 
@@ -78,9 +78,9 @@ XCODE_MAJOR=0
 IPHONE_SDK=""
 IPHONE_SDK_MAJOR=0
 if [[ "$FULL_XCODE" == true ]]; then
-  XCODE_VERSION="$(/usr/bin/xcodebuild -version 2>/dev/null | /usr/bin/awk '/^Xcode / {print $2; exit}')"
+  XCODE_VERSION="$(DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild -version 2>/dev/null | /usr/bin/awk '/^Xcode / {print $2; exit}')"
   [[ "$XCODE_VERSION" == <->* ]] && XCODE_MAJOR="${XCODE_VERSION%%.*}"
-  IPHONE_SDK="$(/usr/bin/xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || true)"
+  IPHONE_SDK="$(DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || true)"
   [[ "$IPHONE_SDK" == <->* ]] && IPHONE_SDK_MAJOR="${IPHONE_SDK%%.*}"
 fi
 
@@ -111,19 +111,69 @@ fi
 MAC_BUNDLE_ID="${AGENT_ISLAND_BUNDLE_ID:-}"
 MAC_SIGN_IDENTITY="${AGENT_ISLAND_DEVELOPER_ID_APPLICATION:-}"
 DISPLAY_NAME="${AGENT_ISLAND_DISPLAY_NAME:-}"
-IOS_APP_BUNDLE_ID="${AGENT_ISLAND_IOS_BUNDLE_ID:-$(xcconfig_value AGENT_ISLAND_APP_BUNDLE_ID)}"
-IOS_WIDGET_BUNDLE_ID="${AGENT_ISLAND_IOS_WIDGET_BUNDLE_ID:-$(xcconfig_value AGENT_ISLAND_WIDGET_BUNDLE_ID)}"
+CONFIGURED_TEAM_ID="${AGENT_ISLAND_DEVELOPMENT_TEAM:-$(xcconfig_value AGENT_ISLAND_DEVELOPMENT_TEAM)}"
+IOS_APP_BUNDLE_ID="$(xcconfig_value AGENT_ISLAND_APP_BUNDLE_ID)"
+IOS_WIDGET_BUNDLE_ID="$(xcconfig_value AGENT_ISLAND_WIDGET_BUNDLE_ID)"
 [[ "$IOS_WIDGET_BUNDLE_ID" == '$('* ]] && IOS_WIDGET_BUNDLE_ID="$IOS_APP_BUNDLE_ID.liveactivity"
 NOTARY_PROFILE="${AGENT_ISLAND_NOTARY_KEYCHAIN_PROFILE:-}"
 ENTITLEMENTS_PATH="${AGENT_ISLAND_ENTITLEMENTS:-}"
 PROVISIONING_PROFILE="${AGENT_ISLAND_PROVISIONING_PROFILE:-}"
 RELEASE_PRIVACY_URL="${AGENT_ISLAND_PRIVACY_POLICY_URL:-}"
 RELEASE_SUPPORT_URL="${AGENT_ISLAND_SUPPORT_URL:-}"
-IOS_PRIVACY_URL="${AGENT_ISLAND_PRIVACY_POLICY_URL:-$(xcconfig_value AGENT_ISLAND_PRIVACY_POLICY_URL)}"
-IOS_SUPPORT_URL="${AGENT_ISLAND_SUPPORT_URL:-$(xcconfig_value AGENT_ISLAND_SUPPORT_URL)}"
-IOS_TEAM_ID="${AGENT_ISLAND_DEVELOPMENT_TEAM:-$(xcconfig_value AGENT_ISLAND_DEVELOPMENT_TEAM)}"
+IOS_PRIVACY_URL="$(xcconfig_value AGENT_ISLAND_PRIVACY_POLICY_URL)"
+IOS_SUPPORT_URL="$(xcconfig_value AGENT_ISLAND_SUPPORT_URL)"
+IOS_TEAM_ID="$(xcconfig_value AGENT_ISLAND_DEVELOPMENT_TEAM)"
 CLOUDKIT_CONTAINER_ID="${AGENT_ISLAND_ICLOUD_CONTAINER_ID:-$(xcconfig_value AGENT_ISLAND_ICLOUD_CONTAINER_ID)}"
-IOS_CONTAINER_ID="$CLOUDKIT_CONTAINER_ID"
+IOS_CONTAINER_ID="$(xcconfig_value AGENT_ISLAND_ICLOUD_CONTAINER_ID)"
+IOS_DISPLAY_NAME="$(xcconfig_value AGENT_ISLAND_DISPLAY_NAME)"
+IOS_MARKETING_VERSION="$(xcconfig_value MARKETING_VERSION)"
+IOS_BUILD_NUMBER="$(xcconfig_value CURRENT_PROJECT_VERSION)"
+
+IOS_XCODE_PROJECT="$PROJECT_DIR/ApplePlatforms/iOS/AgentIsland.xcodeproj"
+IOS_XCODE_SCHEME="AgentIslandMobile"
+IOS_BUILD_SETTINGS_VALIDATOR="$PROJECT_DIR/ApplePlatforms/iOS/scripts/validate-build-settings.mjs"
+IOS_BUILD_SETTINGS_JSON="$READINESS_ROOT/ios-build-settings.json"
+IOS_BUILD_SETTINGS_RESULT="$READINESS_ROOT/ios-build-settings-result.json"
+IOS_BUILD_SETTINGS_RESOLVED=false
+IOS_TARGET_BUILD_SETTINGS_CONFIGURED=false
+IOS_PRODUCTION_BUILD_SETTINGS_CONFIGURED=false
+IOS_BUILD_SETTINGS_MATCH_ENVIRONMENT=false
+IOS_BUILD_SETTINGS_MISMATCHES_JSON="[]"
+if [[ "$FULL_XCODE" == true && -f "$IOS_XCODE_PROJECT/project.pbxproj" && \
+    -f "$IOS_BUILD_SETTINGS_VALIDATOR" && -n "$IOS_XCODE_SCHEME" ]] && \
+    command -v node >/dev/null 2>&1 && \
+    DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild \
+      -project "$IOS_XCODE_PROJECT" \
+      -scheme "$IOS_XCODE_SCHEME" \
+      -configuration Release \
+      -sdk iphoneos \
+      -destination 'generic/platform=iOS' \
+      -showBuildSettings \
+      -json >"$IOS_BUILD_SETTINGS_JSON" 2>/dev/null && \
+    node "$IOS_BUILD_SETTINGS_VALIDATOR" "$IOS_BUILD_SETTINGS_JSON" \
+      >"$IOS_BUILD_SETTINGS_RESULT" 2>/dev/null; then
+  IOS_BUILD_SETTINGS_RESOLVED="$(/usr/bin/jq -r '.targetsResolved == true' "$IOS_BUILD_SETTINGS_RESULT")"
+  IOS_TARGET_BUILD_SETTINGS_CONFIGURED="$(/usr/bin/jq -r '.targetContractReady == true' "$IOS_BUILD_SETTINGS_RESULT")"
+  IOS_PRODUCTION_BUILD_SETTINGS_CONFIGURED="$(/usr/bin/jq -r '.productionConfigurationReady == true' "$IOS_BUILD_SETTINGS_RESULT")"
+  IOS_BUILD_SETTINGS_MATCH_ENVIRONMENT="$(/usr/bin/jq -r '.environmentMatches == true' "$IOS_BUILD_SETTINGS_RESULT")"
+  IOS_BUILD_SETTINGS_MISMATCHES_JSON="$(/usr/bin/jq -c '.environmentMismatches' "$IOS_BUILD_SETTINGS_RESULT")"
+  if [[ "$IOS_BUILD_SETTINGS_RESOLVED" == true ]]; then
+    IOS_APP_BUNDLE_ID="$(/usr/bin/jq -r '.actual.appBundleID' "$IOS_BUILD_SETTINGS_RESULT")"
+    IOS_WIDGET_BUNDLE_ID="$(/usr/bin/jq -r '.actual.widgetBundleID' "$IOS_BUILD_SETTINGS_RESULT")"
+    IOS_TEAM_ID="$(/usr/bin/jq -r '.actual.developmentTeam' "$IOS_BUILD_SETTINGS_RESULT")"
+    IOS_CONTAINER_ID="$(/usr/bin/jq -r '.actual.cloudKitContainerID' "$IOS_BUILD_SETTINGS_RESULT")"
+    IOS_PRIVACY_URL="$(/usr/bin/jq -r '.actual.privacyPolicyURL' "$IOS_BUILD_SETTINGS_RESULT")"
+    IOS_SUPPORT_URL="$(/usr/bin/jq -r '.actual.supportURL' "$IOS_BUILD_SETTINGS_RESULT")"
+    IOS_DISPLAY_NAME="$(/usr/bin/jq -r '.actual.displayName' "$IOS_BUILD_SETTINGS_RESULT")"
+    IOS_MARKETING_VERSION="$(/usr/bin/jq -r '.actual.marketingVersion' "$IOS_BUILD_SETTINGS_RESULT")"
+    IOS_BUILD_NUMBER="$(/usr/bin/jq -r '.actual.buildNumber' "$IOS_BUILD_SETTINGS_RESULT")"
+  fi
+fi
+
+IOS_PROJECT_RELEASE_VALIDATION=false
+if "$PROJECT_DIR/ApplePlatforms/iOS/scripts/validate-project.sh" --release >/dev/null 2>&1; then
+  IOS_PROJECT_RELEASE_VALIDATION=true
+fi
 
 MAC_BUNDLE_READY=false
 IOS_APP_BUNDLE_READY=false
@@ -136,6 +186,7 @@ CLOUDKIT_CONTAINER_READY=false
 RELEASE_PRIVACY_READY=false
 RELEASE_SUPPORT_READY=false
 IOS_TEAM_READY=false
+CONFIGURED_TEAM_READY=false
 MAC_SIGN_IDENTITY_READY=false
 DISPLAY_NAME_READY=false
 IOS_CONTAINER_READY=false
@@ -152,7 +203,7 @@ if production_display_name "$DISPLAY_NAME" && [[ "$DISPLAY_NAME" == "$PUBLIC_APP
   DISPLAY_NAME_READY=true
 fi
 production_bundle_id "$IOS_APP_BUNDLE_ID" && IOS_APP_BUNDLE_READY=true
-if production_bundle_id "$IOS_WIDGET_BUNDLE_ID" && [[ "$IOS_WIDGET_BUNDLE_ID" == "$IOS_APP_BUNDLE_ID".* ]]; then
+if production_bundle_id "$IOS_WIDGET_BUNDLE_ID" && [[ "$IOS_WIDGET_BUNDLE_ID" == "$IOS_APP_BUNDLE_ID.liveactivity" ]]; then
   IOS_WIDGET_BUNDLE_READY=true
 fi
 production_container_id "$CLOUDKIT_CONTAINER_ID" && CLOUDKIT_CONTAINER_READY=true
@@ -160,7 +211,7 @@ if [[ "$CLOUDKIT_CONTAINER_READY" == true && -f "$ENTITLEMENTS_PATH" ]] && /usr/
     ! /usr/bin/grep -Eqi 'yourname|yourdomain|example|placeholder' "$ENTITLEMENTS_PATH"; then
   ENTITLEMENTS_JSON="$(/usr/bin/plutil -convert json -o - "$ENTITLEMENTS_PATH" 2>/dev/null || print '{}')"
   if print -r -- "$ENTITLEMENTS_JSON" | /usr/bin/jq -e \
-      --arg container "$CLOUDKIT_CONTAINER_ID" --arg bundle "$MAC_BUNDLE_ID" --arg team "$IOS_TEAM_ID" '
+      --arg container "$CLOUDKIT_CONTAINER_ID" --arg bundle "$MAC_BUNDLE_ID" --arg team "$CONFIGURED_TEAM_ID" '
       (."com.apple.application-identifier" | type == "string" and endswith("." + $bundle)) and
       (."com.apple.developer.team-identifier" == $team) and
       ((."com.apple.developer.icloud-services" // []) | index("CloudKit") != null) and
@@ -189,7 +240,7 @@ if [[ "$ENTITLEMENTS_READY" == true && -f "$PROVISIONING_PROFILE" ]]; then
       PROFILE_EXPIRATION="$(/usr/bin/plutil -extract ExpirationDate raw -o - "$PROFILE_PLIST" 2>/dev/null || true)"
       PROFILE_EXPIRATION_EPOCH="$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$PROFILE_EXPIRATION" '+%s' 2>/dev/null || true)"
       if /usr/bin/jq -e \
-          --arg container "$CLOUDKIT_CONTAINER_ID" --arg sourceAppIdentifier "$SOURCE_APP_IDENTIFIER" --arg team "$IOS_TEAM_ID" '
+          --arg container "$CLOUDKIT_CONTAINER_ID" --arg sourceAppIdentifier "$SOURCE_APP_IDENTIFIER" --arg team "$CONFIGURED_TEAM_ID" '
           (."com.apple.application-identifier" == $sourceAppIdentifier) and
           (."com.apple.developer.team-identifier" == $team) and
           ((."com.apple.developer.icloud-services" // []) | index("CloudKit") != null) and
@@ -197,7 +248,7 @@ if [[ "$ENTITLEMENTS_READY" == true && -f "$PROVISIONING_PROFILE" ]]; then
           (."com.apple.developer.icloud-container-environment" == "Production") and
           ((."com.apple.security.get-task-allow" // false) == false)
         ' "$PROFILE_ENTITLEMENTS_JSON" >/dev/null 2>&1 && \
-          [[ "$PROFILE_TEAM_COUNT" == "1" && "$PROFILE_TEAM" == "$IOS_TEAM_ID" && \
+          [[ "$PROFILE_TEAM_COUNT" == "1" && "$PROFILE_TEAM" == "$CONFIGURED_TEAM_ID" && \
             "$PROFILE_PLATFORM_COUNT" == "1" && "$PROFILE_PLATFORM" == "OSX" && \
             "$PROFILE_CERTIFICATE_COUNT" == <-> && "$PROFILE_CERTIFICATE_COUNT" -gt 0 && \
             "$PROFILE_PROVISIONS_ALL_DEVICES" == "true" && "$PROFILE_EXPIRATION_EPOCH" == <-> && \
@@ -231,21 +282,22 @@ if [[ "$PROVISIONING_PROFILE_READY" == true && "$CONFIGURED_IDENTITY_SHA1" == [0
 fi
 production_https_url "$RELEASE_PRIVACY_URL" && RELEASE_PRIVACY_READY=true
 production_https_url "$RELEASE_SUPPORT_URL" && RELEASE_SUPPORT_READY=true
+production_team_id "$CONFIGURED_TEAM_ID" && CONFIGURED_TEAM_READY=true
 production_team_id "$IOS_TEAM_ID" && IOS_TEAM_READY=true
-if [[ "$IOS_TEAM_READY" == true ]]; then
-  APPLE_DISTRIBUTION_TEAM_IDENTITIES="$(print -r -- "$IDENTITY_OUTPUT" | /usr/bin/awk -v team="$IOS_TEAM_ID" '
+if [[ "$CONFIGURED_TEAM_READY" == true ]]; then
+  APPLE_DISTRIBUTION_TEAM_IDENTITIES="$(print -r -- "$IDENTITY_OUTPUT" | /usr/bin/awk -v team="$CONFIGURED_TEAM_ID" '
     /Apple Distribution:|iPhone Distribution:|3rd Party Mac Developer Application:/ &&
       index($0, "(" team ")") { count += 1 }
     END { print count + 0 }
   ')"
   (( APPLE_DISTRIBUTION_TEAM_IDENTITIES > 0 )) && APPLE_DISTRIBUTION_TEAM_IDENTITY_READY=true
 fi
-if [[ "$IOS_TEAM_READY" == true && "$MAC_SIGN_IDENTITY" == "Developer ID Application:"* && \
-    "$MAC_SIGN_IDENTITY" == *"($IOS_TEAM_ID)" && \
+if [[ "$CONFIGURED_TEAM_READY" == true && "$MAC_SIGN_IDENTITY" == "Developer ID Application:"* && \
+    "$MAC_SIGN_IDENTITY" == *"($CONFIGURED_TEAM_ID)" && \
     "$(print -r -- "$IDENTITY_OUTPUT" | /usr/bin/grep -Fc "\"$MAC_SIGN_IDENTITY\"" || true)" == "1" ]]; then
   MAC_SIGN_IDENTITY_READY=true
 fi
-[[ "$CLOUDKIT_CONTAINER_READY" == true ]] && IOS_CONTAINER_READY=true
+production_container_id "$IOS_CONTAINER_ID" && IOS_CONTAINER_READY=true
 production_https_url "$IOS_PRIVACY_URL" && IOS_PRIVACY_READY=true
 production_https_url "$IOS_SUPPORT_URL" && IOS_SUPPORT_READY=true
 [[ "${AGENT_ISLAND_CLOUDKIT_PRODUCTION_SCHEMA_VERIFIED:-false}" == "true" ]] && IOS_CLOUDKIT_PRODUCTION_SCHEMA_VERIFIED=true
@@ -253,7 +305,7 @@ production_https_url "$IOS_SUPPORT_URL" && IOS_SUPPORT_READY=true
 [[ "${AGENT_ISLAND_IOS_LIVE_ACTIVITY_VERIFIED:-false}" == "true" ]] && IOS_LIVE_ACTIVITY_VERIFIED=true
 [[ "${AGENT_ISLAND_IOS_REVIEW_PATH_VERIFIED:-false}" == "true" ]] && IOS_REVIEW_PATH_VERIFIED=true
 
-IOS_PROJECT_PATH="$PROJECT_DIR/ApplePlatforms/iOS/AgentIsland.xcodeproj/project.pbxproj"
+IOS_PROJECT_PATH="$IOS_XCODE_PROJECT/project.pbxproj"
 IOS_PROJECT=false
 [[ -f "$IOS_PROJECT_PATH" ]] && IOS_PROJECT=true
 IOS_PRIVACY_MANIFEST=false
@@ -284,15 +336,22 @@ if [[ -n "$MAC_BUNDLE_ID" && "$MAC_BUNDLE_ID" == "$IOS_APP_BUNDLE_ID" ]]; then
 fi
 if [[ "$MAC_APP_STORE_RECORD_MODE" == "universal-purchase" ]]; then
   MAC_APP_STORE_RECORD_MODE_READY=true
-  [[ "$MAC_UNIVERSAL_PURCHASE_BUNDLE_IDS_MATCH" == true ]] && \
+  [[ "$MAC_BUNDLE_READY" == true && "$IOS_APP_BUNDLE_READY" == true && \
+    "$MAC_UNIVERSAL_PURCHASE_BUNDLE_IDS_MATCH" == true ]] && \
     MAC_APP_STORE_RECORD_MODE_BUNDLE_IDS_VALID=true
 elif [[ "$MAC_APP_STORE_RECORD_MODE" == "separate-records" ]]; then
   MAC_APP_STORE_RECORD_MODE_READY=true
-  if [[ -n "$MAC_BUNDLE_ID" && -n "$IOS_APP_BUNDLE_ID" && "$MAC_BUNDLE_ID" != "$IOS_APP_BUNDLE_ID" ]]; then
+  if [[ "$MAC_BUNDLE_READY" == true && "$IOS_APP_BUNDLE_READY" == true && \
+      "$MAC_BUNDLE_ID" != "$IOS_APP_BUNDLE_ID" ]]; then
     MAC_APP_STORE_RECORD_MODE_BUNDLE_IDS_VALID=true
   fi
 fi
 
+MAC_APP_STORE_VALIDATOR="$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-project.sh"
+MAC_APP_STORE_STATIC_PROJECT_VALIDATION=false
+if [[ -x "$MAC_APP_STORE_VALIDATOR" ]] && "$MAC_APP_STORE_VALIDATOR" >/dev/null 2>&1; then
+  MAC_APP_STORE_STATIC_PROJECT_VALIDATION=true
+fi
 MAC_APP_STORE_XCODE_PROJECT=false
 MAC_APP_STORE_TARGET_MEMBERSHIP=false
 MAC_APP_STORE_RUNTIME_RESOURCES_IN_TARGET=false
@@ -334,6 +393,15 @@ if [[ "$FULL_XCODE" == true && -f "$MAC_PROJECT_FILE" && -n "$MAC_APP_STORE_SCHE
     MAC_SETTINGS_DISPLAY_NAME="$(/usr/bin/jq -r --arg target "$MAC_APP_STORE_TARGET_NAME" \
       '.[] | select(.target == $target) | .buildSettings.AGENT_ISLAND_DISPLAY_NAME // ""' \
       "$MAC_BUILD_SETTINGS_JSON")"
+    MAC_SETTINGS_CONTAINER_ID="$(/usr/bin/jq -r --arg target "$MAC_APP_STORE_TARGET_NAME" \
+      '.[] | select(.target == $target) | .buildSettings.AGENT_ISLAND_ICLOUD_CONTAINER_ID // ""' \
+      "$MAC_BUILD_SETTINGS_JSON")"
+    MAC_SETTINGS_PRIVACY_URL="$(/usr/bin/jq -r --arg target "$MAC_APP_STORE_TARGET_NAME" \
+      '.[] | select(.target == $target) | .buildSettings.AGENT_ISLAND_PRIVACY_POLICY_URL // ""' \
+      "$MAC_BUILD_SETTINGS_JSON")"
+    MAC_SETTINGS_SUPPORT_URL="$(/usr/bin/jq -r --arg target "$MAC_APP_STORE_TARGET_NAME" \
+      '.[] | select(.target == $target) | .buildSettings.AGENT_ISLAND_SUPPORT_URL // ""' \
+      "$MAC_BUILD_SETTINGS_JSON")"
     MAC_SETTINGS_SRCROOT="$(/usr/bin/jq -r --arg target "$MAC_APP_STORE_TARGET_NAME" \
       '.[] | select(.target == $target) | .buildSettings.SRCROOT // ""' \
       "$MAC_BUILD_SETTINGS_JSON")"
@@ -344,8 +412,11 @@ if [[ "$FULL_XCODE" == true && -f "$MAC_PROJECT_FILE" && -n "$MAC_APP_STORE_SCHE
       '.[] | select(.target == $target) | .buildSettings.INFOPLIST_FILE // ""' \
       "$MAC_BUILD_SETTINGS_JSON")"
     if [[ "$MAC_SETTINGS_BUNDLE_ID" == "$MAC_BUNDLE_ID" && \
-        "$MAC_SETTINGS_TEAM" == "$IOS_TEAM_ID" && \
-        "$MAC_SETTINGS_DISPLAY_NAME" == "$DISPLAY_NAME" ]]; then
+        "$MAC_SETTINGS_TEAM" == "$CONFIGURED_TEAM_ID" && \
+        "$MAC_SETTINGS_DISPLAY_NAME" == "$DISPLAY_NAME" && \
+        "$MAC_SETTINGS_CONTAINER_ID" == "$CLOUDKIT_CONTAINER_ID" && \
+        "$MAC_SETTINGS_PRIVACY_URL" == "$RELEASE_PRIVACY_URL" && \
+        "$MAC_SETTINGS_SUPPORT_URL" == "$RELEASE_SUPPORT_URL" ]]; then
       MAC_APP_STORE_BUILD_SETTINGS_MATCH=true
     fi
     if [[ "$MAC_SETTINGS_ENTITLEMENTS" == /* ]]; then
@@ -377,10 +448,11 @@ if [[ "$FULL_XCODE" == true && -f "$MAC_PROJECT_FILE" && -n "$MAC_APP_STORE_SCHE
               | ($objects[$fileRefID].path // $objects[$fileRefID].name // "")];
           (members("PBXSourcesBuildPhase")) as $sources
           | (members("PBXResourcesBuildPhase")) as $resources
+          | (members("PBXCopyFilesBuildPhase")) as $copiedResources
           | {
               nativeSource: ($sources | any(endswith("AgentIsland.m"))),
               privacyManifest: ($resources | any(endswith("PrivacyInfo.xcprivacy"))),
-              webInterface: ($resources | any(endswith("index.html"))),
+              webInterface: (($resources + $copiedResources) | any(endswith("index.html"))),
               appIcon: ($resources | any(endswith("AgentIsland.icns"))),
               notices: ($resources | any(endswith("THIRD_PARTY_NOTICES.md")))
             }
@@ -430,7 +502,10 @@ if [[ -n "$MAC_APP_STORE_ENTITLEMENTS_PATH" && -f "$MAC_APP_STORE_ENTITLEMENTS_P
   print -r -- "$MAC_ENTITLEMENTS_JSON" | /usr/bin/jq -e \
     --arg container "$CLOUDKIT_CONTAINER_ID" '
       ((."com.apple.developer.icloud-services" // []) | index("CloudKit") != null)
-      and ((."com.apple.developer.icloud-container-identifiers" // []) == [$container])
+      and (((."com.apple.developer.icloud-container-identifiers" // []) == [$container])
+        or ((."com.apple.developer.icloud-container-identifiers" // [])
+          == ["$(AGENT_ISLAND_ICLOUD_CONTAINER_ID)"]))
+      and (."com.apple.developer.icloud-container-environment" == "Production")
     ' >/dev/null 2>&1 && MAC_APP_STORE_CLOUDKIT_ENTITLEMENT=true
   if [[ "$MAC_APP_SANDBOX_ENTITLEMENT" == true && \
       "$MAC_USER_SELECTED_READ_ONLY_ENTITLEMENT" == true && \
@@ -523,13 +598,16 @@ if [[ "$MAC_DEVELOPER_ID_TOOLCHAIN" == true && "$DEVELOPER_ID_IDENTITIES" -gt 0 
   "$NOTARY_PROFILE_CONFIGURED" == true && "$ENTITLEMENTS_READY" == true && \
   "$PROVISIONING_PROFILE_READY" == true && "$PROVISIONING_PROFILE_CERTIFICATE_READY" == true && \
   "$CLOUDKIT_CONTAINER_READY" == true && "$RELEASE_PRIVACY_READY" == true && \
-  "$RELEASE_SUPPORT_READY" == true && "$IOS_TEAM_READY" == true ]]; then
+  "$RELEASE_SUPPORT_READY" == true && "$CONFIGURED_TEAM_READY" == true ]]; then
   READY_DEVELOPER_ID=true
 fi
 
 READY_IOS_ARCHIVE=false
 if [[ "$FULL_XCODE" == true && "$CURRENT_UPLOAD_TOOLCHAIN" == true && "$APPLE_DISTRIBUTION_TEAM_IDENTITY_READY" == true && \
-  "$IOS_PROJECT" == true && "$IOS_PRIVACY_MANIFEST" == true && "$IOS_APP_ICON" == true && \
+  "$IOS_PROJECT" == true && "$IOS_PROJECT_RELEASE_VALIDATION" == true && \
+  "$IOS_BUILD_SETTINGS_RESOLVED" == true && "$IOS_TARGET_BUILD_SETTINGS_CONFIGURED" == true && \
+  "$IOS_PRODUCTION_BUILD_SETTINGS_CONFIGURED" == true && "$IOS_BUILD_SETTINGS_MATCH_ENVIRONMENT" == true && \
+  "$IOS_PRIVACY_MANIFEST" == true && "$IOS_APP_ICON" == true && \
   "$IOS_APP_BUNDLE_READY" == true && "$IOS_WIDGET_BUNDLE_READY" == true && "$IOS_TEAM_READY" == true && \
   "$IOS_CONTAINER_READY" == true && "$IOS_PRIVACY_READY" == true && "$IOS_SUPPORT_READY" == true ]]; then
   READY_IOS_ARCHIVE=true
@@ -537,13 +615,14 @@ fi
 
 READY_MAC_APP_STORE_ARCHIVE=false
 if [[ "$FULL_XCODE" == true && "$CURRENT_MAC_APP_STORE_TOOLCHAIN" == true && \
-    "$APPLE_DISTRIBUTION_TEAM_IDENTITY_READY" == true && "$MAC_APP_STORE_XCODE_PROJECT" == true && \
+    "$APPLE_DISTRIBUTION_TEAM_IDENTITY_READY" == true && \
+    "$MAC_APP_STORE_STATIC_PROJECT_VALIDATION" == true && "$MAC_APP_STORE_XCODE_PROJECT" == true && \
     "$MAC_APP_STORE_TARGET_MEMBERSHIP" == true && "$MAC_APP_STORE_BUILD_SETTINGS_MATCH" == true && \
     "$MAC_APP_STORE_RUNTIME_RESOURCES_IN_TARGET" == true && "$MAC_APP_STORE_INFO_PLIST_CONFIGURED" == true && \
     "$MAC_PRIVACY_MANIFEST_IN_APP_TARGET" == true && "$MAC_PRIVACY_SOURCE_READY" == true && \
     "$MAC_APP_STORE_ENTITLEMENTS_READY" == true && "$MAC_APP_STORE_RECORD_MODE_READY" == true && \
     "$MAC_APP_STORE_RECORD_MODE_BUNDLE_IDS_VALID" == true && \
-    "$MAC_BUNDLE_READY" == true && "$DISPLAY_NAME_READY" == true && "$IOS_TEAM_READY" == true && \
+    "$MAC_BUNDLE_READY" == true && "$DISPLAY_NAME_READY" == true && "$CONFIGURED_TEAM_READY" == true && \
     "$CLOUDKIT_CONTAINER_READY" == true && "$RELEASE_PRIVACY_READY" == true && \
     "$RELEASE_SUPPORT_READY" == true ]]; then
   READY_MAC_APP_STORE_ARCHIVE=true
@@ -571,6 +650,11 @@ fi
   --arg iosWidgetBundleID "$IOS_WIDGET_BUNDLE_ID" \
   --arg iosDevelopmentTeam "$IOS_TEAM_ID" \
   --arg iosCloudKitContainer "$IOS_CONTAINER_ID" \
+  --arg iosDisplayName "$IOS_DISPLAY_NAME" \
+  --arg iosMarketingVersion "$IOS_MARKETING_VERSION" \
+  --arg iosBuildNumber "$IOS_BUILD_NUMBER" \
+  --arg iosXcodeProject "$IOS_XCODE_PROJECT" \
+  --arg iosXcodeScheme "$IOS_XCODE_SCHEME" \
   --arg macAppStoreProject "$MAC_APP_STORE_PROJECT" \
   --arg macAppStoreScheme "$MAC_APP_STORE_SCHEME" \
   --arg macAppStoreTargetName "$MAC_APP_STORE_TARGET_NAME" \
@@ -612,9 +696,16 @@ fi
   --argjson iosLiveActivityVerified "$IOS_LIVE_ACTIVITY_VERIFIED" \
   --argjson iosReviewPathVerified "$IOS_REVIEW_PATH_VERIFIED" \
   --argjson iosProject "$IOS_PROJECT" \
+  --argjson iosProjectReleaseValidation "$IOS_PROJECT_RELEASE_VALIDATION" \
+  --argjson iosBuildSettingsResolved "$IOS_BUILD_SETTINGS_RESOLVED" \
+  --argjson iosTargetBuildSettingsConfigured "$IOS_TARGET_BUILD_SETTINGS_CONFIGURED" \
+  --argjson iosProductionBuildSettingsConfigured "$IOS_PRODUCTION_BUILD_SETTINGS_CONFIGURED" \
+  --argjson iosBuildSettingsMatchEnvironment "$IOS_BUILD_SETTINGS_MATCH_ENVIRONMENT" \
+  --argjson iosBuildSettingsMismatches "$IOS_BUILD_SETTINGS_MISMATCHES_JSON" \
   --argjson iosPrivacyManifest "$IOS_PRIVACY_MANIFEST" \
   --argjson iosAppIcon "$IOS_APP_ICON" \
   --argjson iosSyncImplemented "$IOS_SYNC_IMPLEMENTED" \
+  --argjson macAppStoreStaticProjectValidation "$MAC_APP_STORE_STATIC_PROJECT_VALIDATION" \
   --argjson macAppStoreXcodeProject "$MAC_APP_STORE_XCODE_PROJECT" \
   --argjson macAppStoreTargetMembership "$MAC_APP_STORE_TARGET_MEMBERSHIP" \
   --argjson macAppStoreRuntimeResources "$MAC_APP_STORE_RUNTIME_RESOURCES_IN_TARGET" \
@@ -682,6 +773,9 @@ fi
     iosDevelopmentTeam: (if $iosDevelopmentTeam == "" then null else $iosDevelopmentTeam end),
     iosCloudKitContainerConfigured: $iosCloudKitContainerConfigured,
     iosCloudKitContainer: (if $iosCloudKitContainer == "" then null else $iosCloudKitContainer end),
+    iosDisplayName: (if $iosDisplayName == "" then null else $iosDisplayName end),
+    iosMarketingVersion: (if $iosMarketingVersion == "" then null else $iosMarketingVersion end),
+    iosBuildNumber: (if $iosBuildNumber == "" then null else $iosBuildNumber end),
     iosPrivacyPolicyURLConfigured: $iosPrivacyPolicyURLConfigured,
     iosSupportURLConfigured: $iosSupportURLConfigured,
     cloudKitProductionSchemaVerified: $cloudKitProductionSchemaVerified,
@@ -689,6 +783,14 @@ fi
     iosLiveActivityVerified: $iosLiveActivityVerified,
     iosReviewPathVerified: $iosReviewPathVerified,
     iosProjectConfigured: $iosProject,
+    iosProjectPath: $iosXcodeProject,
+    iosScheme: $iosXcodeScheme,
+    iosProjectReleaseValidationPassed: $iosProjectReleaseValidation,
+    iosBuildSettingsResolved: $iosBuildSettingsResolved,
+    iosTargetBuildSettingsConfigured: $iosTargetBuildSettingsConfigured,
+    iosProductionBuildSettingsConfigured: $iosProductionBuildSettingsConfigured,
+    iosBuildSettingsMatchEnvironment: $iosBuildSettingsMatchEnvironment,
+    iosBuildSettingsMismatches: $iosBuildSettingsMismatches,
     iosPrivacyManifestPresent: $iosPrivacyManifest,
     iosAppIconPresent: $iosAppIcon,
     iosSyncTransportImplemented: $iosSyncImplemented,
@@ -697,6 +799,7 @@ fi
     macAppStoreTargetName: (if $macAppStoreTargetName == "" then null else $macAppStoreTargetName end),
     macAppStoreEntitlementsPath: (if $macAppStoreEntitlementsPath == "" then null else $macAppStoreEntitlementsPath end),
     macAppStoreInfoPlistPath: (if $macAppStoreInfoPlistPath == "" then null else $macAppStoreInfoPlistPath end),
+    macAppStoreStaticProjectValidationPassed: $macAppStoreStaticProjectValidation,
     macAppStoreXcodeProjectConfigured: $macAppStoreXcodeProject,
     macAppStoreTargetMembershipConfigured: $macAppStoreTargetMembership,
     macAppStoreRuntimeResourcesInTarget: $macAppStoreRuntimeResources,

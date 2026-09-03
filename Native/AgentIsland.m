@@ -8,12 +8,16 @@
 #import <WebKit/WebKit.h>
 #import <arpa/inet.h>
 #import <limits.h>
+#import <pwd.h>
 #import <sqlite3.h>
+#import <string.h>
+#import <unistd.h>
 
 static NSString * const AILanguageDefaultsKey = @"AgentIslandLanguageV1";
 static NSString * const AIDataAccessConsentDefaultsKey = @"AgentIslandDataAccessConsentV1";
 static NSString * const AIMonitoringEnabledDefaultsKey = @"AgentIslandMonitoringEnabledV1";
-static const NSInteger AIDataAccessConsentVersion = 1;
+static NSString * const AIHomeAccessBookmarkDefaultsKey = @"AgentIslandHomeAccessBookmarkV1";
+static const NSInteger AIDataAccessConsentVersion = 2;
 static NSString * const AITranslatorDefaultsKey = @"AgentIslandTranslatorConfigV1";
 static NSString * const AITranslatorUsageDefaultsKey = @"AgentIslandTranslatorUsageV1";
 static NSString * const AICloudSyncDefaultsKey = @"AgentIslandCloudSyncV1";
@@ -35,6 +39,93 @@ static NSString * const AITranslatorDefaultModel = @"deepseek-v4-flash";
 static const NSUInteger AITranslatorMaximumResponseBytes = 512ull * 1024ull;
 static const CGFloat AICompactIslandWidth = 220.0;
 static const CGFloat AICompactIslandHeight = 34.0;
+
+static NSString *AIText(NSString *chinese, NSString *english);
+
+static NSString *AIUserHomeDirectory(void) {
+    NSString *path = nil;
+    struct passwd *account = getpwuid(getuid());
+    if (account && account->pw_dir) {
+        path = [NSFileManager.defaultManager stringWithFileSystemRepresentation:account->pw_dir
+            length:strlen(account->pw_dir)];
+    }
+    if (path.length == 0) path = NSHomeDirectoryForUser(NSUserName());
+    if (path.length == 0) path = NSHomeDirectory();
+    return path.stringByStandardizingPath.stringByResolvingSymlinksInPath;
+}
+
+static BOOL AIAppIsSandboxed(void) {
+    SecTaskRef task = SecTaskCreateFromSelf(NULL);
+    if (!task) return NSProcessInfo.processInfo.environment[@"APP_SANDBOX_CONTAINER_ID"] != nil;
+    CFErrorRef error = NULL;
+    CFTypeRef value = SecTaskCopyValueForEntitlement(task, CFSTR("com.apple.security.app-sandbox"), &error);
+    BOOL sandboxed = value && CFGetTypeID(value) == CFBooleanGetTypeID() && CFBooleanGetValue(value);
+    if (value) CFRelease(value);
+    if (error) CFRelease(error);
+    CFRelease(task);
+    return sandboxed || NSProcessInfo.processInfo.environment[@"APP_SANDBOX_CONTAINER_ID"] != nil;
+}
+
+static BOOL AIURLIsUserHome(NSURL *url) {
+    if (!url.isFileURL || url.path.length == 0) return NO;
+    NSString *selected = url.path.stringByStandardizingPath.stringByResolvingSymlinksInPath;
+    return [selected isEqualToString:AIUserHomeDirectory()];
+}
+
+static NSURL *AIResolvedHomeAccessURL(BOOL refreshStaleBookmark, NSError **errorResult) {
+    if (errorResult) *errorResult = nil;
+    NSData *bookmark = [NSUserDefaults.standardUserDefaults dataForKey:AIHomeAccessBookmarkDefaultsKey];
+    if (![bookmark isKindOfClass:NSData.class] || bookmark.length == 0) return nil;
+    BOOL stale = NO;
+    NSError *error = nil;
+    NSURL *url = [NSURL URLByResolvingBookmarkData:bookmark
+        options:NSURLBookmarkResolutionWithSecurityScope | NSURLBookmarkResolutionWithoutUI
+        relativeToURL:nil bookmarkDataIsStale:&stale error:&error];
+    if (!url || !AIURLIsUserHome(url)) {
+        if (errorResult) *errorResult = error ?: [NSError errorWithDomain:@"AgentIslandHomeAccess"
+            code:1 userInfo:@{NSLocalizedDescriptionKey: AIText(@"保存的主目录授权无效",
+                @"The saved Home-folder authorization is invalid")}];
+        return nil;
+    }
+    if (stale && refreshStaleBookmark) {
+        BOOL accessing = [url startAccessingSecurityScopedResource];
+        NSError *bookmarkError = nil;
+        NSData *updated = [url bookmarkDataWithOptions:NSURLBookmarkCreationWithSecurityScope |
+            NSURLBookmarkCreationSecurityScopeAllowOnlyReadAccess includingResourceValuesForKeys:nil
+            relativeToURL:nil error:&bookmarkError];
+        if (accessing) [url stopAccessingSecurityScopedResource];
+        if (updated.length) [NSUserDefaults.standardUserDefaults setObject:updated
+            forKey:AIHomeAccessBookmarkDefaultsKey];
+        else if (errorResult) *errorResult = bookmarkError;
+    }
+    return url;
+}
+
+static BOOL AIHomeAccessAuthorized(void) {
+    if (!AIAppIsSandboxed()) return YES;
+    NSURL *url = AIResolvedHomeAccessURL(YES, NULL);
+    BOOL accessing = url && [url startAccessingSecurityScopedResource];
+    if (accessing) [url stopAccessingSecurityScopedResource];
+    return accessing;
+}
+
+static BOOL AIHomeAccessBookmarkStored(void) {
+    return [NSUserDefaults.standardUserDefaults objectForKey:AIHomeAccessBookmarkDefaultsKey] != nil;
+}
+
+static BOOL AIPathIsLexicallyInsideDirectory(NSString *path, NSString *directory) {
+    NSString *candidate = path.stringByStandardizingPath;
+    NSString *root = directory.stringByStandardizingPath;
+    if (candidate.length == 0 || root.length == 0) return NO;
+    return [candidate isEqualToString:root] ||
+        [candidate hasPrefix:[root stringByAppendingString:@"/"]];
+}
+
+static BOOL AIPathIsInsideDirectory(NSString *path, NSString *directory) {
+    NSString *candidate = path.stringByStandardizingPath.stringByResolvingSymlinksInPath;
+    NSString *root = directory.stringByStandardizingPath.stringByResolvingSymlinksInPath;
+    return AIPathIsLexicallyInsideDirectory(candidate, root);
+}
 
 static NSString *AILanguagePreference(void) {
     NSString *value = [NSUserDefaults.standardUserDefaults stringForKey:AILanguageDefaultsKey];
@@ -931,7 +1022,7 @@ static NSDictionary<NSString *, NSDictionary *> *AICodexDurations(NSString *hist
 
 static NSArray<NSDictionary *> *AIScanCodex(NSMutableArray<NSString *> *warnings, BOOL *collectorSuccess) {
     if (collectorSuccess) *collectorSuccess = NO;
-    NSString *root = [NSHomeDirectory() stringByAppendingPathComponent:@".codex"];
+    NSString *root = [AIUserHomeDirectory() stringByAppendingPathComponent:@".codex"];
     NSString *statePath = [root stringByAppendingPathComponent:@"state_5.sqlite"];
     NSString *historyPath = [root stringByAppendingPathComponent:@"thread_history_1.sqlite"];
     if (![NSFileManager.defaultManager fileExistsAtPath:statePath]) {
@@ -960,6 +1051,9 @@ static NSArray<NSDictionary *> *AIScanCodex(NSMutableArray<NSString *> *warnings
     NSMutableArray *sessions = [NSMutableArray array];
     long long nowMs = (long long)(NSDate.date.timeIntervalSince1970 * 1000.0);
     unsigned long long fullScanBudget = 256ull * 1024ull * 1024ull;
+    NSString *sessionsRoot = [root stringByAppendingPathComponent:@"sessions"];
+    NSString *archivedSessionsRoot = [root stringByAppendingPathComponent:@"archived_sessions"];
+    BOOL reportedUntrustedRolloutPath = NO;
 
     BOOL stateQuerySucceeded = NO;
     if (sqlite3_prepare_v2(database, sql, -1, &statement, NULL) != SQLITE_OK) {
@@ -990,13 +1084,32 @@ static NSArray<NSDictionary *> *AIScanCodex(NSMutableArray<NSString *> *warnings
             long long activeStarted = AINumber(duration[@"activeStartedAt"]);
             if (working && activeStarted > 0) durationMs += MAX(0, nowMs - activeStarted * 1000ll);
 
-            NSDictionary *rolloutAttributes = [NSFileManager.defaultManager attributesOfItemAtPath:rolloutPath error:nil];
+            NSString *standardRolloutPath = rolloutPath.length > 0 ?
+                rolloutPath.stringByStandardizingPath : @"";
+            BOOL lexicallyInsideKnownDirectory = standardRolloutPath.length > 0 &&
+                (AIPathIsLexicallyInsideDirectory(standardRolloutPath, sessionsRoot) ||
+                 AIPathIsLexicallyInsideDirectory(standardRolloutPath, archivedSessionsRoot));
+            NSString *canonicalRolloutPath = lexicallyInsideKnownDirectory ?
+                standardRolloutPath.stringByResolvingSymlinksInPath.stringByStandardizingPath : @"";
+            BOOL trustedRolloutPath = canonicalRolloutPath.length > 0 &&
+                [canonicalRolloutPath.pathExtension.lowercaseString isEqual:@"jsonl"] &&
+                (AIPathIsInsideDirectory(canonicalRolloutPath, sessionsRoot) ||
+                 AIPathIsInsideDirectory(canonicalRolloutPath, archivedSessionsRoot));
+            if (rolloutPath.length > 0 && !trustedRolloutPath && !reportedUntrustedRolloutPath) {
+                reportedUntrustedRolloutPath = YES;
+                [warnings addObject:AIText(
+                    @"已忽略不在 Codex 已知会话目录内的日志路径",
+                    @"Ignored a log path outside known Codex session directories")];
+            }
+            NSDictionary *rolloutAttributes = trustedRolloutPath ?
+                [NSFileManager.defaultManager attributesOfItemAtPath:canonicalRolloutPath error:nil] : nil;
             unsigned long long rolloutSize = [rolloutAttributes[NSFileSize] unsignedLongLongValue];
             BOOL canFullScan = [rolloutAttributes[NSFileType] isEqual:NSFileTypeRegular] &&
                 rolloutSize > 0 && rolloutSize <= 64ull * 1024ull * 1024ull &&
                 rolloutSize <= fullScanBudget && (rowIndex < 30 || working);
-            NSMutableDictionary *usage = canFullScan ? [AIFullCodexUsage(rolloutPath) mutableCopy] :
-                ((rowIndex < 180 || working) ? [AILastCodexUsage(rolloutPath) mutableCopy] : [NSMutableDictionary dictionary]);
+            NSMutableDictionary *usage = canFullScan ? [AIFullCodexUsage(canonicalRolloutPath) mutableCopy] :
+                ((trustedRolloutPath && (rowIndex < 180 || working)) ?
+                    [AILastCodexUsage(canonicalRolloutPath) mutableCopy] : [NSMutableDictionary dictionary]);
             if (canFullScan) fullScanBudget -= rolloutSize;
             if (usage.count == 0) {
                 usage = [@{
@@ -1427,7 +1540,7 @@ static NSArray<NSDictionary *> *AIScanClaudeAtRoot(NSString *root, NSMutableArra
 }
 
 static NSSet<NSString *> *AIVSCodeClaudeSessionIDs(void) {
-    NSString *path = [NSHomeDirectory() stringByAppendingPathComponent:
+    NSString *path = [AIUserHomeDirectory() stringByAppendingPathComponent:
         @"Library/Application Support/Code/User/globalStorage/agent-host.db"];
     NSDictionary *attributes = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
     if (![attributes[NSFileType] isEqual:NSFileTypeRegular] ||
@@ -1466,7 +1579,7 @@ static NSSet<NSString *> *AIVSCodeClaudeSessionIDs(void) {
 
 static NSArray<NSDictionary *> *AIScanClaude(NSMutableArray<NSString *> *warnings, BOOL *collectorSuccess) {
     NSArray<NSDictionary *> *scanned = AIScanClaudeAtRoot(
-        [NSHomeDirectory() stringByAppendingPathComponent:@".claude/projects"], warnings, collectorSuccess);
+        [AIUserHomeDirectory() stringByAppendingPathComponent:@".claude/projects"], warnings, collectorSuccess);
     NSSet<NSString *> *vscodeSessionIDs = AIVSCodeClaudeSessionIDs();
     if (vscodeSessionIDs.count == 0 || scanned.count == 0) return scanned;
     NSMutableArray<NSDictionary *> *sessions = [NSMutableArray arrayWithCapacity:scanned.count];
@@ -1573,8 +1686,8 @@ static NSArray<NSDictionary *> *AICustomSources(void) {
         NSString *storedPath = [source[@"path"] isKindOfClass:NSString.class] ? source[@"path"] : nil;
         NSString *identifier = [source[@"id"] isKindOfClass:NSString.class] ? source[@"id"] : nil;
         if (!storedPath.length || !identifier.length) continue;
-        NSString *path = AIValidatedCustomSourcePath(storedPath, NO, NULL, NULL, NULL);
-        if (!path.length) continue;
+        NSString *path = [[storedPath stringByExpandingTildeInPath] stringByStandardizingPath];
+        if (![path hasPrefix:@"/"] || path.length > PATH_MAX * 4) continue;
         NSString *name = [source[@"name"] isKindOfClass:NSString.class] ? source[@"name"] : path.lastPathComponent;
         NSString *provider = [source[@"provider"] isKindOfClass:NSString.class] ? source[@"provider"] : @"Custom";
         [validated addObject:@{@"id": identifier, @"path": path,
@@ -1929,12 +2042,12 @@ static NSArray<NSDictionary *> *AIInstalledAIExtensions(NSString *host, NSString
     NSMutableDictionary<NSString *, NSDictionary *> *extensions = [NSMutableDictionary dictionary];
     if ([host isEqual:@"vscode"]) {
         AICollectExtensionManifest(extensions,
-            [NSHomeDirectory() stringByAppendingPathComponent:@".vscode/extensions/extensions.json"]);
+            [AIUserHomeDirectory() stringByAppendingPathComponent:@".vscode/extensions/extensions.json"]);
         if (applicationPath.length) AICollectBuiltinExtension(extensions, [applicationPath
             stringByAppendingPathComponent:@"Contents/Resources/app/extensions/copilot/package.json"]);
     } else if ([host isEqual:@"cursor"]) {
         AICollectExtensionManifest(extensions,
-            [NSHomeDirectory() stringByAppendingPathComponent:@".cursor/extensions/extensions.json"]);
+            [AIUserHomeDirectory() stringByAppendingPathComponent:@".cursor/extensions/extensions.json"]);
         if (applicationPath.length) {
             NSString *root = [applicationPath stringByAppendingPathComponent:@"Contents/Resources/app/extensions"];
             for (NSString *name in @[@"cursor-agent-host", @"cursor-local-agent-runtime",
@@ -1944,7 +2057,7 @@ static NSArray<NSDictionary *> *AIInstalledAIExtensions(NSString *host, NSString
         }
     } else if ([host isEqual:@"windsurf"]) {
         AICollectExtensionManifest(extensions,
-            [NSHomeDirectory() stringByAppendingPathComponent:@".windsurf/extensions/extensions.json"]);
+            [AIUserHomeDirectory() stringByAppendingPathComponent:@".windsurf/extensions/extensions.json"]);
     }
     return [extensions.allValues sortedArrayUsingComparator:^NSComparisonResult(NSDictionary *left, NSDictionary *right) {
         NSComparisonResult byName = [left[@"name"] localizedCaseInsensitiveCompare:right[@"name"]];
@@ -2375,7 +2488,7 @@ static NSString *AIMobileSafeOptionalTitle(id value) {
     if (title.length == 0 ||
         [title rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location != NSNotFound) return nil;
     NSString *lowercaseTitle = title.lowercaseString;
-    NSString *home = NSHomeDirectory();
+    NSString *home = AIUserHomeDirectory();
     if ((home.length && [title rangeOfString:home options:NSCaseInsensitiveSearch].location != NSNotFound) ||
         [title rangeOfString:@"/Users/" options:NSCaseInsensitiveSearch].location != NSNotFound ||
         [title containsString:@"/"] || [title containsString:@"\\"] ||
@@ -2668,7 +2781,7 @@ static BOOL AIHostMetricsAvailable(NSArray<NSDictionary *> *sessions, NSString *
 
 static NSArray<NSDictionary *> *AIDiscoverTools(NSArray<NSDictionary *> *sessions,
     BOOL codexCollectorSucceeded, BOOL claudeCollectorSucceeded) {
-    NSString *home = NSHomeDirectory();
+    NSString *home = AIUserHomeDirectory();
     NSDictionary *vscodeEvidence = AIApplicationEvidence(@[@"com.microsoft.VSCode"],
         @[@"/Applications/Visual Studio Code.app", [home stringByAppendingPathComponent:@"Applications/Visual Studio Code.app"]],
         @[[home stringByAppendingPathComponent:@"Library/Application Support/Code"]]);
@@ -3080,6 +3193,11 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 @property(nonatomic, strong) NSDate *hoverSuppressedUntil;
 @property(nonatomic) BOOL qaCaptured;
 @property(nonatomic) BOOL workspaceDelivered;
+@property(nonatomic, strong) NSURL *activeHomeAccessURL;
+@property(nonatomic) BOOL activeHomeSecurityScope;
+- (void)authorizeHomeAccessStartingMonitoring:(BOOL)startAfterAuthorization;
+- (void)revokeHomeAccess;
+- (void)endActiveHomeAccessIfNeeded;
 @end
 
 @implementation AIAppDelegate
@@ -3140,6 +3258,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     [self.hoverCollapseTimer invalidate];
     [self.translatorTask cancel];
     [self.translatorSession invalidateAndCancel];
+    [self endActiveHomeAccessIfNeeded];
     if (self.escapeMonitor) [NSEvent removeMonitor:self.escapeMonitor];
     [self.webView.configuration.userContentController removeScriptMessageHandlerForName:@"agentIsland"];
     [NSWorkspace.sharedWorkspace.notificationCenter removeObserver:self];
@@ -3165,9 +3284,20 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     NSMenuItem *refreshItem = [menu addItemWithTitle:AIText(@"立即刷新", @"Refresh Now")
         action:@selector(refreshFromMenu:) keyEquivalent:@"r"];
     refreshItem.target = self;
-    refreshItem.enabled = self.monitoringEnabled;
+    refreshItem.enabled = self.monitoringEnabled && AIHomeAccessAuthorized();
     [menu addItemWithTitle:AIText(@"本机数据访问说明…", @"Local Data Access…")
         action:@selector(reviewDataAccessFromMenu:) keyEquivalent:@""].target = self;
+    if (AIAppIsSandboxed()) {
+        NSString *authorizationTitle = AIHomeAccessAuthorized() ?
+            AIText(@"重新授权主目录…", @"Reauthorize Home Folder…") :
+            AIText(@"授权主目录…", @"Authorize Home Folder…");
+        [menu addItemWithTitle:authorizationTitle
+            action:@selector(authorizeHomeAccessFromMenu:) keyEquivalent:@""].target = self;
+        if (AIHomeAccessBookmarkStored()) {
+            [menu addItemWithTitle:AIText(@"撤销主目录授权", @"Revoke Home Folder Access")
+                action:@selector(revokeHomeAccessFromMenu:) keyEquivalent:@""].target = self;
+        }
+    }
     [menu addItemWithTitle:AIText(@"检查更新…", @"Check for Updates…")
         action:@selector(checkForUpdatesFromMenu:) keyEquivalent:@""].target = self;
     NSMenuItem *languageItem = [menu addItemWithTitle:AIText(@"语言", @"Language") action:nil keyEquivalent:@""];
@@ -3246,11 +3376,16 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (NSDictionary *)dataAccessPublicState {
+    BOOL sandboxed = AIAppIsSandboxed();
     return @{
         @"consentVersion": @(self.dataAccessConsented ? AIDataAccessConsentVersion : 0),
         @"requiredConsentVersion": @(AIDataAccessConsentVersion),
         @"consented": @(self.dataAccessConsented),
-        @"monitoringEnabled": @(self.monitoringEnabled)
+        @"monitoringEnabled": @(self.monitoringEnabled),
+        @"sandboxed": @(sandboxed),
+        @"homeAccessRequired": @(sandboxed),
+        @"homeAccessAuthorized": @(AIHomeAccessAuthorized()),
+        @"homeAccessStored": @(AIHomeAccessBookmarkStored())
     };
 }
 
@@ -3265,7 +3400,17 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 
 - (void)startMonitoring {
     if (!self.dataAccessConsented || !self.monitoringEnabled) return;
-    self.monitoringGeneration += 1;
+    if (!AIHomeAccessAuthorized()) {
+        self.monitoringEnabled = NO;
+        [NSUserDefaults.standardUserDefaults setBool:NO forKey:AIMonitoringEnabledDefaultsKey];
+        [self rebuildStatusMenu];
+        [self pushDataAccessStateWithMessage:AIText(
+            @"需要先授权主目录，才能在 App Sandbox 中读取受支持的 Agent 日志",
+            @"Authorize your Home folder before the app can read supported Agent logs inside App Sandbox")
+            clearSnapshot:YES];
+        return;
+    }
+    @synchronized (self) { self.monitoringGeneration += 1; }
     if (!self.refreshTimer) {
         self.refreshTimer = [NSTimer timerWithTimeInterval:8.0 target:self
             selector:@selector(refreshTimerFired:) userInfo:nil repeats:YES];
@@ -3277,8 +3422,25 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     [self refreshSnapshot];
 }
 
+- (void)endActiveHomeAccessIfNeeded {
+    @synchronized (self) {
+        if (self.activeHomeSecurityScope && self.activeHomeAccessURL) {
+            [self.activeHomeAccessURL stopAccessingSecurityScopedResource];
+        }
+        self.activeHomeSecurityScope = NO;
+        self.activeHomeAccessURL = nil;
+    }
+}
+
 - (void)stopMonitoring {
-    self.monitoringGeneration += 1;
+    @synchronized (self) {
+        self.monitoringGeneration += 1;
+        if (self.activeHomeSecurityScope && self.activeHomeAccessURL) {
+            [self.activeHomeAccessURL stopAccessingSecurityScopedResource];
+        }
+        self.activeHomeSecurityScope = NO;
+        self.activeHomeAccessURL = nil;
+    }
     self.refreshAfterCurrent = NO;
     [self.refreshTimer invalidate];
     self.refreshTimer = nil;
@@ -3293,8 +3455,8 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     alert.alertStyle = NSAlertStyleInformational;
     alert.messageText = AIText(@"本机 Agent 数据访问", @"Local Agent Data Access");
     alert.informativeText = AIText(
-        @"“MAC版灵动岛--Agent运行监测”会只读扫描本机受支持的 Codex、Claude 和 IDE Agent 日志与元数据，仅提取运行状态、时长、Token 和来源明确提供的标题。\n\n它不提取、展示或保存 prompt 与响应正文，这些正文也不会用于 iPhone/iCloud 同步。不会请求摄像头、麦克风、屏幕录制或辅助功能权限。\n\n你可随时在“设置 → 本机数据访问”停止监测、重新查看说明，并在“高级 · 自定义数据源”移除自定义数据源。",
-        @"The app performs read-only scans of supported local Codex, Claude, and IDE Agent logs and metadata. It extracts only running state, duration, Token counts, and titles explicitly supplied by a source.\n\nIt does not extract, display, or store prompt or response bodies, and those bodies are never used for iPhone/iCloud sync. It does not request Camera, Microphone, Screen Recording, or Accessibility access.\n\nYou can stop monitoring or review this notice at any time under Settings → Local Data Access, and remove custom sources under Advanced · Custom sources.");
+        @"“MAC版灵动岛--Agent运行监测”会只读扫描本机受支持的 Codex、Claude 和 IDE Agent 日志与元数据。它会在本机处理工具是否安装或运行、会话标题、Agent/工具/服务名称、模型名、项目路径、状态、时间戳、工作时长、Token 计数和来源归因信息，用于生成实时、历史、工具和会话视图。\n\nMac App Store 版本运行在 App Sandbox 中，会请你用系统选择器明确授权“主目录”的只读访问。应用仅扫描已支持工具的已知日志位置；授权可随时撤销。\n\n它不提取、展示或保存 prompt 与响应正文，这些正文也不会用于 iPhone/iCloud 同步。不会请求摄像头、麦克风、屏幕录制或辅助功能权限。\n\n你可随时在“设置 → 本机数据访问”停止监测、重新查看说明、重新授权或撤销主目录授权。",
+        @"The app performs read-only scans of supported local Codex, Claude, and IDE Agent logs and metadata. On this Mac it processes whether tools are installed or running, conversation titles, Agent/tool/provider names, model names, project paths, state, timestamps, elapsed time, Token counts, and source-attribution metadata to produce live, history, tool, and conversation views.\n\nThe Mac App Store build runs inside App Sandbox and asks you to explicitly grant read-only access to your Home folder with the system picker. The app scans only known log locations for supported tools, and you can revoke this authorization at any time.\n\nIt does not extract, display, or store prompt or response bodies, and those bodies are never used for iPhone/iCloud sync. It does not request Camera, Microphone, Screen Recording, or Accessibility access.\n\nYou can stop monitoring, review this notice, reauthorize, or revoke Home-folder access at any time under Settings → Local Data Access.");
     if (allowingStart) {
         [alert addButtonWithTitle:AIText(@"允许只读监测", @"Allow Read-Only Monitoring")];
         [alert addButtonWithTitle:AIText(@"暂不开始", @"Not Now")];
@@ -3306,10 +3468,16 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     if (allowingStart && response == NSAlertFirstButtonReturn) {
         NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
         [defaults setInteger:AIDataAccessConsentVersion forKey:AIDataAccessConsentDefaultsKey];
-        [defaults setBool:YES forKey:AIMonitoringEnabledDefaultsKey];
         self.dataAccessConsented = YES;
-        self.monitoringEnabled = YES;
-        [self startMonitoring];
+        if (AIAppIsSandboxed() && !AIHomeAccessAuthorized()) {
+            self.monitoringEnabled = NO;
+            [defaults setBool:NO forKey:AIMonitoringEnabledDefaultsKey];
+            [self authorizeHomeAccessStartingMonitoring:YES];
+        } else {
+            [defaults setBool:YES forKey:AIMonitoringEnabledDefaultsKey];
+            self.monitoringEnabled = YES;
+            [self startMonitoring];
+        }
     } else {
         [self pushDataAccessStateWithMessage:self.dataAccessConsented ? @"" :
             AIText(@"本机监测尚未开启；确认前不会扫描 Agent 日志",
@@ -3326,6 +3494,10 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
         [self presentDataAccessDisclosureAllowingStart:YES];
         return;
     }
+    if (enabled && AIAppIsSandboxed() && !AIHomeAccessAuthorized()) {
+        [self authorizeHomeAccessStartingMonitoring:YES];
+        return;
+    }
     self.monitoringEnabled = enabled;
     [NSUserDefaults.standardUserDefaults setBool:enabled forKey:AIMonitoringEnabledDefaultsKey];
     if (enabled) [self startMonitoring];
@@ -3334,6 +3506,121 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 
 - (void)reviewDataAccessFromMenu:(id)sender {
     [self presentDataAccessDisclosureAllowingStart:!self.dataAccessConsented];
+}
+
+- (void)authorizeHomeAccessFromMenu:(id)sender {
+    if (!self.dataAccessConsented) [self presentDataAccessDisclosureAllowingStart:YES];
+    else [self authorizeHomeAccessStartingMonitoring:NO];
+}
+
+- (void)revokeHomeAccessFromMenu:(id)sender { [self revokeHomeAccess]; }
+
+- (void)authorizeHomeAccessStartingMonitoring:(BOOL)startAfterAuthorization {
+    if (!AIAppIsSandboxed()) {
+        if (startAfterAuthorization && self.dataAccessConsented) {
+            self.monitoringEnabled = YES;
+            [NSUserDefaults.standardUserDefaults setBool:YES forKey:AIMonitoringEnabledDefaultsKey];
+            [self startMonitoring];
+        }
+        return;
+    }
+    NSOpenPanel *openPanel = [NSOpenPanel openPanel];
+    openPanel.title = AIText(@"授权主目录的只读访问", @"Authorize Read-Only Home Folder Access");
+    openPanel.message = AIText(
+        @"请选择你的主目录。应用只会扫描受支持 Agent 工具的已知日志位置。",
+        @"Select your Home folder. The app scans only known log locations for supported Agent tools.");
+    openPanel.prompt = AIText(@"授权只读访问", @"Authorize Read-Only Access");
+    openPanel.canChooseFiles = NO;
+    openPanel.canChooseDirectories = YES;
+    openPanel.allowsMultipleSelection = NO;
+    openPanel.canCreateDirectories = NO;
+    openPanel.directoryURL = [NSURL fileURLWithPath:AIUserHomeDirectory() isDirectory:YES];
+    self.suppressAutoCollapse = YES;
+    [openPanel beginWithCompletionHandler:^(NSModalResponse result) {
+        self.suppressAutoCollapse = NO;
+        [self.panel makeKeyAndOrderFront:nil];
+        if (result != NSModalResponseOK) {
+            BOOL existingAccess = AIHomeAccessAuthorized();
+            [self pushDataAccessStateWithMessage:existingAccess ? AIText(
+                @"已取消重新授权；现有主目录授权保持不变",
+                @"Reauthorization was cancelled; the existing Home-folder authorization is unchanged") : AIText(
+                @"未授权主目录；App Sandbox 内的 Agent 监测保持关闭",
+                @"Home-folder access was not granted; Agent monitoring remains off inside App Sandbox")
+                clearSnapshot:!self.monitoringEnabled];
+            return;
+        }
+        NSURL *selectedURL = openPanel.URL;
+        if (!AIURLIsUserHome(selectedURL)) {
+            [selectedURL stopAccessingSecurityScopedResource];
+            [self pushDataAccessStateWithMessage:AIText(
+                @"请选择当前用户的主目录，不要选择其子目录或其他位置",
+                @"Select the current user's Home folder, not a subfolder or another location")
+                clearSnapshot:!self.monitoringEnabled];
+            return;
+        }
+        NSError *bookmarkError = nil;
+        NSData *bookmark = [selectedURL bookmarkDataWithOptions:NSURLBookmarkCreationWithSecurityScope |
+            NSURLBookmarkCreationSecurityScopeAllowOnlyReadAccess includingResourceValuesForKeys:nil
+            relativeToURL:nil error:&bookmarkError];
+        // NSOpenPanel's Powerbox grant is already active for the selected URL.
+        // Balance that implicit access before independently verifying the
+        // persisted bookmark so revocation can take effect in this process.
+        [selectedURL stopAccessingSecurityScopedResource];
+        if (bookmark.length == 0) {
+            [self pushDataAccessStateWithMessage:bookmarkError.localizedDescription ?: AIText(
+                @"无法保存主目录授权", @"Unable to save the Home-folder authorization")
+                clearSnapshot:!self.monitoringEnabled];
+            return;
+        }
+        NSData *previousBookmark = [NSUserDefaults.standardUserDefaults
+            dataForKey:AIHomeAccessBookmarkDefaultsKey];
+        [NSUserDefaults.standardUserDefaults setObject:bookmark forKey:AIHomeAccessBookmarkDefaultsKey];
+        NSError *resolutionError = nil;
+        NSURL *resolvedURL = AIResolvedHomeAccessURL(YES, &resolutionError);
+        BOOL verified = resolvedURL && [resolvedURL startAccessingSecurityScopedResource];
+        if (verified) [resolvedURL stopAccessingSecurityScopedResource];
+        if (!verified) {
+            if (previousBookmark.length) [NSUserDefaults.standardUserDefaults setObject:previousBookmark
+                forKey:AIHomeAccessBookmarkDefaultsKey];
+            else [NSUserDefaults.standardUserDefaults removeObjectForKey:AIHomeAccessBookmarkDefaultsKey];
+            [self pushDataAccessStateWithMessage:resolutionError.localizedDescription ?: AIText(
+                @"主目录授权无法被验证，请重试",
+                @"The Home-folder authorization could not be verified; try again")
+                clearSnapshot:!self.monitoringEnabled];
+            return;
+        }
+        [self rebuildStatusMenu];
+        if (startAfterAuthorization && self.dataAccessConsented) {
+            self.monitoringEnabled = YES;
+            [NSUserDefaults.standardUserDefaults setBool:YES forKey:AIMonitoringEnabledDefaultsKey];
+            [self startMonitoring];
+        } else {
+            [self pushDataAccessStateWithMessage:AIText(
+                @"主目录只读授权已保存", @"Read-only Home-folder authorization saved")
+                clearSnapshot:NO];
+        }
+    }];
+}
+
+- (void)revokeHomeAccess {
+    if (!AIAppIsSandboxed() || !AIHomeAccessBookmarkStored()) return;
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.alertStyle = NSAlertStyleWarning;
+    alert.messageText = AIText(@"撤销主目录授权？", @"Revoke Home Folder Access?");
+    alert.informativeText = AIText(
+        @"撤销后会立即停止 Agent 监测并清除界面中的当前监测结果。",
+        @"Revoking access immediately stops Agent monitoring and clears current monitoring results from the interface.");
+    [alert addButtonWithTitle:AIText(@"撤销授权", @"Revoke Access")];
+    [alert addButtonWithTitle:AIText(@"取消", @"Cancel")];
+    [NSApp activateIgnoringOtherApps:YES];
+    if ([alert runModal] != NSAlertFirstButtonReturn) return;
+    [NSUserDefaults.standardUserDefaults removeObjectForKey:AIHomeAccessBookmarkDefaultsKey];
+    self.monitoringEnabled = NO;
+    [NSUserDefaults.standardUserDefaults setBool:NO forKey:AIMonitoringEnabledDefaultsKey];
+    [self stopMonitoring];
+    [self pushDataAccessStateWithMessage:AIText(
+        @"主目录授权已撤销；Agent 监测已停止",
+        @"Home-folder authorization revoked; Agent monitoring is stopped") clearSnapshot:YES];
 }
 
 - (void)checkForUpdatesFromMenu:(id)sender {
@@ -3486,6 +3773,9 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     else if ([action isEqual:@"setLanguage"]) [self setLanguagePreference:body[@"language"]];
     else if ([action isEqual:@"reviewDataAccess"])
         [self presentDataAccessDisclosureAllowingStart:!self.dataAccessConsented];
+    else if ([action isEqual:@"authorizeHomeAccess"])
+        [self authorizeHomeAccessStartingMonitoring:NO];
+    else if ([action isEqual:@"revokeHomeAccess"]) [self revokeHomeAccess];
     else if ([action isEqual:@"setMonitoringEnabled"]) [self setMonitoringEnabledFromBody:body];
     else if ([action isEqual:@"workspaceSave"]) [self saveWorkspace:body];
     else if ([action isEqual:@"openURL"]) [self openExternalURL:body[@"url"]];
@@ -4100,6 +4390,8 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     openPanel.canChooseFiles = YES;
     openPanel.canChooseDirectories = YES;
     openPanel.allowsMultipleSelection = NO;
+    if (AIAppIsSandboxed())
+        openPanel.directoryURL = [NSURL fileURLWithPath:AIUserHomeDirectory() isDirectory:YES];
     UTType *jsonlType = [UTType typeWithFilenameExtension:@"jsonl"];
     if (jsonlType) openPanel.allowedContentTypes = @[jsonlType];
     self.suppressAutoCollapse = YES;
@@ -4107,7 +4399,17 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
         self.suppressAutoCollapse = NO;
         [self.panel makeKeyAndOrderFront:nil];
         if (result != NSModalResponseOK || !openPanel.URL.path.length) return;
-        NSData *data = [NSJSONSerialization dataWithJSONObject:@{@"path": openPanel.URL.path} options:0 error:nil];
+        NSString *selectedPath = [openPanel.URL.path copy];
+        if (AIAppIsSandboxed() && !AIPathIsInsideDirectory(selectedPath, AIUserHomeDirectory())) {
+            [openPanel.URL stopAccessingSecurityScopedResource];
+            [self pushConnectionMessage:AIText(
+                @"Mac App Store 版的自定义数据源必须位于已授权的主目录内",
+                @"In the Mac App Store build, a custom source must be inside the authorized Home folder")
+                success:NO];
+            return;
+        }
+        [openPanel.URL stopAccessingSecurityScopedResource];
+        NSData *data = [NSJSONSerialization dataWithJSONObject:@{@"path": selectedPath} options:0 error:nil];
         NSString *json = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
         [self.webView evaluateJavaScript:[NSString stringWithFormat:
             @"window.AgentIsland&&window.AgentIsland.sourceChosen(%@.path)", json] completionHandler:nil];
@@ -4145,18 +4447,40 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
             provider = [payload[@"provider"] isKindOfClass:NSString.class] ? payload[@"provider"] : nil;
         }
     }
+    path = [path.stringByExpandingTildeInPath stringByStandardizingPath];
+    NSURL *homeAccessURL = AIAppIsSandboxed() ? AIResolvedHomeAccessURL(YES, NULL) : nil;
+    BOOL homeSecurityScopeStarted = homeAccessURL && [homeAccessURL startAccessingSecurityScopedResource];
+    void (^finishHomeAccess)(void) = ^{
+        if (homeSecurityScopeStarted) [homeAccessURL stopAccessingSecurityScopedResource];
+    };
+    if (AIAppIsSandboxed() && !homeSecurityScopeStarted) {
+        [self pushConnectionMessage:AIText(
+            @"请先在“本机数据访问”中授权主目录",
+            @"Authorize the Home folder under Local Data Access first") success:NO];
+        return;
+    }
     BOOL isDirectory = NO;
     NSString *validationMessage = nil;
     path = AIValidatedCustomSourcePath(path, YES, &isDirectory, &validationMessage, NULL);
     if (!path.length) {
+        finishHomeAccess();
         [self pushConnectionMessage:validationMessage ?: AIText(@"数据路径无效，请检查后重试",
             @"The data path is invalid; check it and try again") success:NO];
+        return;
+    }
+    if (AIAppIsSandboxed() && !AIPathIsInsideDirectory(path, AIUserHomeDirectory())) {
+        finishHomeAccess();
+        [self pushConnectionMessage:AIText(
+            @"Mac App Store 版的自定义数据源必须位于已授权的主目录内",
+            @"In the Mac App Store build, a custom source must be inside the authorized Home folder")
+            success:NO];
         return;
     }
     NSMutableArray *sources = [AICustomSources() mutableCopy];
     for (NSDictionary *entry in sources) {
         NSString *existingPath = [entry[@"path"] stringByResolvingSymlinksInPath];
         if ([existingPath isEqual:path]) {
+            finishHomeAccess();
             [self pushConnectionMessage:AIText(@"该本地数据源已经连接",
                 @"This local data source is already connected") success:YES];
             return;
@@ -4166,6 +4490,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
         NSString *existingPrefix = [existingPath stringByAppendingString:@"/"];
         NSString *newPrefix = [path stringByAppendingString:@"/"];
         if ((existingDirectory && [path hasPrefix:existingPrefix]) || (isDirectory && [existingPath hasPrefix:newPrefix])) {
+            finishHomeAccess();
             [self pushConnectionMessage:AIText(@"该路径与已连接的数据源重叠，可能造成重复计数",
                 @"This path overlaps an existing source and may cause duplicate counting") success:NO];
             return;
@@ -4175,6 +4500,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     NSString *providerName = AICleanName(provider.length ? provider : @"Custom", @"Custom");
     [sources addObject:@{@"id": NSUUID.UUID.UUIDString, @"name": displayName, @"path": path, @"provider": providerName}];
     [NSUserDefaults.standardUserDefaults setObject:sources forKey:@"AgentIslandCustomSourcesV1"];
+    finishHomeAccess();
     [self pushConnectionMessage:[NSString stringWithFormat:
         AIText(@"已连接 %@，开始只读扫描", @"Connected %@; starting a read-only scan"), displayName] success:YES];
     [self refreshSnapshot];
@@ -4475,9 +4801,44 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     }
     if (self.refreshing) return;
     self.refreshing = YES;
-    NSUInteger generation = self.monitoringGeneration;
+    __block NSUInteger generation = 0;
+    @synchronized (self) { generation = self.monitoringGeneration; }
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        BOOL sandboxed = AIAppIsSandboxed();
+        NSError *accessError = nil;
+        NSURL *homeAccessURL = sandboxed ? AIResolvedHomeAccessURL(YES, &accessError) : nil;
+        BOOL securityScopeStarted = homeAccessURL && [homeAccessURL startAccessingSecurityScopedResource];
+        if (sandboxed && !securityScopeStarted) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.refreshing = NO;
+                BOOL currentGeneration = NO;
+                @synchronized (self) { currentGeneration = generation == self.monitoringGeneration; }
+                if (!currentGeneration) return;
+                self.monitoringEnabled = NO;
+                [NSUserDefaults.standardUserDefaults setBool:NO forKey:AIMonitoringEnabledDefaultsKey];
+                [self stopMonitoring];
+                [self pushDataAccessStateWithMessage:accessError.localizedDescription ?: AIText(
+                    @"主目录只读授权已失效，请重新授权后再开启监测",
+                    @"Read-only Home-folder authorization is unavailable; reauthorize it before monitoring")
+                    clearSnapshot:YES];
+            });
+            return;
+        }
+        BOOL shouldScan = YES;
+        @synchronized (self) {
+            shouldScan = self.monitoringEnabled && generation == self.monitoringGeneration;
+            if (shouldScan && securityScopeStarted) {
+                self.activeHomeAccessURL = homeAccessURL;
+                self.activeHomeSecurityScope = YES;
+            }
+        }
+        if (!shouldScan) {
+            if (securityScopeStarted) [homeAccessURL stopAccessingSecurityScopedResource];
+            dispatch_async(dispatch_get_main_queue(), ^{ self.refreshing = NO; });
+            return;
+        }
         NSDictionary *snapshot = AISnapshot();
+        if (securityScopeStarted) [self endActiveHomeAccessIfNeeded];
         dispatch_async(dispatch_get_main_queue(), ^{
             self.refreshing = NO;
             if (!self.monitoringEnabled || generation != self.monitoringGeneration) {

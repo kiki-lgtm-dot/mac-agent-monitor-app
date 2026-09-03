@@ -1364,7 +1364,7 @@
 
             <article class="card settings-card" id="dataAccessCard">
               <h2 data-i18n="dataAccessTitle">本机数据访问</h2>
-              <p data-i18n="dataAccessIntro">只读扫描受支持的 Codex、Claude 和 IDE Agent 日志；只提取状态、时长、Token 和来源明确提供的标题。</p>
+              <p data-i18n="dataAccessIntro">只读扫描受支持的日志与元数据，在本机处理工具/Agent/服务名称、会话标题、模型、项目路径、状态、时间戳、时长、Token 和来源归因。</p>
               <div class="cloud-data-grid">
                 <div class="cloud-data-item"><b data-i18n="readOnlyMonitoring">只读监测</b><small data-i18n="readOnlyMonitoringDetail">不修改或删除第三方日志；停止后不再周期扫描。</small></div>
                 <div class="cloud-data-item"><b data-i18n="contentExcluded">Prompt / 响应正文排除</b><small data-i18n="contentExcludedDetail">不提取、展示或保存正文，也不用于 iPhone/iCloud 同步。</small></div>
@@ -1374,6 +1374,14 @@
                 <div class="setting-copy"><b data-i18n="monitoringControl">本机监测</b><small data-i18n="monitoringControlHint">只有确认说明并开启后才周期刷新。自定义数据源可在下方高级设置中移除。</small></div>
                 <div class="setting-spacer"></div>
                 <button class="switch" id="monitoringSwitch" data-action="toggleMonitoring" role="switch" aria-checked="false" data-i18n-aria-label="toggleMonitoringLabel"></button>
+              </div>
+              <div class="setting-row" id="homeAccessRow" hidden>
+                <div class="setting-copy"><b data-i18n="homeFolderAccess">主目录只读授权</b><small data-i18n="homeFolderAccessHint">Mac App Store 版需要你用系统选择器授权，才能读取受支持工具的已知日志位置。</small></div>
+                <div class="setting-spacer"></div>
+                <div class="release-actions">
+                  <button class="secondary-btn" id="authorizeHomeAccessButton" data-action="authorizeHomeAccess" data-i18n="authorizeHomeFolder">授权主目录…</button>
+                  <button class="danger-btn" id="revokeHomeAccessButton" data-action="revokeHomeAccess" data-i18n="revokeHomeFolder" hidden>撤销授权</button>
+                </div>
               </div>
               <div class="release-actions">
                 <button class="secondary-btn" id="reviewDataAccessButton" data-action="reviewDataAccess" data-i18n="reviewDataAccess">重新查看数据访问说明</button>
@@ -1423,7 +1431,7 @@
             <details>
               <summary data-i18n="advancedSources">高级 · 自定义数据源</summary>
               <div class="details-body">
-                <p style="margin:0 0 13px;color:var(--dim);font-size:14px;line-height:1.5" data-i18n="advancedSourcesHint">仅在需要接入自定义 Agent JSONL 时使用。</p>
+                <p style="margin:0 0 13px;color:var(--dim);font-size:14px;line-height:1.5" data-i18n="advancedSourcesHint">仅在需要接入自定义 Agent JSONL 时使用；Mac App Store 版仅支持已授权主目录内的来源。</p>
                 <div class="connection-row">
                   <input class="input" id="connectionInput" maxlength="2000" placeholder="/Users/me/agent-telemetry.jsonl" />
                   <button class="secondary-btn" data-action="chooseSource" data-i18n="choose">选择…</button>
@@ -1537,12 +1545,13 @@
           markMastered:"标记掌握",markLearning:"继续学习",confirmDeleteStudy:"确定从学习本删除这条内容吗？",
           interfaceLanguage:"界面语言",languageHint:"切换后立即应用到整个灵动岛",privacyMask:"隐私遮罩",
           privacyHint:"隐藏任务名、Agent 名和项目名称，适合录屏",translatorService:"翻译与释义服务",
-          dataAccessTitle:"本机数据访问",dataAccessIntro:"只读扫描受支持的 Codex、Claude 和 IDE Agent 日志；只提取状态、时长、Token 和来源明确提供的标题。",
+          dataAccessTitle:"本机数据访问",dataAccessIntro:"只读扫描受支持的日志与元数据，在本机处理工具/Agent/服务名称、会话标题、模型、项目路径、状态、时间戳、时长、Token 和来源归因。",
           readOnlyMonitoring:"只读监测",readOnlyMonitoringDetail:"不修改或删除第三方日志；停止后不再周期扫描。",
           contentExcluded:"Prompt / 响应正文排除",contentExcludedDetail:"不提取、展示或保存正文，也不用于 iPhone/iCloud 同步。",
           noSensitivePermissions:"无敏感系统权限",noSensitivePermissionsDetail:"不请求摄像头、麦克风、屏幕录制或辅助功能权限。",
           monitoringControl:"本机监测",monitoringControlHint:"只有确认说明并开启后才周期刷新。自定义数据源可在下方高级设置中移除。",
           toggleMonitoringLabel:"切换本机只读监测",reviewDataAccess:"重新查看数据访问说明",monitoringOn:"本机只读监测已开启。",monitoringOff:"本机监测已停止，不会周期读取 Agent 日志。",monitoringConsentRequired:"请先查看并确认数据访问说明；确认前不扫描 Agent 日志。",confirmStopMonitoring:"停止本机监测？停止后不再周期读取 Agent 日志，当前监测结果会从界面清除。",
+          homeFolderAccess:"主目录只读授权",homeFolderAccessHint:"Mac App Store 版需要你用系统选择器授权，才能读取受支持工具的已知日志位置。",authorizeHomeFolder:"授权主目录…",reauthorizeHomeFolder:"重新授权…",revokeHomeFolder:"撤销授权",homeAuthorizationRequired:"需要先授权主目录，才能在 App Sandbox 中读取 Agent 日志。",
           cloudSyncTitle:"iPhone · iCloud 私有同步",cloudSyncIntro:"默认关闭。开启后，精简快照会离开这台 Mac，写入你 Apple ID 的 CloudKit 私有数据库。",
           staysOnMac:"仅保留在本机",staysOnMacDetail:"Prompt、任务摘要、项目与文件路径、模型、API Key、备忘录、翻译正文。",
           sentToPrivateCloud:"发送到私有 iCloud",sentToPrivateCloudDetail:"Agent/工具类别、运行状态、时长和 Token。对话标题默认不发送。",
@@ -1556,7 +1565,7 @@
           privacyAndSupport:"隐私与支持",privacyAndSupportHint:"正式发布版使用已配置的 HTTPS 页面；开发版不会打开占位地址。",privacyPolicy:"隐私政策",support:"支持与帮助",checkUpdates:"检查更新",safeUpdateHint:"“检查更新”只会用默认浏览器打开发布方配置的 HTTPS 支持/下载页；不会在后台下载或安装软件。",releaseLinksPending:"发布前配置公开 HTTPS 隐私政策和支持/下载页面。",
           translatorServiceHint:"密钥仅交给本机原生层保存，前端不会持久化。",model:"模型",saveConfig:"保存配置",
           configSaving:"正在保存配置…",configSaved:"翻译服务配置已保存",keyStored:"密钥已由本机安全保存",clearAPIKey:"清除密钥",confirmClearAPIKey:"确定清除本机已保存的 API Key 吗？",keyCleared:"已清除本机密钥",
-          advancedSources:"高级 · 自定义数据源",advancedSourcesHint:"仅在需要接入自定义 Agent JSONL 时使用。",
+          advancedSources:"高级 · 自定义数据源",advancedSourcesHint:"仅在需要接入自定义 Agent JSONL 时使用；Mac App Store 版仅支持已授权主目录内的来源。",
           choose:"选择…",connect:"连接",appControls:"应用控制",appControlsHint:"立即刷新监测数据，或完全退出常驻应用。",
           refresh:"立即刷新",quit:"退出",remove:"移除",connectionComplete:"连接操作已完成",unknownError:"发生未知错误"
         },
@@ -1612,12 +1621,13 @@
           markMastered:"Mark mastered",markLearning:"Keep learning",confirmDeleteStudy:"Remove this item from the study book?",
           interfaceLanguage:"Interface language",languageHint:"Applies immediately across the island",privacyMask:"Privacy mask",
           privacyHint:"Hide task, Agent, and project names while recording",translatorService:"Translation and explanation service",
-          dataAccessTitle:"Local data access",dataAccessIntro:"Read-only scans of supported Codex, Claude, and IDE Agent logs; only state, duration, Token counts, and titles explicitly supplied by a source are extracted.",
+          dataAccessTitle:"Local data access",dataAccessIntro:"Read-only scans of supported logs and metadata process tool/Agent/provider names, conversation titles, models, project paths, state, timestamps, duration, Tokens, and source attribution on this Mac.",
           readOnlyMonitoring:"Read-only monitoring",readOnlyMonitoringDetail:"Third-party logs are never modified or deleted; periodic scans stop when monitoring is off.",
           contentExcluded:"Prompt / response bodies excluded",contentExcludedDetail:"Bodies are not extracted, displayed, or stored and are never used for iPhone/iCloud sync.",
           noSensitivePermissions:"No sensitive system permissions",noSensitivePermissionsDetail:"Camera, Microphone, Screen Recording, and Accessibility access are never requested.",
           monitoringControl:"Local monitoring",monitoringControlHint:"Periodic refresh starts only after you review and accept this notice. Remove custom sources in Advanced settings below.",
           toggleMonitoringLabel:"Toggle read-only local monitoring",reviewDataAccess:"Review data access notice",monitoringOn:"Read-only local monitoring is on.",monitoringOff:"Local monitoring is stopped; Agent logs are not read periodically.",monitoringConsentRequired:"Review and accept the data access notice first; Agent logs are not scanned before consent.",confirmStopMonitoring:"Stop local monitoring? Periodic Agent-log reads will stop and the current monitoring results will be cleared from the interface.",
+          homeFolderAccess:"Read-only Home access",homeFolderAccessHint:"The Mac App Store build needs your authorization through the system picker before it can read known log locations for supported tools.",authorizeHomeFolder:"Authorize Home Folder…",reauthorizeHomeFolder:"Reauthorize…",revokeHomeFolder:"Revoke Access",homeAuthorizationRequired:"Authorize your Home folder before Agent logs can be read inside App Sandbox.",
           cloudSyncTitle:"iPhone · Private iCloud sync",cloudSyncIntro:"Off by default. When enabled, a reduced snapshot leaves this Mac and is written to your Apple ID's private CloudKit database.",
           staysOnMac:"Stays on this Mac",staysOnMacDetail:"Prompts, task summaries, project and file paths, models, API keys, notes, and translation content.",
           sentToPrivateCloud:"Sent to private iCloud",sentToPrivateCloudDetail:"Agent/tool category, running state, duration, and Tokens. Conversation titles are off by default.",
@@ -1631,7 +1641,7 @@
           privacyAndSupport:"Privacy and support",privacyAndSupportHint:"Release builds use configured HTTPS pages. Development builds never open placeholder addresses.",privacyPolicy:"Privacy policy",support:"Support and help",checkUpdates:"Check for updates",safeUpdateHint:"Check for updates only opens the publisher-configured HTTPS support/download page in your default browser; the app never downloads or installs software in the background.",releaseLinksPending:"Configure public HTTPS privacy and support/download pages before release.",
           translatorServiceHint:"The key is handed to the native layer only and is never persisted by the web UI.",model:"Model",saveConfig:"Save config",
           configSaving:"Saving configuration…",configSaved:"Translator configuration saved",keyStored:"Key stored securely by the native app",clearAPIKey:"Clear key",confirmClearAPIKey:"Clear the API key stored by the native app?",keyCleared:"The stored key was cleared",
-          advancedSources:"Advanced · Custom sources",advancedSourcesHint:"Only needed for a custom Agent JSONL source.",
+          advancedSources:"Advanced · Custom sources",advancedSourcesHint:"Only needed for a custom Agent JSONL source. The Mac App Store build supports sources inside the authorized Home folder only.",
           choose:"Choose…",connect:"Connect",appControls:"App controls",appControlsHint:"Refresh monitoring data or quit the resident app.",
           refresh:"Refresh now",quit:"Quit",remove:"Remove",connectionComplete:"Connection completed",unknownError:"An unknown error occurred"
         }
@@ -1687,7 +1697,7 @@
         translationRequest:null,
         translatorConfig:{baseURL:"",model:"",hasAPIKey:false},
         translatorConfigPending:null,
-        dataAccess:{consented:false,monitoringEnabled:false,consentVersion:0,requiredConsentVersion:1,message:""},
+        dataAccess:{consented:false,monitoringEnabled:false,consentVersion:0,requiredConsentVersion:1,message:"",sandboxed:false,homeAccessRequired:false,homeAccessAuthorized:true,homeAccessStored:false},
         cloudSync:{enabled:false,includeTitles:false,capabilityConfigured:false,status:"off",message:""},
         cloudSyncPending:false,
         releaseLinks:{privacyPolicyConfigured:false,supportConfigured:false,updateConfigured:false}
@@ -2786,11 +2796,17 @@
         $("#privacySwitch").setAttribute("aria-checked",String(state.privacy));
         var access=state.dataAccess&&typeof state.dataAccess==="object"?state.dataAccess:{};
         var monitoringEnabled=!!access.monitoringEnabled;
+        var homeAccessRequired=access.homeAccessRequired===true;
+        var homeAccessAuthorized=!homeAccessRequired||access.homeAccessAuthorized===true;
+        var homeAccessStored=access.homeAccessStored===true;
         $("#monitoringSwitch").classList.toggle("on",monitoringEnabled);
         $("#monitoringSwitch").setAttribute("aria-checked",String(monitoringEnabled));
-        $("#dataAccessStatus").textContent=access.message||t(monitoringEnabled?"monitoringOn":(access.consented?"monitoringOff":"monitoringConsentRequired"));
-        $("#dataAccessStatus").className="cloud-status "+(monitoringEnabled?"success":"");
-        $("#refreshButton").disabled=state.refreshing||!monitoringEnabled;
+        $("#homeAccessRow").hidden=!homeAccessRequired;
+        $("#authorizeHomeAccessButton").textContent=t(homeAccessAuthorized?"reauthorizeHomeFolder":"authorizeHomeFolder");
+        $("#revokeHomeAccessButton").hidden=!homeAccessRequired||!homeAccessStored;
+        $("#dataAccessStatus").textContent=access.message||(!homeAccessAuthorized?t("homeAuthorizationRequired"):t(monitoringEnabled?"monitoringOn":(access.consented?"monitoringOff":"monitoringConsentRequired")));
+        $("#dataAccessStatus").className="cloud-status "+(monitoringEnabled&&homeAccessAuthorized?"success":(!homeAccessAuthorized?"error":""));
+        $("#refreshButton").disabled=state.refreshing||!monitoringEnabled||!homeAccessAuthorized;
         var cloud=state.cloudSync&&typeof state.cloudSync==="object"?state.cloudSync:{};
         var cloudEnabled=!!cloud.enabled,cloudCapable=!!cloud.capabilityConfigured;
         $("#cloudSyncSwitch").classList.toggle("on",cloudEnabled);
@@ -2941,6 +2957,10 @@
             monitoringEnabled:result.monitoringEnabled===true,
             consentVersion:Math.max(0,Math.floor(number(result.consentVersion))),
             requiredConsentVersion:Math.max(1,Math.floor(number(result.requiredConsentVersion)||1)),
+            sandboxed:result.sandboxed===true,
+            homeAccessRequired:result.homeAccessRequired===true,
+            homeAccessAuthorized:result.homeAccessAuthorized===true,
+            homeAccessStored:result.homeAccessStored===true,
             message:String(result.message||"")
           };
           if(result.releaseLinks&&typeof result.releaseLinks==="object")state.releaseLinks=result.releaseLinks;
@@ -3101,6 +3121,8 @@
         var action=actionButton.dataset.action,idValue=actionButton.dataset.id;
         if(action==="collapse"||action==="quit"||action==="chooseSource"){ bridge(action); return; }
         if(action==="reviewDataAccess"){ bridge("reviewDataAccess"); return; }
+        if(action==="authorizeHomeAccess"){ bridge("authorizeHomeAccess"); return; }
+        if(action==="revokeHomeAccess"){ bridge("revokeHomeAccess"); return; }
         if(action==="toggleMonitoring"){
           var enableMonitoring=!state.dataAccess.monitoringEnabled;
           if(!enableMonitoring&&!window.confirm(t("confirmStopMonitoring")))return;

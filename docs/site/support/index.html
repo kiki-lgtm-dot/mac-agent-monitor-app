@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="MAC版灵动岛--Agent运行监测安装、使用、故障排查与联系支持。">
+  <link rel="canonical" href="https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/">
+  <link rel="stylesheet" href="../styles.css">
+  <title>支持 / Support · MAC版灵动岛--Agent运行监测</title>
+</head>
+<body>
+  <header class="site-header"><nav class="shell nav" aria-label="主导航"><a class="brand" href="../">MAC版灵动岛--Agent运行监测</a><a href="#zh">中文</a><a href="#en">English</a><a href="../privacy/">隐私 / Privacy</a><a href="https://github.com/kiki-lgtm-dot/mac-agent-monitor-app">GitHub</a></nav></header>
+  <main class="shell document">
+    <section id="zh">
+      <div class="eyebrow">Help &amp; Support</div>
+      <h1>支持与帮助</h1>
+      <p class="meta">适用产品：MAC版灵动岛--Agent运行监测 · 最后更新：2026 年 9 月 3 日</p>
+      <div class="notice"><p>需要联系维护者？请在 <a href="https://github.com/kiki-lgtm-dot/mac-agent-monitor-app/issues">GitHub Issues</a> 新建工单。请勿上传 Agent 日志、prompt/响应正文、API Key、Apple 签名资料、真实项目路径或会话标题。</p></div>
+
+      <h2>Agent 没有被检测到</h2>
+      <ol>
+        <li>在“设置 → 本机数据访问”确认监测已开启。</li>
+        <li>Mac App Store 版需要用系统选择器授权当前用户的主目录。若更换了用户、迁移了数据或授权失效，请点击“重新授权”。</li>
+        <li>打开对应工具并让 Agent 产生一次新的结构化本地记录，然后点击“立即刷新”。只打开 VS Code 不等于 Agent 正在工作。</li>
+        <li>不在默认位置的 JSONL 可在“高级 · 自定义数据源”中通过文件选择器连接；Mac App Store 版仅支持已授权主目录内的自定义来源。</li>
+      </ol>
+
+      <h2>为什么 Token 显示为不可用</h2>
+      <p>工具“已安装”、宿主应用“正在运行”与“存在可归因的 Agent Token 数据”是三件不同的事。本应用只显示来源实际报告的计数，不用运行时长估算。某些 IDE 扩展只提供进程或安装证据，因此可以显示运行中，但 Token 仍为“—”。</p>
+
+      <h2>灵动岛悬浮与收起</h2>
+      <p>鼠标进入屏幕顶部紧凑胶囊后会展开面板，移出后稍作延迟自动收起。也可单击展开，在面板外单击或按 Esc 收起。如位置不对，使用菜单栏图标中的“移到鼠标所在屏幕”。</p>
+
+      <h2>iPhone 看不到 Mac 状态</h2>
+      <p>确认 Mac 和 iPhone 登录同一 Apple ID、iCloud Drive 可用，且 Mac 上已主动开启“iPhone · iCloud 私有同步”。同步默认关闭，并可能因网络或 CloudKit 暂时错误而延迟。Live Activity 不使用后台推送，它会在 iPhone 主应用启动、回到前台或手动刷新时获取新状态。</p>
+
+      <h2>翻译返回 401 或其他错误</h2>
+      <p>401 通常表示 API Key 缺失、无效或不属于当前 Base URL。在“设置 → 翻译与释义服务”检查 Base URL、模型名和密钥，并确认账户余额、模型权限和网络状态。应用只允许 HTTPS 或本机 loopback HTTP 端点。</p>
+
+      <h2>卸载与删除本机数据</h2>
+      <p>先在设置中关闭 iCloud 私有同步并等待删除成功，然后清除翻译 API Key、撤销主目录授权并退出应用。将应用移到废纸篓后，macOS 仍可能保留 Application Support、偏好设置和 Keychain 项。这些位置可能随正式 Bundle ID 变化，因此删除前请在支持工单中提供应用版本和“关于”页显示的 Bundle ID，维护者会给出与该版本对应的精确、可验证清理步骤。</p>
+
+      <h2>提交有效问题报告</h2>
+      <p>请提供 macOS/iOS 版本、应用版本、Mac 型号与屏幕数量、问题复现步骤、期望/实际结果，以及不含私密内容的界面截图。若不能安全脱敏，请不要附加截图或日志。</p>
+    </section>
+
+    <section class="language-block" id="en" lang="en">
+      <div class="eyebrow">English version</div>
+      <h1>Support</h1>
+      <p class="meta">Product: MAC版灵动岛--Agent运行监测 · Updated: September 3, 2026</p>
+      <div class="notice"><p>Need help from the maintainer? Open a <a href="https://github.com/kiki-lgtm-dot/mac-agent-monitor-app/issues">GitHub Issue</a>. Never attach Agent logs, prompt/response bodies, API keys, Apple signing material, real project paths, or conversation titles.</p></div>
+
+      <h2>An Agent is not detected</h2>
+      <ol><li>Confirm monitoring is enabled under Settings → Local Data Access.</li><li>The Mac App Store build requires Home-folder authorization through the system picker. Reauthorize after a user change, migration, or expired permission.</li><li>Let the Agent create a new structured local record, then select Refresh now. Opening VS Code alone does not mean an Agent is working.</li><li>Connect non-default JSONL data under Advanced · Custom sources using the file picker. Mac App Store custom sources must be inside the authorized Home folder.</li></ol>
+
+      <h2>Why token usage is unavailable</h2>
+      <p>Installed, host app running, and attributable Agent token telemetry are different facts. The App displays only source-reported counts and never estimates them from elapsed time. Some IDE extensions expose only process or installation evidence, so they can appear as running while token usage remains “—”.</p>
+
+      <h2>Hover and collapse behavior</h2>
+      <p>Move the pointer into the compact top-of-screen pill to expand it; moving out collapses it after a short delay. You can also click to expand and click outside or press Escape to collapse. If placement is wrong, choose Move to Display Under Pointer from the menu bar item.</p>
+
+      <h2>The iPhone cannot see Mac state</h2>
+      <p>Verify both devices use the same Apple ID, iCloud Drive is available, and Private iCloud sync was explicitly enabled on the Mac. Sync is off by default and can be delayed by network or CloudKit errors. Live Activities have no background push path and refresh when the iPhone host app launches, returns to foreground, or is manually refreshed.</p>
+
+      <h2>Translation returns 401 or another error</h2>
+      <p>HTTP 401 normally means the API key is missing, invalid, or does not belong to the current Base URL. Check Base URL, model, and key under Settings → Translation and explanation service, plus provider balance, model access, and network availability. Only HTTPS or local loopback HTTP endpoints are accepted.</p>
+
+      <h2>Uninstall and remove local data</h2>
+      <p>First turn off private iCloud sync and wait for confirmed deletion, clear the translation API key, revoke Home-folder access, and quit. After moving the App to Trash, macOS may retain Application Support, preference, and Keychain items. Exact locations can change with the final Bundle ID; open a support issue with the App version and Bundle ID shown in About to receive precise, verifiable cleanup steps for that version.</p>
+
+      <h2>Submit an effective report</h2>
+      <p>Include macOS/iOS and App versions, Mac model and display count, reproducible steps, expected and actual results, and a UI screenshot only if it contains no private content. Do not attach a screenshot or log if it cannot be safely redacted.</p>
+    </section>
+  </main>
+  <footer class="footer"><div class="shell"><span>© 2026 MAC版灵动岛--Agent运行监测 contributors</span><a href="../">首页 / Home</a><a href="../privacy/">隐私 / Privacy</a></div></footer>
+</body>
+</html>

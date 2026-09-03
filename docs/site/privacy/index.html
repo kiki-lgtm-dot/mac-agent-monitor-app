@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="MAC版灵动岛--Agent运行监测隐私政策 / Privacy Policy">
+  <link rel="canonical" href="https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/">
+  <link rel="stylesheet" href="../styles.css">
+  <title>隐私政策 / Privacy Policy · MAC版灵动岛--Agent运行监测</title>
+</head>
+<body>
+  <header class="site-header"><nav class="shell nav" aria-label="主导航"><a class="brand" href="../">MAC版灵动岛--Agent运行监测</a><a href="#zh">中文</a><a href="#en">English</a><a href="../support/">支持 / Support</a><a href="https://github.com/kiki-lgtm-dot/mac-agent-monitor-app">GitHub</a></nav></header>
+  <main class="shell document">
+    <section id="zh">
+      <div class="eyebrow">Privacy Policy</div>
+      <h1>隐私政策</h1>
+      <p class="meta">生效日期：2026 年 9 月 3 日 · 维护者：kiki-lgtm-dot · <a href="https://github.com/kiki-lgtm-dot/mac-agent-monitor-app/issues">联系与支持</a></p>
+
+      <h2>1. 适用范围</h2>
+      <p>本政策适用于“MAC版灵动岛--Agent运行监测”的 macOS 应用和 iPhone 伴侣应用（统称“本应用”）。Mac 端用于查看本机 AI Agent 的状态、时长和 Token 用量，并提供网站快捷方式、备忘录和可选翻译学习功能。iPhone 端仅查看用户选择同步的精简状态摘要。</p>
+
+      <h2>2. 默认在本机处理的数据</h2>
+      <p>用户确认数据访问说明并开启监测后，Mac 应用会以只读方式检查受支持的 Codex、Claude Code 和 IDE Agent 数据，以及用户主动添加的自定义 JSONL 数据源。它可处理工具是否安装或运行、会话标题、Agent 名称、模型名、项目路径、状态、时间戳、工作时长、Token 计数和来源归因信息。这些信息用于在设备上生成实时、历史、工具和会话视图。</p>
+      <p>本应用不会提取、展示或保存 Agent prompt 或响应正文，也不会把它们发送到开发者服务器、iCloud 快照或 Live Activity。本应用不会根据时长伪造缺失的 Token 数据。</p>
+
+      <h2>3. macOS 文件授权</h2>
+      <p>Mac App Store 版在 App Sandbox 中运行。如需监测，用户必须通过 macOS 系统选择器明确授予主目录的只读访问。应用会在本机偏好设置中保存一个应用范围的安全书签，用于后续恢复授权；不会上传该书签。应用只扫描受支持工具的已知日志位置和用户显式连接的数据源；Mac App Store 版的自定义数据源也必须位于该已授权主目录内。用户可在“设置 → 本机数据访问”中重新授权或撤销授权；撤销后不会开始新的扫描，已在进行的刷新结果会被丢弃。</p>
+
+      <h2>4. 本机存储与凭据</h2>
+      <ul>
+        <li>网站快捷方式、备忘录和用户主动存入学习本的内容保存在 Mac 的 Application Support 目录。</li>
+        <li>界面语言、翻译端点、模型名、已连接数据源和汇总用量保存在本机设置中。</li>
+        <li>翻译 API Key 保存在 macOS Keychain；Web 界面只能得知是否已配置，无法读取密钥。</li>
+      </ul>
+
+      <h2>5. 可选翻译与第三方服务</h2>
+      <p>翻译只在用户输入文本并主动点击“仅翻译”或“学习解析”后发起。应用会把提交的文本、语言和模式、模型名、结构化回复指令及鉴权密钥发送到界面中显示的 OpenAI-compatible API 端点。该服务可按其自身条款处理提交文本、IP 地址和请求元数据；用户应先阅读所选服务的政策。开发者不会收到翻译请求或结果。结果只有在用户点击“存入学习本”后才写入本机工作台。</p>
+
+      <h2>6. 可选 iCloud 私有同步</h2>
+      <p>iCloud 同步默认关闭。用户明确开启后，Mac 才会向其 Apple ID 的 CloudKit 私有数据库写入一份精简快照，包含 Agent/工具类别、安全显示名、状态、时长、Token 统计、时间戳和计数。快照不包含 prompt、响应正文、任务摘要、项目/文件路径、模型名、API Key、备忘录或翻译内容。对话标题默认不同步，只在用户单独确认后才可包含；Live Activity 始终不包含标题。</p>
+      <p>CloudKit 由 Apple 提供，数据位于用户的私有数据库，不经过开发者运营的同步服务器。本应用不使用该数据进行广告、跟踪或分析。</p>
+
+      <h2>7. 分享、跟踪与敏感系统权限</h2>
+      <p>除用户主动选择的 CloudKit 同步和翻译 API 请求外，本应用不向开发者运营的服务器发送数据，不出售数据，不用于广告或跨应用/网站跟踪，也不集成第三方分析或广告 SDK。本应用不请求摄像头、麦克风、屏幕录制或辅助功能权限。</p>
+
+      <h2>8. 保留与删除</h2>
+      <ul>
+        <li>用户可在应用中删除网站、备忘录和学习条目，移除自定义数据源，并清除 Keychain 中的翻译密钥。</li>
+        <li>撤销主目录授权会停止 Mac App Store 版的日志监测；本应用不会删除第三方工具的原始日志。</li>
+        <li>关闭 iCloud 私有同步时，Mac 会请求删除私有数据库中的 <code>latest</code> 记录；这需要 iCloud 和网络可用。</li>
+        <li>卸载应用可能保留 macOS Application Support、偏好设置和 Keychain 项。如需完全清理，请查看<a href="../support/">支持页面</a>或提交不含私密数据的支持工单。</li>
+      </ul>
+
+      <h2>9. 儿童、安全与政策变更</h2>
+      <p>本应用是面向开发和效率场景的通用工具，并非专门面向儿童设计。本应用使用 App Sandbox、只读文件授权、Keychain、原子写入、网络端点和响应大小限制等措施，但任何软件都无法保证绝对安全。功能或数据实践发生重大变化时，本页会更新生效日期并通过适当方式告知用户。</p>
+
+      <h2>10. 联系</h2>
+      <p>本应用没有开发者运营的账号或数据服务器，维护者通常无法查看或代为删除用户设备或 CloudKit 私有数据库中的数据。隐私问题可通过 <a href="https://github.com/kiki-lgtm-dot/mac-agent-monitor-app/issues">GitHub Issues</a> 联系维护者；请勿在公开工单中提交日志、prompt、API Key、真实项目路径或会话标题。</p>
+    </section>
+
+    <section class="language-block" id="en" lang="en">
+      <div class="eyebrow">English version</div>
+      <h1>Privacy Policy</h1>
+      <p class="meta">Effective: September 3, 2026 · Maintainer: kiki-lgtm-dot · <a href="https://github.com/kiki-lgtm-dot/mac-agent-monitor-app/issues">Contact and support</a></p>
+
+      <h2>1. Scope</h2>
+      <p>This policy applies to MAC版灵动岛--Agent运行监测 for macOS and its iPhone companion (together, the “App”). The Mac app shows local AI-agent state, elapsed time, and token usage and provides website shortcuts, notes, and an optional translation-learning tool. The iPhone app displays only the reduced status summary the user chooses to sync.</p>
+
+      <h2>2. Data processed on the Mac by default</h2>
+      <p>After the user accepts the data-access notice and enables monitoring, the Mac app performs read-only checks of supported Codex, Claude Code, and IDE Agent data, plus custom JSONL sources the user explicitly adds. It may process whether tools are installed or running, conversation titles, agent and model names, project paths, status, timestamps, elapsed time, token counts, and source-attribution metadata. This information produces on-device live, history, tool, and conversation views.</p>
+      <p>The App does not extract, display, or store agent prompt or response bodies and does not send those bodies to a developer server, an iCloud snapshot, or Live Activities. It does not fabricate missing token usage from elapsed time.</p>
+
+      <h2>3. macOS file authorization</h2>
+      <p>The Mac App Store build runs in App Sandbox. Monitoring requires the user to explicitly grant read-only access to the Home folder through the macOS system picker. An app-scoped security-scoped bookmark is stored in local preferences to restore that authorization; it is never uploaded. The App scans only known log locations for supported tools and sources the user explicitly connects; Mac App Store custom sources must also be inside the authorized Home folder. The user can reauthorize or revoke access under Settings → Local Data Access. Revocation prevents new scans and discards the result of any refresh already in progress.</p>
+
+      <h2>4. Local storage and credentials</h2>
+      <ul><li>Website shortcuts, notes, and study items are stored in the Mac Application Support directory.</li><li>Language, translation endpoint, model, connected-source, and aggregate-usage settings are stored locally.</li><li>Translation API keys are stored in macOS Keychain. The web interface can learn only whether a key exists and cannot read it.</li></ul>
+
+      <h2>5. Optional translation and third-party services</h2>
+      <p>A translation request occurs only after the user enters text and selects Translate only or Learning analysis. The submitted text, language and mode, model name, structured-response instructions, and authentication key are sent to the OpenAI-compatible API endpoint displayed in the App. That provider may process submitted text, IP address, and request metadata under its own terms. Users should review the selected provider's policy first. The developer does not receive translation requests or results. A result is written to the local workspace only when the user selects Save to study book.</p>
+
+      <h2>6. Optional private iCloud sync</h2>
+      <p>Private iCloud sync is off by default. After express opt-in, the Mac writes a reduced snapshot to the user's Apple ID private CloudKit database. It contains agent/tool categories and safe display names, state, elapsed time, token statistics, timestamps, and counts. It excludes prompts, response bodies, task summaries, project/file paths, model names, API keys, notes, and translation content. Conversation titles are excluded by default and require a separate opt-in. Live Activities never contain titles.</p>
+      <p>Apple provides CloudKit. The data is held in the user's private database and does not pass through a developer-operated sync server. The App does not use it for advertising, tracking, or analytics.</p>
+
+      <h2>7. Sharing, tracking, and sensitive permissions</h2>
+      <p>Apart from user-selected CloudKit sync and user-initiated translation API requests, the App sends no data to a developer-operated server, does not sell data, does not use data for advertising or cross-app/site tracking, and includes no third-party analytics or advertising SDK. It does not request Camera, Microphone, Screen Recording, or Accessibility permission.</p>
+
+      <h2>8. Retention and deletion</h2>
+      <ul><li>Users can delete website, note, and study items, disconnect custom sources, and clear the translation key from Keychain in the App.</li><li>Revoking Home-folder authorization stops sandboxed log monitoring. The App never deletes third-party tools' original logs.</li><li>Turning off private iCloud sync asks the Mac to delete the <code>latest</code> private-database record; iCloud and network access must be available.</li><li>Uninstalling may leave Application Support, preference, and Keychain items. See <a href="../support/">Support</a> for removal guidance.</li></ul>
+
+      <h2>9. Children, security, and changes</h2>
+      <p>The App is a general development and productivity tool and is not directed specifically to children. It uses measures including App Sandbox, read-only file authorization, Keychain, atomic writes, and endpoint and response-size restrictions, but no software can guarantee absolute security. If features or data practices materially change, this page will be updated and the effective date revised.</p>
+
+      <h2>10. Contact</h2>
+      <p>The App has no developer-operated account or data server, so the maintainer generally cannot view or delete data in a user's device or private CloudKit database on the user's behalf. Contact the maintainer through <a href="https://github.com/kiki-lgtm-dot/mac-agent-monitor-app/issues">GitHub Issues</a>. Do not post logs, prompts, API keys, real project paths, or conversation titles in a public issue.</p>
+    </section>
+  </main>
+  <footer class="footer"><div class="shell"><span>© 2026 MAC版灵动岛--Agent运行监测 contributors</span><a href="../">首页 / Home</a><a href="../support/">支持 / Support</a></div></footer>
+</body>
+</html>

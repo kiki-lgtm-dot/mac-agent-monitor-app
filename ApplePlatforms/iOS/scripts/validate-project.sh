@@ -8,6 +8,7 @@ scheme_file="$project_root/AgentIsland.xcodeproj/xcshareddata/xcschemes/AgentIsl
 workspace_file="$project_root/AgentIsland.xcodeproj/project.xcworkspace/contents.xcworkspacedata"
 asset_manifest="$project_root/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json"
 privacy_contract="$project_root/scripts/privacy-manifest-contract.jq"
+build_settings_validator="$project_root/scripts/validate-build-settings.mjs"
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/agentisland-ios-validation.XXXXXX")"
 run_build=false
 run_tests=false
@@ -106,6 +107,7 @@ required_files=(
   "Resources/en.lproj/Localizable.strings"
   "Resources/zh-Hans.lproj/Localizable.strings"
   "scripts/privacy-manifest-contract.jq"
+  "scripts/validate-build-settings.mjs"
   "scripts/release-ios.sh"
 )
 
@@ -143,6 +145,10 @@ fi
 
 zsh -n "$project_root/scripts/release-ios.sh" \
   || fail "release-ios.sh has invalid zsh syntax"
+if command -v node >/dev/null 2>&1; then
+  node --check "$build_settings_validator" \
+    || fail "validate-build-settings.mjs has invalid JavaScript syntax"
+fi
 
 release_script="$project_root/scripts/release-ios.sh"
 for release_marker in \
@@ -683,10 +689,48 @@ if xcrun --find swiftc >/dev/null 2>&1; then
     "$project_root"/Tests/*.swift
 fi
 
+developer_path="${DEVELOPER_DIR:-$(/usr/bin/xcode-select -p 2>/dev/null || true)}"
+full_xcode=false
+case "$developer_path" in
+  */Xcode*.app/Contents/Developer) full_xcode=true ;;
+esac
+
+# A project-object audit cannot prove that Xcode resolves the same settings for
+# the two shipping targets. Whenever a build is requested (and before a release
+# when full Xcode is available), inspect the real Release build settings and
+# validate them with the same contract consumed by release-readiness.sh.
+if [ "$run_build" = true ] || { [ "$require_release_configuration" = true ] && [ "$full_xcode" = true ]; }; then
+  [ "$full_xcode" = true ] \
+    || fail "--build/--test requires full Xcode; static validation remains available without it"
+  command -v node >/dev/null 2>&1 \
+    || fail "resolved Xcode build-settings validation requires Node.js"
+  resolved_build_settings="$work_dir/ios-release-build-settings.json"
+  resolved_build_settings_result="$work_dir/ios-release-build-settings-result.json"
+  DEVELOPER_DIR="$developer_path" /usr/bin/xcodebuild \
+    -project "$project_root/AgentIsland.xcodeproj" \
+    -scheme AgentIslandMobile \
+    -configuration Release \
+    -sdk iphoneos \
+    -destination 'generic/platform=iOS' \
+    -showBuildSettings \
+    -json >"$resolved_build_settings" \
+    || fail "Xcode could not resolve Release settings for the shared scheme"
+  node "$build_settings_validator" "$resolved_build_settings" \
+    >"$resolved_build_settings_result" \
+    || fail "resolved Release build settings could not be inspected"
+  jq -e '.targetsResolved == true and .targetContractReady == true' \
+    "$resolved_build_settings_result" >/dev/null \
+    || fail "resolved App/Widget Release target contract is invalid: $(jq -c '{targetCounts, contractErrors}' "$resolved_build_settings_result")"
+  if [ "$require_release_configuration" = true ]; then
+    jq -e '.ready == true' "$resolved_build_settings_result" >/dev/null \
+      || fail "resolved Release settings are not production-ready or disagree with the release environment: $(jq -c '{productionErrors, environmentMismatches}' "$resolved_build_settings_result")"
+  fi
+fi
+
 if [ "$run_build" = true ]; then
-  xcrun --sdk iphonesimulator --show-sdk-path >/dev/null 2>&1 \
+  DEVELOPER_DIR="$developer_path" xcrun --sdk iphonesimulator --show-sdk-path >/dev/null 2>&1 \
     || fail "--build requires full Xcode with the iPhone Simulator SDK"
-  xcodebuild build-for-testing \
+  DEVELOPER_DIR="$developer_path" xcodebuild build-for-testing \
     -project "$project_root/AgentIsland.xcodeproj" \
     -scheme AgentIslandMobile \
     -configuration Debug \
@@ -700,7 +744,7 @@ if [ "$run_build" = true ]; then
     test_destination="${AGENT_ISLAND_IOS_TEST_DESTINATION:-}"
     [ -n "$test_destination" ] \
       || fail "--test requires AGENT_ISLAND_IOS_TEST_DESTINATION, for example platform=iOS Simulator,name=iPhone 17 Pro"
-    xcodebuild test-without-building \
+    DEVELOPER_DIR="$developer_path" xcodebuild test-without-building \
       -project "$project_root/AgentIsland.xcodeproj" \
       -scheme AgentIslandMobile \
       -configuration Debug \

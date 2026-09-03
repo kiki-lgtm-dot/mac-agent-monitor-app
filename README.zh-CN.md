@@ -2,7 +2,7 @@
 
 ### 本地 AI Agent 观测台
 
-[English](README.md) · [开源许可](LICENSE) · [隐私说明](docs/release/PRIVACY_POLICY_ZH.md)
+[English](README.md) · [产品页](https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/) · [隐私政策](https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/) · [支持与帮助](https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/) · [开源许可](LICENSE)
 
 不切窗口，也知道哪些 Agent 正在工作。
 
@@ -42,6 +42,8 @@
 - 私有 iCloud 同步默认关闭，只导出经过字段白名单精简的快照；完整对话标题需要单独确认。
 
 实现级细节见[数据处理与隐私标签说明](docs/release/DATA_HANDLING_AND_PRIVACY_LABELS.md)。仓库内隐私政策仍是发布草案，上线前必须按最终构建补齐。
+
+对外双语[隐私政策](https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/) 和[支持页面](https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/) 由 `docs/site` 发布，发布脚本使用这两个稳定 HTTPS 地址。
 
 ## 工作原理
 

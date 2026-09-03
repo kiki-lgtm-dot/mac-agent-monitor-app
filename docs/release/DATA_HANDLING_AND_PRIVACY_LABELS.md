@@ -96,7 +96,7 @@ Apple 将“收集”定义为数据以开发者和/或第三方合作方可访�
 
 ## 5. 隐私政策 URL 与用户隐私选择 URL
 
-- macOS App Store 需要有效的公开隐私政策 URL：`[隐私政策URL]`。
+- macOS App Store 公开隐私政策 URL：`https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/`。
 - 用户隐私选择 URL 可选。当前没有开发者服务器账户；若填写，应指向真实可操作的本地数据清理、关闭私有同步并删除 CloudKit `latest` 记录的说明：`[用户隐私选择URL，可选]`。
 - 支持页面应提供真实联系方式和完整卸载/清理说明，不应声称开发者能够删除从未收到的本机数据。
 

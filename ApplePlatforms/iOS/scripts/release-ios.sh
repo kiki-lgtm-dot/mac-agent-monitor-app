@@ -47,7 +47,7 @@ command -v plutil >/dev/null 2>&1 || fail "plutil is required"
   || fail "privacy-manifest-contract.jq is required"
 
 DEVELOPER_PATH="${DEVELOPER_DIR:-$(/usr/bin/xcode-select -p 2>/dev/null || true)}"
-[[ "$DEVELOPER_PATH" == */Xcode.app/Contents/Developer ]] \
+[[ "$DEVELOPER_PATH" == */Xcode*.app/Contents/Developer ]] \
   || fail "select full Xcode 26 or newer with xcode-select before archiving"
 [[ -d "$DEVELOPER_PATH/Platforms/iPhoneOS.platform" ]] \
   || fail "the selected Xcode does not include the iPhoneOS platform"

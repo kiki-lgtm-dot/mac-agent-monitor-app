@@ -45,7 +45,7 @@ If the user enables private sync after reviewing the confirmation, the Mac write
 
 The optional translator makes one user-initiated request to the OpenAI-compatible endpoint visible in Settings. It sends the submitted text, language/mode fields, selected model, structured-output instructions, and the API key for that endpoint. API keys are stored in macOS Keychain. The ephemeral session uses no cookies or URL cache, allows only same-origin redirects, and limits response size. The developer does not receive these requests. Before the first send to each destination, the user must accept a separate disclosure. If the default DeepSeek endpoint is retained, that dialog explains the publicly documented processing/storage in China, possible model training or service improvement, and the lack of a published fixed API-request retention period or no-training commitment, with links to DeepSeek's official policy and Open Platform terms.
 
-The Privacy Policy is available at `[Privacy Policy URL]`. Support is available at `[Support URL]`.
+The Privacy Policy is available at `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/`. Support is available at `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/`.
 
 ### Non-obvious UI behavior
 
@@ -78,7 +78,7 @@ MAC版灵动岛--Agent运行监测 是状态栏/辅助型 macOS 应用，不显�
 
 Mac App Store 构建必须启用 App Sandbox，并让用户明确选择和授权每个外部日志目录。读取为只读，不修改或删除第三方日志。`[若最终实现不同，请改写本段。]`
 
-本机监测在用户首次确认后才开始，可在设置中停止/恢复，并可移除自定义数据源。应用只提取状态、时长、Token 和来源明确提供的标题，不提取、展示或保存 prompt/响应正文，也不请求摄像头、麦克风、屏幕录制或辅助功能权限。周期性监控和工作台存储在本机进行。应用没有分析、广告、追踪、崩溃报告 SDK、开发者后端或独立账号系统。私有同步默认关闭；用户明确开启后，Mac 才把 Agent/工具类别、状态、时长和 Token 精简快照写入其 iCloud 私有数据库。Prompt、任务摘要、项目/文件路径、模型、API Key、备忘录和翻译内容不会上传；对话标题默认不发送，需二次明确确认。关闭同步会停止上传并请求删除云端 `latest` 记录。可选翻译器仅向设置中显示的 OpenAI-compatible 端点发送用户主动提交的内容，API Key 保存在 macOS Keychain，开发者不会收到请求。首次向每个目的地发送前必须接受独立说明；如保留默认 DeepSeek，说明会列明其公开政策中的中国处理/存储、可能训练/优化、固定 API 保留期与不训练承诺未公开，并链接官方政策。
+本机监测在用户首次确认后才开始，可在设置中停止/恢复，并可移除自定义数据源。应用会在本机处理工具是否安装或运行、会话标题、Agent/工具/服务名称、模型名、项目路径、状态、时间戳、工作时长、Token 计数和来源归因信息；不提取、展示或保存 prompt/响应正文，也不请求摄像头、麦克风、屏幕录制或辅助功能权限。周期性监控和工作台存储在本机进行。应用没有分析、广告、追踪、崩溃报告 SDK、开发者后端或独立账号系统。私有同步默认关闭；用户明确开启后，Mac 才把 Agent/工具类别、状态、时长和 Token 精简快照写入其 iCloud 私有数据库。Prompt、任务摘要、项目/文件路径、模型、API Key、备忘录和翻译内容不会上传；对话标题默认不发送，需二次明确确认。关闭同步会停止上传并请求删除云端 `latest` 记录。可选翻译器仅向设置中显示的 OpenAI-compatible 端点发送用户主动提交的内容，API Key 保存在 macOS Keychain，开发者不会收到请求。首次向每个目的地发送前必须接受独立说明；如保留默认 DeepSeek，说明会列明其公开政策中的中国处理/存储、可能训练/优化、固定 API 保留期与不训练承诺未公开，并链接官方政策。
 
 ## 提交前删除的内容
 

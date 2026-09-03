@@ -1,0 +1,8 @@
+// macOS shares the immutable Apple identity and CloudKit wire contract with
+// the iOS companion. apply-release-identity.sh updates the included file, so
+// both App targets stay on the same Team, App ID, and private container.
+#include "../../iOS/Config/Project.xcconfig"
+
+MACOSX_DEPLOYMENT_TARGET = 13.0
+MARKETING_VERSION = 0.6.1
+CURRENT_PROJECT_VERSION = 8

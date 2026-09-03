@@ -3,7 +3,7 @@
 生效日期：[生效日期：YYYY-MM-DD]
 开发者：[开发者法定姓名]
 联系邮箱：[支持邮箱]
-隐私政策地址：[隐私政策URL]
+隐私政策地址：https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/
 
 > 发布提示：这是与 MAC版灵动岛--Agent运行监测 0.6.1 当前实现对应的草案，不构成法律意见。发布前必须替换全部占位符，并根据实际发布版本、翻译服务安排和适用地区法律复核。
 
@@ -100,7 +100,7 @@ CloudKit 由 Apple 提供，记录位于用户的私有数据库，不经过开�
 - 翻译 API Key 可在翻译器设置中清除；
 - Codex、Claude Code 和其他工具的原始日志由对应工具管理，本应用不会删除或修改；
 - 用户在 Mac 上关闭私有同步时，应用会立即停止上传并请求删除 CloudKit 私有数据库中的 `latest` 记录；删除需要 iCloud/网络可用，用户应根据应用状态确认或重试。iPhone 下次刷新发现记录不存在时，会只清除当前 iCloud 账号的本地缓存；
-- 完整移除本应用时，macOS 可能仍保留 Application Support、偏好设置和 Keychain 项目，用户可按[支持URL]提供的卸载说明清理，或联系[支持邮箱]。
+- 完整移除本应用时，macOS 可能仍保留 Application Support、偏好设置和 Keychain 项目，用户可按[支持页面](https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/)提供的卸载说明清理，或联系[支持邮箱]。
 
 开发者不提供独立应用账号或开发者运营的数据服务器，因此通常无法查看、导出或代用户删除本机或 CloudKit 私有数据库中的数据；用户应使用上述应用内删除和同步关闭控件。
 
@@ -122,4 +122,4 @@ CloudKit 由 Apple 提供，记录位于用户的私有数据库，不经过开�
 
 - 开发者：[开发者法定姓名]
 - 邮箱：[支持邮箱]
-- 支持页面：[支持URL]
+- 支持页面：https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/

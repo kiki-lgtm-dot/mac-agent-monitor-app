@@ -2,7 +2,7 @@
 
 ### Local AI Agent Observatory for macOS
 
-[简体中文](README.zh-CN.md) · [License](LICENSE) · [Privacy](docs/release/PRIVACY_POLICY_EN.md)
+[简体中文](README.zh-CN.md) · [Product site](https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/) · [Privacy](https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/) · [Support](https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/) · [License](LICENSE)
 
 Know which agents are working—without leaving your flow.
 
@@ -42,6 +42,8 @@ The app starts local monitoring only after the user accepts a native disclosure.
 - Private iCloud sync is off by default and exports a minimized allow-listed snapshot. Conversation titles require a separate opt-in.
 
 Review the implementation-specific details in [Data handling and privacy labels](docs/release/DATA_HANDLING_AND_PRIVACY_LABELS.md). The bundled policies are release drafts and must be completed for the shipping build.
+
+The bilingual public [Privacy Policy](https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/) and [Support page](https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/) are published from `docs/site`; the release scripts use those stable HTTPS URLs.
 
 ## How it works
 
