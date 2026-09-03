@@ -5,6 +5,7 @@ setopt EXTENDED_GLOB
 PROJECT_DIR="${0:A:h:h}"
 READINESS_ROOT="$(mktemp -d /private/tmp/agentisland-readiness.XXXXXX)"
 trap '[[ "$READINESS_ROOT" == /private/tmp/agentisland-readiness.* ]] && /bin/rm -rf "$READINESS_ROOT"' EXIT HUP INT TERM
+trap 'rc=$?; print -u2 -- "release-readiness.sh failed at line $LINENO (exit $rc)"; trap - ZERR; exit $rc' ZERR
 DEVELOPER_PATH="$(/usr/bin/xcode-select -p 2>/dev/null || true)"
 FULL_XCODE=false
 [[ "$DEVELOPER_PATH" == */Xcode*.app/Contents/Developer ]] && FULL_XCODE=true
