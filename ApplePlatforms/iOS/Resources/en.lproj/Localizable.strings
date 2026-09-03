@@ -43,6 +43,14 @@
 "example.not_synced" = "Built-in sample · Not synced";
 "example.error" = "The built-in example could not be loaded.";
 "example.error.invalid_data" = "Example mode refused data that was not marked as a sample.";
+"example.data.source_device" = "Example Mac";
+"example.data.agent_a" = "Sample Agent A";
+"example.data.agent_b" = "Sample Agent B";
+"example.data.tool_cli" = "Sample CLI";
+"example.data.tool_ide" = "Sample IDE";
+"example.data.task_release" = "Preparing a release";
+"example.data.task_tests" = "Checking automated tests";
+"example.data.task_completed" = "Completed sample task";
 
 "privacy.show_titles" = "Show full titles";
 "privacy.hide_titles" = "Hide full titles";

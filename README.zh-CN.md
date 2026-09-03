@@ -10,7 +10,7 @@
 
 ### 中文界面
 
-![MAC版灵动岛--Agent运行监测 中文界面](docs/media/mac-agent-monitor-overview-zh.png)
+![MAC版灵动岛--Agent运行监测 中文界面（内置离线示例数据）](docs/media/mac-agent-monitor-overview-zh.png)
 
 ### English interface
 

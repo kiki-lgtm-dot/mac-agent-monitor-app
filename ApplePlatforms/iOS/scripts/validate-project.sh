@@ -797,9 +797,27 @@ grep -Fq 'Link(destination: privacyPolicyURL)' "$project_root/App/DashboardView.
   || fail "the dashboard must expose the configured privacy policy"
 grep -Fq 'Link(destination: supportURL)' "$project_root/App/DashboardView.swift" \
   || fail "the dashboard must expose the configured support URL"
-grep -Fq 'navigationTitle(Text(verbatim: releaseLinks.displayName))' \
+grep -Fq 'navigationTitle(Text("dashboard.title"))' \
   "$project_root/App/DashboardView.swift" \
-  || fail "the dashboard title must follow the configurable App display name"
+  || fail "the dashboard must use the localized short title in its navigation bar"
+
+for preview_localization_key in \
+  example.data.source_device \
+  example.data.agent_a \
+  example.data.agent_b \
+  example.data.tool_cli \
+  example.data.tool_ide \
+  example.data.task_release \
+  example.data.task_tests \
+  example.data.task_completed; do
+  grep -Fq "\"$preview_localization_key\"" \
+    "$project_root/Shared/AgentSnapshot.swift" \
+    || fail "bundled example data is not localized: $preview_localization_key"
+done
+if grep -Eq '"[^\"]*[[:space:]]/[[:space:]][^\"]*"' \
+  "$project_root/Shared/AgentSnapshot.swift"; then
+  fail "bundled example data must not combine two languages in one field"
+fi
 
 sed -n 's/^"\([^"]*\)"[[:space:]]*=.*/\1/p' \
   "$project_root/Resources/en.lproj/Localizable.strings" | LC_ALL=C sort \

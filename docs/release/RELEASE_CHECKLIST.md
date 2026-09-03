@@ -85,7 +85,7 @@
 - [ ] 按账号与销售地区如实完成 DSA trader status、税务、银行、出口合规和中国大陆等地区问卷。
 - [ ] 根据最终加密用途回答出口合规；不要在未核对时猜测 `ITSAppUsesNonExemptEncryption`。
 - [ ] 填写并发布 App Privacy 标签，和最终构建、隐私政策保持一致。
-- [ ] 上传中英文元数据、最终截图、隐私政策 URL、支持 URL 和 Review Notes。
+- [ ] 上传中英文元数据、最终截图、隐私政策 URL、支持 URL 和 Review Notes；按 `docs/release-assets/README.md` 建立 `.release/store-screenshot-evidence.json`，逐图绑定语言、哈希与精确候选 Build。
 - [ ] 先通过 macOS TestFlight/内部测试验证，再提交 App Review。
 - [ ] 用 `release-macos-app-store.sh --export` 生成精确候选的 `release-metadata.json`、Archive ZIP 和 PKG，将 `AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA` 指向该 metadata；不得将只读权限描述成文件不可变。
 - [ ] 在任何联网操作前对该发布目录运行 `submit-macos-app-store.sh --check`；确认它重算 metadata、Archive ZIP 和 PKG 哈希，重验签名/profile/资源与包一致性，并递归拒绝 Archive App、PKG App 及上传快照上的 `com.apple.quarantine`。不得在签名后静默清除属性来伪装通过；应清理输入并重新构建。
@@ -93,7 +93,7 @@
 - [ ] 设置候选级 App Privacy 证据后运行 `scripts/release-readiness.sh --json`；确认 `macStoreSubmissionAssetsReady: true`。Mac 门禁只依赖 Mac 中英文元数据/截图和两端共用隐私、支持材料，不得因 iOS 独有素材未完成而失败。只有 `readyForMacAppStoreUpload: true` 才表示本地精确候选已通过上传前门禁，不表示已上传、已处理或已提审。
 - [ ] 完整核对四段式确认值后显式执行 `submit-macos-app-store.sh --upload`，再用 `verify-macos-app-store-delivery.sh` 复验它生成的只读、不覆盖 delivery record，并将路径填入 `AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE`。`uploadAccepted: true` 只表示上传命令被接受，不表示 Apple 已处理或已提审。
 - [ ] 在 App Store Connect 人工确认该精确 Build 为 `Complete`、复核全部 errors/warnings/information 并记录 Build ID/UTC 时间后，用 `confirm-macos-app-store-evidence.sh` 生成 processing record，以 `verify-macos-app-store-evidence.sh` 复验，并将路径填入 `AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE`。这份处理完成记录只是人工观察的本地证据：脚本不会回查 Apple，也不能证明已选择构建或已提交审核。
-- [ ] 只在 `readyForMacAppStoreReviewSelection: true` 时进入人工选择步骤；该字段只表示证据链支持为 macOS 版本选择正确 Build，不表示 Build 已被选中或 App Review 已提交。账号授权人仍需在 App Store Connect 中选择该 Build、复核元数据/App Privacy，并显式提交 App Review；已废弃的 `readyForFunctionalMacAppStoreSubmission` 保持 `false`。
+- [ ] 生成最新 readiness 报告并运行 `scripts/assert-release-preflight.sh mac-app-store-review /absolute/path/readiness.json`；只在命令通过且 `readyForMacAppStoreReviewSelection: true` 时进入人工选择步骤。该门禁会复验精确候选、交付/处理记录、时间顺序、警告复核、Build ID、记录模式、隐私与 Mac 商店材料，但不表示 Build 已被选中或 App Review 已提交。账号授权人仍需在 App Store Connect 中选择该 Build、复核元数据/App Privacy，并分别执行 Add for Review 与 Submit for Review；已废弃的 `readyForFunctionalMacAppStoreSubmission` 保持 `false`。
 
 ## 3C. iOS TestFlight 与 App Store 专项
 
@@ -207,6 +207,7 @@
 - [ ] 根据最终构建重新截取中英文截图；可使用持续明示“离线示例”的内置虚构数据，否则必须遮盖真实项目路径、对话、用户名、API Key 和 Token 敏感信息。
 - [ ] 截图只展示最终构建中真实可操作的功能，不使用竞品截图/Logo；iPhone 看板和灵动岛可以展示，但必须来自正式签名、Production schema 和同账号真机链路均已验收的最终 iOS 构建。
 - [ ] 按 `IOS_SCREENSHOT_CHECKLIST.md` 制作 1–10 张无透明通道的 iPhone 截图，并分别准备简体中文和英文。
+- [ ] 按 `STORE_SCREENSHOT_EVIDENCE.schema.json` 记录每张最终截图的 SHA-256、语言、设备、UTC 截取时间和人工声明；确认中英文没有复用相同图片、没有拉伸/合成，并与 App Privacy 证据中的同一候选包匹配。
 - [ ] 校验名称、副标题、推广文本、关键词和描述字符限制。
 - [ ] Support URL 能打开并显示真实联系方式；Privacy URL 不是空页面或仓库草稿。
 - [ ] Review Notes 给出从启动到核心功能的完整步骤。

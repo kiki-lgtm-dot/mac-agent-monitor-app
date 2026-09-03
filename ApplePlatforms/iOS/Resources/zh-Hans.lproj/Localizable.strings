@@ -43,6 +43,14 @@
 "example.not_synced" = "内置样例 · 未同步";
 "example.error" = "无法载入内置示例。";
 "example.error.invalid_data" = "示例模式拒绝了未标记为样例的数据。";
+"example.data.source_device" = "示例 Mac";
+"example.data.agent_a" = "示例 Agent A";
+"example.data.agent_b" = "示例 Agent B";
+"example.data.tool_cli" = "示例命令行工具";
+"example.data.tool_ide" = "示例开发工具";
+"example.data.task_release" = "正在准备发布";
+"example.data.task_tests" = "正在检查自动化测试";
+"example.data.task_completed" = "示例任务已完成";
 
 "privacy.show_titles" = "显示完整标题";
 "privacy.hide_titles" = "隐藏完整标题";

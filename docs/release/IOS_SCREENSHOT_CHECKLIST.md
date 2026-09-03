@@ -146,6 +146,7 @@ ios-en-US-01-dashboard.png
 - [ ] 不展示 Apple 未发布硬件或模仿其他产品的界面。
 - [ ] 逐张与最终 Build 对照，所有数字、按钮和状态都能复现。
 - [ ] App Store Connect 预览中检查顺序、裁切和每个本地化。
+- [ ] 按 `STORE_SCREENSHOT_EVIDENCE.schema.json` 写入 `.release/store-screenshot-evidence.json`：逐图记录 SHA-256、`zh-Hans` / `en-US`、设备、UTC 时间和 `exact-candidate-build` 来源，并明确确认 `localizedForLocale`；中英文相同图片字节会被拒绝。
 
 ## 8. TestFlight 截图说明
 

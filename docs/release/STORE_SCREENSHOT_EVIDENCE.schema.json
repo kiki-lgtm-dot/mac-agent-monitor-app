@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MAC版灵动岛--Agent运行监测 store screenshot evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "candidates"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "items": {
+        "$ref": "#/$defs/candidate"
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^dist/[^\\\\]+$"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "attestations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exactCandidateBuild",
+        "localizedForLocale",
+        "noSensitiveDataReviewed",
+        "notStretchedOrSynthetic"
+      ],
+      "properties": {
+        "exactCandidateBuild": {
+          "const": true
+        },
+        "localizedForLocale": {
+          "const": true
+        },
+        "noSensitiveDataReviewed": {
+          "const": true
+        },
+        "notStretchedOrSynthetic": {
+          "const": true
+        }
+      }
+    },
+    "screenshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "locale",
+        "device",
+        "capturedAt",
+        "source",
+        "attestations"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^docs/release-assets/(macos|ios)/(zh-Hans|en-US)/[^/\\\\]+\\.(png|jpg|jpeg)$"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "locale": {
+          "enum": ["zh-Hans", "en-US"]
+        },
+        "device": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "capturedAt": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        },
+        "source": {
+          "const": "exact-candidate-build"
+        },
+        "attestations": {
+          "$ref": "#/$defs/attestations"
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "bundleIdentifier",
+        "version",
+        "build",
+        "artifact",
+        "screenshots"
+      ],
+      "properties": {
+        "platform": {
+          "enum": ["macos", "ios"]
+        },
+        "bundleIdentifier": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9.-]+\\.[A-Za-z0-9.-]+$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+){1,2}$"
+        },
+        "build": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "artifact": {
+          "$ref": "#/$defs/artifact"
+        },
+        "screenshots": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/screenshot"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "platform": {
+                "const": "ios"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "artifact": {
+                "properties": {
+                  "path": {
+                    "pattern": "^dist/.+\\.(ipa|xcarchive\\.zip)$"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "artifact": {
+                "properties": {
+                  "path": {
+                    "pattern": "^dist/.+\\.(pkg|zip)$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

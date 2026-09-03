@@ -13,13 +13,14 @@
 - `IOS_APP_STORE_AND_TESTFLIGHT_METADATA.md`：iOS App Store 与 TestFlight 中英文元数据。
 - `IOS_APP_REVIEW_NOTES.md`：iOS 审核说明、数据边界和演示路径。
 - `IOS_SCREENSHOT_CHECKLIST.md`：iPhone、锁屏实时活动和灵动岛截图清单。
+- `STORE_SCREENSHOT_EVIDENCE.schema.json`：最终中英文截图与精确候选包的结构化证据契约；填写方式见 `../release-assets/README.md`。
 - `DATA_HANDLING_AND_PRIVACY_LABELS.md`：数据处理清单、App Privacy 标签建议和 Privacy Manifest 审计项。
 - `APP_PRIVACY_SUBMISSION_WORKSHEET.md`：App Store Connect App Privacy 逐项填写基线、Manifest 映射和最终构建证据表。
 - `DEEPSEEK_TRANSLATION_PRIVACY_AUDIT.md`：DeepSeek 默认翻译端点的官方公开资料、代码核对、数据地区/保留/训练边界和建议的分层告知文案。
 - `RELEASE_IDENTITY.md`：正式 Bundle/Team/Container 的只读检查、首次可恢复应用、身份锁和 profile 派生 entitlement 流程。
 - `RELEASE_CHECKLIST.md`：从当前开发构建到公开上线的检查清单。
 
-源码阶段可分别运行 `node scripts/validate-app-privacy.mjs` 和 `node scripts/validate-store-submission.mjs`。商店素材校验器的 `releaseReady` / `storeSubmissionAssetsReady` 是 macOS 与 iOS 都完成后的汇总；单独发布某个平台时，以 readiness 报告中的 `macStoreSubmissionAssetsReady` 或 `iosStoreSubmissionAssetsReady` 为准。Mac 上传不会被未完成的 iOS 元数据或截图阻断，iOS 最终提审也只读取 iOS 对应材料；双语隐私政策、App Privacy worksheet 和公开支持联系方式仍是两端共用门禁。这些检查不代替最终 Archive、签名/profile、Xcode Privacy Report 和真机验证。
+源码阶段可分别运行 `node scripts/validate-app-privacy.mjs` 和 `node scripts/validate-store-submission.mjs`。正式素材除了 `docs/release-assets` 下四组图片，还必须提供默认位于 `.release/store-screenshot-evidence.json` 的结构化证据，把每张本地化截图绑定到 App Privacy 已核验的同一候选包；详见 `../release-assets/README.md`。商店素材校验器的 `releaseReady` / `storeSubmissionAssetsReady` 是 macOS 与 iOS 都完成后的汇总；单独发布某个平台时，以 readiness 报告中的 `macStoreSubmissionAssetsReady` 或 `iosStoreSubmissionAssetsReady` 为准。Mac 上传不会被未完成的 iOS 元数据或截图阻断，iOS 最终提审也只读取 iOS 对应材料；双语隐私政策、App Privacy worksheet 和公开支持联系方式仍是两端共用门禁。这些检查不代替最终 Archive、签名/profile、Xcode Privacy Report 和真机验证。
 
 ## 身份锁与 Mac App Store 证据层级
 
@@ -32,7 +33,7 @@ Mac App Store 发布状态必须按以下证据层级逐步判定，不得用单
 3. `readyForMacAppStoreUpload: true` 只表示本地候选、候选级 App Privacy、功能 QA 和 `macStoreSubmissionAssetsReady` 已通过上传前门禁；它不依赖 iOS 独有素材，也不表示已上传、Apple 已处理或已提审。
 4. 显式执行 `submit-macos-app-store.sh --upload` 后，将交付记录填入 `AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE`。上传命令被接受不等于 App Store Connect 处理完成。
 5. 人工在 App Store Connect 确认该精确构建为 `Complete` 并检查全部警告后，用 `confirm-macos-app-store-evidence.sh` 生成处理记录，再填入 `AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE`。这是操作人员的本地证据，验证脚本不会回查 Apple 状态。
-6. `readyForMacAppStoreReviewSelection: true` 只表示证据链已支持在对应 macOS 版本中人工选择该 Build；它不表示 Build 已被选中，更不表示已执行 App Review 提交。选择构建和最终提审仍由账号授权人在 App Store Connect 中完成。
+6. `readyForMacAppStoreReviewSelection: true` 只表示证据链已支持在对应 macOS 版本中人工选择该 Build。进入 App Store Connect 前，再运行 `scripts/assert-release-preflight.sh mac-app-store-review /absolute/path/readiness.json` 复验处理状态、时间顺序、警告复核、Build ID、记录模式与精确候选门禁；该命令仍不表示 Build 已被选中，更不表示已执行 App Review 提交。选择构建和最终提审仍由账号授权人在 App Store Connect 中完成。
 
 iOS 也分为两个独立层级：`readyForFunctionalIOSTestFlight: true` 只表示精确 TestFlight 安装包已完成候选绑定的处理、安装、隐私与真机功能验收；`readyForIOSAppStoreReviewSelection: true` 还要求 iOS 中英文商店材料、截图、App Icon、公开支持信息、App Privacy 证据和记录模式全部通过。可用
 `scripts/assert-release-preflight.sh ios-app-store-review /absolute/path/readiness.json`

@@ -302,11 +302,21 @@ extension AgentIslandSnapshot {
   /// The provider returns this value directly in memory. It never enters the
   /// CloudKit receiver or the account-scoped synced-snapshot cache.
   public static var preview: AgentIslandSnapshot {
-    AgentIslandSnapshot(
+    func localized(_ key: String, fallback: String) -> String {
+      NSLocalizedString(
+        key,
+        tableName: nil,
+        bundle: .main,
+        value: fallback,
+        comment: "Bundled App Review example data"
+      )
+    }
+
+    return AgentIslandSnapshot(
       generatedAt: .now,
       sourceDevice: SourceDevice(
         id: "preview-mac",
-        name: "Example data / 示例数据",
+        name: localized("example.data.source_device", fallback: "Example Mac"),
         platform: "macOS"
       ),
       usage: TokenUsage(
@@ -319,8 +329,8 @@ extension AgentIslandSnapshot {
       agents: [
         AgentSummary(
           id: "example-agent-a",
-          displayName: "Sample Agent A / 示例 Agent A",
-          toolName: "Sample CLI / 示例工具",
+          displayName: localized("example.data.agent_a", fallback: "Sample Agent A"),
+          toolName: localized("example.data.tool_cli", fallback: "Sample CLI"),
           state: .working,
           activeDurationSeconds: 754,
           usage: TokenUsage(
@@ -333,14 +343,20 @@ extension AgentIslandSnapshot {
           conversations: [
             ConversationSummary(
               id: "example-conversation-1",
-              safeSummary: "Sample task 1 / 示例任务 1",
+              safeSummary: localized(
+                "example.data.task_release",
+                fallback: "Preparing a release"
+              ),
               state: .working,
               activeDurationSeconds: 514,
               usage: TokenUsage(total: 8_100)
             ),
             ConversationSummary(
               id: "example-conversation-2",
-              safeSummary: "Sample task 2 / 示例任务 2",
+              safeSummary: localized(
+                "example.data.task_tests",
+                fallback: "Checking automated tests"
+              ),
               state: .working,
               activeDurationSeconds: 240,
               usage: TokenUsage(total: 4_200)
@@ -350,15 +366,18 @@ extension AgentIslandSnapshot {
         ),
         AgentSummary(
           id: "example-agent-b",
-          displayName: "Sample Agent B / 示例 Agent B",
-          toolName: "Sample IDE / 示例 IDE",
+          displayName: localized("example.data.agent_b", fallback: "Sample Agent B"),
+          toolName: localized("example.data.tool_ide", fallback: "Sample IDE"),
           state: .idle,
           activeDurationSeconds: 305,
           usage: TokenUsage(total: 6_120),
           conversations: [
             ConversationSummary(
               id: "example-conversation-3",
-              safeSummary: "Completed sample / 已完成示例",
+              safeSummary: localized(
+                "example.data.task_completed",
+                fallback: "Completed sample task"
+              ),
               state: .completed,
               activeDurationSeconds: 305,
               usage: TokenUsage(total: 6_120)

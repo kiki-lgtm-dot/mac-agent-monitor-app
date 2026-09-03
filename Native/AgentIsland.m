@@ -134,7 +134,22 @@ static NSString *AILanguagePreference(void) {
     return @"system";
 }
 
+// Automated UI captures are deliberately limited to monitor-only screens fed
+// by the bundled offline example. Workspace, translator, and settings views
+// may contain user-authored content restored from WebKit local storage.
+static NSString *AIResolvedQAMode(void) {
+    NSDictionary<NSString *, NSString *> *environment = NSProcessInfo.processInfo.environment;
+    if (![environment[@"AGENT_ISLAND_QA_EXAMPLE"] isEqual:@"1"]) return nil;
+    NSString *mode = environment[@"AGENT_ISLAND_QA"];
+    if (![@[@"compact", @"monitor", @"history"] containsObject:mode]) return nil;
+    return mode;
+}
+
 static NSString *AIResolvedLanguage(void) {
+    NSDictionary<NSString *, NSString *> *environment = NSProcessInfo.processInfo.environment;
+    NSString *qaLanguage = environment[@"AGENT_ISLAND_QA_LANGUAGE"];
+    if (AIResolvedQAMode().length &&
+        ([qaLanguage isEqual:@"zh"] || [qaLanguage isEqual:@"en"])) return qaLanguage;
     NSString *preference = AILanguagePreference();
     if (![preference isEqual:@"system"]) return preference;
     for (NSString *language in NSLocale.preferredLanguages) {
@@ -3314,14 +3329,15 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
     AIInstallApplicationMainMenu();
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    BOOL qaExampleLaunch = AIResolvedQAMode().length > 0;
     self.dataAccessConsented = [defaults integerForKey:AIDataAccessConsentDefaultsKey] == AIDataAccessConsentVersion;
-    self.exampleModeEnabled = [defaults boolForKey:AIExampleModeDefaultsKey];
+    self.exampleModeEnabled = qaExampleLaunch || [defaults boolForKey:AIExampleModeDefaultsKey];
     id monitoringPreference = [defaults objectForKey:AIMonitoringEnabledDefaultsKey];
     self.monitoringEnabled = self.dataAccessConsented &&
         (monitoringPreference ? [monitoringPreference boolValue] : YES);
     if (self.exampleModeEnabled) {
         self.monitoringEnabled = NO;
-        [defaults setBool:NO forKey:AIMonitoringEnabledDefaultsKey];
+        if (!qaExampleLaunch) [defaults setBool:NO forKey:AIMonitoringEnabledDefaultsKey];
     }
     NSRunningApplication *frontmost = NSWorkspace.sharedWorkspace.frontmostApplication;
     if (frontmost.processIdentifier != NSProcessInfo.processInfo.processIdentifier) self.lastExternalApplication = frontmost;
@@ -3958,13 +3974,11 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     self.pendingSnapshot = nil;
     if (pending) [self pushSnapshot:pending];
     else if (!self.refreshing) [self refreshSnapshot];
-    NSString *qaMode = NSProcessInfo.processInfo.environment[@"AGENT_ISLAND_QA"];
+    NSString *qaMode = AIResolvedQAMode();
     if (qaMode.length) {
         if (![qaMode isEqual:@"compact"]) [self setExpanded:YES];
-        NSSet *qaTabs = [NSSet setWithArray:@[@"monitor", @"workspace", @"translator", @"settings"]];
-        if ([qaTabs containsObject:qaMode]) {
-            NSString *script = [NSString stringWithFormat:@"setTab('%@')", qaMode];
-            [self.webView evaluateJavaScript:script completionHandler:nil];
+        if ([qaMode isEqual:@"monitor"]) {
+            [self.webView evaluateJavaScript:@"setTab('monitor')" completionHandler:nil];
         } else if ([qaMode isEqual:@"history"]) {
             [self.webView evaluateJavaScript:@"setTab('monitor');setMonitorMode('history')" completionHandler:nil];
         }
@@ -3986,14 +4000,35 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)captureQAImageNamed:(NSString *)name {
+    if (!self.exampleModeEnabled || ![AIResolvedQAMode() isEqualToString:name]) return;
+    NSDictionary<NSString *, NSString *> *safeNames = @{
+        @"compact": @"compact.png", @"monitor": @"monitor.png", @"history": @"history.png"
+    };
+    NSString *fileName = safeNames[name];
+    if (!fileName) return;
     WKSnapshotConfiguration *configuration = [[WKSnapshotConfiguration alloc] init];
     configuration.afterScreenUpdates = YES;
     [self.webView takeSnapshotWithConfiguration:configuration completionHandler:^(NSImage *image, NSError *error) {
         if (!image || error) { NSLog(@"AgentIsland QA snapshot failed: %@", error); return; }
         NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithData:image.TIFFRepresentation];
         NSData *png = [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
-        NSString *path = [NSString stringWithFormat:@"/private/tmp/agentisland-%@-qa.png", name];
-        [png writeToFile:path atomically:YES];
+        if (!png) { NSLog(@"AgentIsland QA snapshot failed: PNG encoding failed"); return; }
+        NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:
+            [NSString stringWithFormat:@"agentisland-qa-%@", NSUUID.UUID.UUIDString]];
+        NSError *directoryError = nil;
+        if (![NSFileManager.defaultManager createDirectoryAtPath:directory
+                withIntermediateDirectories:NO
+                attributes:@{NSFilePosixPermissions: @0700}
+                error:&directoryError]) {
+            NSLog(@"AgentIsland QA snapshot failed: %@", directoryError);
+            return;
+        }
+        NSString *path = [directory stringByAppendingPathComponent:fileName];
+        if (![NSFileManager.defaultManager createFileAtPath:path contents:png
+                attributes:@{NSFilePosixPermissions: @0600}]) {
+            NSLog(@"AgentIsland QA snapshot failed: could not create output file");
+            return;
+        }
         NSLog(@"AgentIsland QA snapshot: %@", path);
     }];
 }
@@ -4891,7 +4926,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)handlePanelHover:(BOOL)inside {
-    if (NSProcessInfo.processInfo.environment[@"AGENT_ISLAND_QA"].length) return;
+    if (AIResolvedQAMode().length) return;
     if (inside) {
         [self cancelHoverCollapseTimer];
         if (self.expanded || self.hoverExpandTimer || self.suppressAutoCollapse ||
@@ -5023,6 +5058,10 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     }
     NSRect frame = NSMakeRect(round(NSMidX(anchor) - size.width / 2.0),
         round(NSMaxY(anchor) - size.height), size.width, size.height);
+    // QA snapshots must capture a settled WebView at its final dimensions.
+    // Disabling only the test-launch animation prevents a fast in-memory
+    // example payload from being photographed mid-resize as an empty frame.
+    if (AIResolvedQAMode().length) animated = NO;
     if (!animated) {
         [self.panel setFrame:frame display:YES];
         return;
@@ -5243,10 +5282,14 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     if (!json) return;
     NSString *script = [NSString stringWithFormat:@"window.AgentIsland&&window.AgentIsland.receive(%@)", json];
     [self.webView evaluateJavaScript:script completionHandler:^(__unused id result, __unused NSError *error) {
-        NSString *qaMode = NSProcessInfo.processInfo.environment[@"AGENT_ISLAND_QA"];
-        if (!self.qaCaptured && qaMode.length) {
+        NSString *qaMode = AIResolvedQAMode();
+        if (!self.qaCaptured && qaMode.length && self.exampleModeEnabled && validExample) {
             self.qaCaptured = YES;
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(350 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+            // The bundled example arrives synchronously. Give WebKit enough
+            // time to finish localization, layout, font rasterization, and the
+            // expanded-frame commit before taking the deterministic QA image.
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1500 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+                if (!self.exampleModeEnabled || ![AIResolvedQAMode() isEqualToString:qaMode]) return;
                 [self captureQAImageNamed:qaMode];
             });
         }
@@ -5430,7 +5473,7 @@ int main(int argc, const char *argv[]) {
         }
         NSApplication *application = NSApplication.sharedApplication;
         NSString *bundleIdentifier = NSBundle.mainBundle.bundleIdentifier ?: @"local.agentisland.desktop";
-        BOOL qaLaunch = NSProcessInfo.processInfo.environment[@"AGENT_ISLAND_QA"].length > 0;
+        BOOL qaLaunch = AIResolvedQAMode().length > 0;
         if (!qaLaunch) {
             for (NSRunningApplication *running in [NSRunningApplication runningApplicationsWithBundleIdentifier:bundleIdentifier]) {
                 if (running.processIdentifier == NSProcessInfo.processInfo.processIdentifier) continue;

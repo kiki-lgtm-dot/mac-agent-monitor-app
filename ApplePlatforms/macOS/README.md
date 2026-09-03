@@ -244,7 +244,7 @@ export AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE="$PWD/dist/macos-app-store
 4. 完成 Production CloudKit schema 部署和同 iCloud 账号的 Mac→iPhone 真机检查。确认 `macStoreSubmissionAssetsReady: true`；它只要求 Mac 中英文元数据、Mac 截图和两端共用的隐私/支持材料，不会因 iOS 独有素材未完成而失败。只有 `readyForMacAppStoreUpload: true` 才表示该本地候选通过上传前门禁；它不表示已经上传。
 5. 需要时先执行 `--validate`，仅在核对精确四段式确认值后显式执行 `--upload`。复验 delivery record 后将它填入 `AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE`；`uploadAccepted: true` 不等于 Apple 处理完成。
 6. 上传后在 App Store Connect 人工确认该 Build 为 `Complete`，检查全部 errors/warnings/information，用 `confirm-macos-app-store-evidence.sh` 生成并复验 processing evidence，再填入 `AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE`。这是人工观察的本地证据，不是 Apple 状态的自动回查。
-7. `readyForMacAppStoreReviewSelection: true` 只表示证据链已支持在对应 macOS 版本中人工选择该 Build；它不表示构建已被选中或已提交 App Review。
+7. 生成最新 readiness 报告并运行 `../../scripts/assert-release-preflight.sh mac-app-store-review /absolute/path/readiness.json`。`readyForMacAppStoreReviewSelection: true` 且该门禁通过，只表示证据链已支持在对应 macOS 版本中人工选择该 Build；它不表示构建已被选中、已 Add for Review 或已 Submit for Review。
 8. 账号授权人在 App Store Connect 为正确 macOS 版本选择该 Build，复核所有商店资料和 App Privacy，再显式执行 App Review 提交。已废弃的 `readyForFunctionalMacAppStoreSubmission` 始终保持 `false`，不得将其当作提审证据。
 
 运行本流程的专用回归检查：

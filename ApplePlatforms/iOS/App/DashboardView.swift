@@ -33,7 +33,10 @@ struct DashboardView: View {
         .padding(.vertical, 18)
       }
       .background(Color(uiColor: .systemGroupedBackground))
-      .navigationTitle(Text(verbatim: releaseLinks.displayName))
+      // Keep the in-app title compact. The full public product name remains in
+      // CFBundleDisplayName and the store listing, where it is not constrained
+      // by the navigation bar width.
+      .navigationTitle(Text("dashboard.title"))
       .toolbar { privacyToolbar }
       .refreshable { await store.refresh() }
       .confirmationDialog(
@@ -363,20 +366,10 @@ struct DashboardView: View {
 }
 
 private struct DashboardReleaseLinks {
-  let displayName: String
   let privacyPolicyURL: URL?
   let supportURL: URL?
 
   init(bundle: Bundle = .main) {
-    let configuredName =
-      (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)?
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-    self.displayName =
-      if let configuredName, !configuredName.isEmpty, !configuredName.contains("$(") {
-        configuredName
-      } else {
-        NSLocalizedString("dashboard.title", bundle: bundle, comment: "")
-      }
     self.privacyPolicyURL = Self.validHTTPSURL(
       bundle.object(forInfoDictionaryKey: "AgentIslandPrivacyPolicyURL")
     )

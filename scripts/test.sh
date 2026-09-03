@@ -660,6 +660,7 @@ done
   -u AGENT_ISLAND_IOS_FUNCTIONAL_EVIDENCE_IPA_SHA256 \
   -u AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE \
   -u AGENT_ISLAND_APP_PRIVACY_EVIDENCE \
+  -u AGENT_ISLAND_STORE_SCREENSHOT_EVIDENCE \
   -u AGENT_ISLAND_MAC_APP_STORE_PROJECT \
   -u AGENT_ISLAND_MAC_APP_STORE_SCHEME \
   -u AGENT_ISLAND_APP_STORE_RECORD_MODE \
@@ -2269,7 +2270,7 @@ function run(argv) {
     if (variables(messages.zh[key]) !== variables(messages.en[key])) throw new Error("Template variables differ for " + key)
   }
   const referenced = new Set()
-  const attribute = /data-i18n(?:-(?:title|aria-label|placeholder))?="([^"]+)"/g
+  const attribute = /data-i18n(?:-(?:title|aria-label|placeholder|badge))?="([^"]+)"/g
   let item
   while ((item = attribute.exec(html))) referenced.add(item[1])
   for (const key of referenced) {
@@ -2287,7 +2288,7 @@ function run(argv) {
     "translationConsentDeepSeek", "translationConsentCustom", "translationConsentAuthority",
     "translationConsentCancel", "translationConsentContinue", "studySearchRegion", "searchStudy",
     "studyStatusFilter", "studyFilterAll", "studyFilterLearning", "studyResultSummary", "noMatchingStudy",
-    "exampleBanner", "exampleModeTitle", "exampleModeIntro", "exampleModeControl", "exampleModeControlHint",
+    "exampleBadge", "exampleBanner", "exampleModeTitle", "exampleModeIntro", "exampleModeControl", "exampleModeControlHint",
     "enterExampleMode", "exitExampleMode", "exampleModeOn", "exampleActionBlocked", "exampleHistoryDisclaimer"]
   for (const key of requiredCopy) {
     if (!(key in messages.zh) || !(key in messages.en)) throw new Error("Missing workspace translation for " + key)
@@ -2316,6 +2317,9 @@ function run(argv) {
     "reviewDataAccess", "authorizeHomeAccess", "revokeHomeAccess", "homeAccessStored",
     "setMonitoringEnabled", "dataAccessResult", "setExampleMode", "bundledOfflineExample", "exampleDataOnly"]) {
     if (!source.includes(required)) throw new Error("Missing Web integration: " + required)
+  }
+  if (!/\.example-banner:before\s*\{[^}]*content:\s*attr\(data-badge\)/.test(stylesheet)) {
+    throw new Error("The example badge must use its localized data-badge label")
   }
   for (const consentMarker of ["translationTransferNotice", "translationTransferNoticeDeepSeek",
     "translationConsentDeepSeek", "translationConsentCustom", "showTranslationConsent",
@@ -2720,11 +2724,50 @@ for NATIVE_MARKER in \
   '@"releaseLinkResult"' \
   'AIExampleModeDefaultsKey' \
   'AIOfflineExampleSnapshot' \
+  'AIResolvedQAMode' \
+  'AGENT_ISLAND_QA_EXAMPLE' \
+  'AGENT_ISLAND_QA_LANGUAGE' \
+  'NSFilePosixPermissions: @0600' \
   '--offline-example-snapshot' \
   '--allow-local-agent-data' \
   '--export-mobile-snapshot'; do
   rg -F -q -- "$NATIVE_MARKER" "$PROJECT_DIR/Native/AgentIsland.m"
 done
+node - "$PROJECT_DIR/Native/AgentIsland.m" <<'NODE'
+const fs = require('fs');
+const source = fs.readFileSync(process.argv[2], 'utf8');
+const qaStart = source.indexOf('static NSString *AIResolvedQAMode(void)');
+const qaEnd = source.indexOf('static NSString *AIResolvedLanguage(void)', qaStart);
+const qaSection = source.slice(qaStart, qaEnd);
+if (qaStart < 0 || qaEnd < 0
+    || !qaSection.includes('AGENT_ISLAND_QA_EXAMPLE')
+    || !qaSection.includes('@"compact"')
+    || !qaSection.includes('@"monitor"')
+    || !qaSection.includes('@"history"')
+    || qaSection.includes('@"workspace"')
+    || qaSection.includes('@"translator"')
+    || qaSection.includes('@"settings"')) {
+  throw new Error('QA capture mode must fail closed to offline monitor-only examples');
+}
+const pushStart = source.indexOf('- (void)pushSnapshot:');
+const pushSection = source.slice(pushStart, source.indexOf('\n@end', pushStart));
+if (pushStart < 0
+    || !pushSection.includes('qaMode.length && self.exampleModeEnabled && validExample')
+    || !pushSection.includes('![AIResolvedQAMode() isEqualToString:qaMode]')) {
+  throw new Error('QA capture must require native and payload example-mode validation');
+}
+const captureStart = source.indexOf('- (void)captureQAImageNamed:');
+const captureEnd = source.indexOf('- (void)userContentController:', captureStart);
+const captureSection = source.slice(captureStart, captureEnd);
+if (captureStart < 0 || captureEnd < 0
+    || !captureSection.includes('safeNames[name]')
+    || !captureSection.includes('![AIResolvedQAMode() isEqualToString:name]')
+    || !captureSection.includes('NSFilePosixPermissions: @0700')
+    || !captureSection.includes('NSFilePosixPermissions: @0600')
+    || captureSection.includes('agentisland-%@-qa.png')) {
+  throw new Error('QA screenshot output must use safe slugs and private filesystem permissions');
+}
+NODE
 if rg -q 'dataTaskWithRequest:request[[:space:]]+completionHandler:' "$PROJECT_DIR/Native/AgentIsland.m"; then
   echo "Translator must use bounded NSURLSessionDataDelegate streaming, not a completion-handler buffer" >&2
   exit 1

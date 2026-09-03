@@ -50,6 +50,7 @@ requireText(pages.home, [
   "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/",
   "styles.css?v=20260903-cn-demo",
   "media/mac-agent-monitor-overview-zh.png",
+  "media/mac-agent-monitor-overview-zh.png?v=20260904-safe-example",
   "media/mac-agent-monitor-overview-en.png",
   "media/mac-agent-monitor-states-zh.svg",
   "privacy/",

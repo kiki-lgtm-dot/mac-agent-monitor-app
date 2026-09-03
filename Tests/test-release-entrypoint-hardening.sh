@@ -163,6 +163,85 @@ for field in \
     "$PREFLIGHT" mac-app-store-upload "$INVALID_REPORT"
 done
 
+MAC_APP_STORE_REVIEW_REPORT="$TEST_ROOT/mac-app-store-review-ready.json"
+/usr/bin/jq \
+  --arg deliveryPath "$TEST_ROOT/mac-app-store-delivery.json" \
+  --arg processingPath "$TEST_ROOT/mac-app-store-processing.json" '. + {
+  appStoreRecordModeConfigured: true,
+  appStoreRecordModeBundleIDsValid: true,
+  macAppStoreDeliveryEvidenceConfigured: true,
+  macAppStoreDeliveryEvidenceReady: true,
+  macAppStoreDeliveryBoundToCandidate: true,
+  macAppStoreDeliveryEvidencePath: $deliveryPath,
+  macAppStoreDeliveryEvidenceSHA256: ("d" * 64),
+  macAppStoreUploadAccepted: true,
+  macAppStoreUploadSubmittedAt: "2026-09-04T00:00:00Z",
+  macAppStoreProcessingEvidenceConfigured: true,
+  macAppStoreProcessingEvidenceReady: true,
+  macAppStoreProcessingBoundToDelivery: true,
+  macAppStoreProcessingEvidencePath: $processingPath,
+  macAppStoreProcessingEvidenceSHA256: ("e" * 64),
+  macAppStoreProcessingState: "Complete",
+  macAppStoreProcessingVerified: true,
+  macAppStoreProcessingVerifiedAt: "2026-09-04T00:05:00Z",
+  macAppStoreWarningsReviewed: true,
+  macAppStoreWarningsReviewedAt: "2026-09-04T00:05:00Z",
+  macAppStoreConnectBuildID: "fixture-mac-build-id",
+  macAppStoreAppReviewSubmissionRecorded: false,
+  readyForMacAppStoreReviewSelection: true
+}' "$MAC_APP_STORE_UPLOAD_REPORT" >"$MAC_APP_STORE_REVIEW_REPORT"
+"$PREFLIGHT" mac-app-store-review "$MAC_APP_STORE_REVIEW_REPORT"
+
+for field in \
+    releaseIdentityReady \
+    readyForMacAppStoreArchive \
+    macAppStoreExactCandidateEvidenceReady \
+    macAppStoreLocalPreflightPassed \
+    macAppStoreFunctionalQAEvidenceReady \
+    macAppStoreFunctionalEvidenceBoundToCandidate \
+    cloudKitProductionSchemaVerified \
+    macPrivacyReleaseEvidenceReady \
+    macStoreSubmissionAssetsReady \
+    appStoreRecordModeConfigured \
+    appStoreRecordModeBundleIDsValid \
+    readyForMacAppStoreUpload \
+    macAppStoreDeliveryEvidenceConfigured \
+    macAppStoreDeliveryEvidenceReady \
+    macAppStoreDeliveryBoundToCandidate \
+    macAppStoreUploadAccepted \
+    macAppStoreProcessingEvidenceConfigured \
+    macAppStoreProcessingEvidenceReady \
+    macAppStoreProcessingBoundToDelivery \
+    macAppStoreProcessingVerified \
+    macAppStoreWarningsReviewed \
+    readyForMacAppStoreReviewSelection; do
+  INVALID_REPORT="$TEST_ROOT/mac-app-store-review-$field-false.json"
+  /usr/bin/jq --arg field "$field" '.[$field] = false' \
+    "$MAC_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+  expect_rejected "Mac App Store review report with $field=false" \
+    "$PREFLIGHT" mac-app-store-review "$INVALID_REPORT"
+done
+
+for expression in \
+    '.macAppStoreProcessingState = "PROCESSING"' \
+    '.macAppStoreConnectBuildID = ""' \
+    '.macAppStoreConnectBuildID = "bad build id"' \
+    '.macAppStoreDeliveryEvidencePath = "relative.json"' \
+    '.macAppStoreDeliveryEvidenceSHA256 = "bad-sha"' \
+    '.macAppStoreProcessingEvidencePath = "relative.json"' \
+    '.macAppStoreProcessingEvidenceSHA256 = "bad-sha"' \
+    '.macAppStoreUploadSubmittedAt = "not-a-time"' \
+    '.macAppStoreProcessingVerifiedAt = "not-a-time"' \
+    '.macAppStoreWarningsReviewedAt = "not-a-time"' \
+    '.macAppStoreUploadSubmittedAt = "2026-09-04T00:06:00Z"' \
+    '.macAppStoreWarningsReviewedAt = "2026-09-04T00:06:00Z"' \
+    '.macAppStoreAppReviewSubmissionRecorded = true'; do
+  INVALID_REPORT="$TEST_ROOT/mac-app-store-review-$RANDOM.json"
+  /usr/bin/jq "$expression" "$MAC_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
+  expect_rejected "Mac App Store review report mutation: $expression" \
+    "$PREFLIGHT" mac-app-store-review "$INVALID_REPORT"
+done
+
 IOS_REPORT="$TEST_ROOT/ios-ready.json"
 /usr/bin/jq -n --arg lockPath "$IDENTITY_LOCK" \
   --arg lockSHA256 "$IDENTITY_LOCK_SHA256" '{

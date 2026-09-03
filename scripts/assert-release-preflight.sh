@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  print -u2 -r -- "Usage: ${0:t} developer-id|mac-app-store|mac-app-store-upload|ios|ios-upload|ios-app-store-review READINESS_JSON"
+  print -u2 -r -- "Usage: ${0:t} developer-id|mac-app-store|mac-app-store-upload|mac-app-store-review|ios|ios-upload|ios-app-store-review READINESS_JSON"
 }
 
 fail() {
@@ -124,6 +124,61 @@ case "$CHANNEL" in
       .macPrivacyReleaseEvidenceReady == true and
       .macStoreSubmissionAssetsReady == true and
       .readyForMacAppStoreUpload == true
+    '
+    ;;
+  mac-app-store-review)
+    # Final local/operator gate before selecting the exact processed macOS
+    # build in App Store Connect. This proves neither remote build selection
+    # nor either of Apple's later Add for Review / Submit for Review actions.
+    PREDICATE='
+      .releaseIdentityLockConfigured == true and
+      .releaseIdentityLockValid == true and
+      .releaseIdentityAppliedFilesMatch == true and
+      .releaseIdentityMatchesConfiguration == true and
+      (.releaseIdentityLockSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
+      .releaseIdentityReady == true and
+      .readyForMacAppStoreArchive == true and
+      .macAppStoreExactCandidateEvidenceReady == true and
+      .macAppStoreLocalPreflightPassed == true and
+      .macAppStoreFunctionalQAEvidenceReady == true and
+      .macAppStoreFunctionalEvidenceBoundToCandidate == true and
+      .macAppStoreSandboxFlowVerified == true and
+      .macAppStoreArchiveVerified == true and
+      .macAppStoreProfileCertificateVerified == true and
+      .macAppStorePrivacyReportVerified == true and
+      .macAppStoreReviewPathVerified == true and
+      .cloudKitProductionSchemaVerified == true and
+      .macPrivacyReleaseEvidenceReady == true and
+      .macStoreSubmissionAssetsReady == true and
+      .appStoreRecordModeConfigured == true and
+      .appStoreRecordModeBundleIDsValid == true and
+      .readyForMacAppStoreUpload == true and
+      .macAppStoreDeliveryEvidenceConfigured == true and
+      .macAppStoreDeliveryEvidenceReady == true and
+      .macAppStoreDeliveryBoundToCandidate == true and
+      .macAppStoreUploadAccepted == true and
+      (.macAppStoreDeliveryEvidencePath | type == "string" and startswith("/") and length > 1) and
+      (.macAppStoreDeliveryEvidenceSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
+      (.macAppStoreUploadSubmittedAt | type == "string" and
+        test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")) and
+      .macAppStoreProcessingEvidenceConfigured == true and
+      .macAppStoreProcessingEvidenceReady == true and
+      .macAppStoreProcessingBoundToDelivery == true and
+      .macAppStoreProcessingVerified == true and
+      .macAppStoreProcessingState == "Complete" and
+      (.macAppStoreProcessingEvidencePath | type == "string" and startswith("/") and length > 1) and
+      (.macAppStoreProcessingEvidenceSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
+      (.macAppStoreProcessingVerifiedAt | type == "string" and
+        test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")) and
+      .macAppStoreWarningsReviewed == true and
+      (.macAppStoreWarningsReviewedAt | type == "string" and
+        test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")) and
+      .macAppStoreUploadSubmittedAt <= .macAppStoreProcessingVerifiedAt and
+      .macAppStoreProcessingVerifiedAt == .macAppStoreWarningsReviewedAt and
+      (.macAppStoreConnectBuildID | type == "string" and
+        length > 0 and length <= 256 and test("^[^[:space:][:cntrl:]]+$")) and
+      .macAppStoreAppReviewSubmissionRecorded == false and
+      .readyForMacAppStoreReviewSelection == true
     '
     ;;
   ios)
@@ -263,6 +318,28 @@ print -u2 -r -- "Release preflight failed: $CHANNEL prerequisites are not satisf
   iosStoreSubmissionStructuralErrors,
   storeSubmissionAssetsReady,
   readyForMacAppStoreUpload,
+  macAppStoreDeliveryEvidenceConfigured,
+  macAppStoreDeliveryEvidenceReady,
+  macAppStoreDeliveryBoundToCandidate,
+  macAppStoreDeliveryEvidencePath,
+  macAppStoreDeliveryEvidenceSHA256,
+  macAppStoreUploadAccepted,
+  macAppStoreUploadSubmittedAt,
+  macAppStoreProcessingEvidenceConfigured,
+  macAppStoreProcessingEvidenceReady,
+  macAppStoreProcessingBoundToDelivery,
+  macAppStoreProcessingEvidencePath,
+  macAppStoreProcessingEvidenceSHA256,
+  macAppStoreProcessingState,
+  macAppStoreProcessingVerified,
+  macAppStoreProcessingVerifiedAt,
+  macAppStoreWarningsReviewed,
+  macAppStoreWarningsReviewedAt,
+  macAppStoreConnectBuildID,
+  macAppStoreAppReviewSubmissionRecorded,
+  appStoreRecordModeConfigured,
+  appStoreRecordModeBundleIDsValid,
+  readyForMacAppStoreReviewSelection,
   readyForIOSArchive,
   iosTestFlightExactBuildEvidenceReady,
   iosTestFlightUploadVerified,
@@ -275,8 +352,6 @@ print -u2 -r -- "Release preflight failed: $CHANNEL prerequisites are not satisf
   iosFunctionalQAEvidenceReady,
   iosFunctionalEvidenceBoundToCandidate,
   iosPrivacyReleaseEvidenceReady,
-  appStoreRecordModeConfigured,
-  appStoreRecordModeBundleIDsValid,
   readyForFunctionalIOSTestFlight,
   readyForIOSAppStoreReviewSelection,
   iosUploadCandidateLocalPreflightPassed,

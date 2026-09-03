@@ -14,7 +14,7 @@ Know which agents are working—without leaving your flow.
 
 ### 中文界面
 
-![MAC版灵动岛--Agent运行监测 中文界面](docs/media/mac-agent-monitor-overview-zh.png)
+![MAC版灵动岛--Agent运行监测 中文界面（内置离线示例数据）](docs/media/mac-agent-monitor-overview-zh.png)
 
 > **Project status:** source preview. The macOS app is usable for local development. The iPhone companion, private CloudKit sync, signing, notarization, and App Store configuration still require your own Apple Developer identifiers and real-device validation.
 

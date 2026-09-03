@@ -320,7 +320,7 @@
       line-height:1.45;
     }
     .example-banner:before {
-      content:"EXAMPLE";
+      content:attr(data-badge);
       flex:0 0 auto;
       padding:4px 8px;
       border-radius:999px;
@@ -1236,7 +1236,7 @@
       <div class="viewport">
         <section class="view active" id="view-monitor">
           <div class="warning" id="warning" role="status" aria-live="polite"></div>
-          <div class="example-banner" id="exampleBanner" role="status" aria-live="polite" hidden data-i18n="exampleBanner">Agent 监测为离线示例 · 未连接本机 Agent 日志、网络或 iCloud</div>
+          <div class="example-banner" id="exampleBanner" role="status" aria-live="polite" hidden data-i18n="exampleBanner" data-i18n-badge="exampleBadge" data-badge="示例">Agent 监测为离线示例 · 未连接本机 Agent 日志、网络或 iCloud</div>
           <div class="segmented monitor-mode" role="tablist" aria-label="监控视图">
             <button class="active" data-monitor-mode="live" role="tab" aria-selected="true" data-i18n="liveView">实时</button>
             <button data-monitor-mode="history" role="tab" aria-selected="false" data-i18n="usageHistory">用量历史</button>
@@ -1539,7 +1539,7 @@
           monitor:"监控",workspace:"工作台",translateLearn:"翻译学习",settings:"设置",localOnly:"本地工作台",
           connecting:"正在连接本地数据",updatedAt:"更新于 {time}",reading:"正在读取本机 Agent",
           compactWorking:"{agents} 个 Agent 工作中",compactIdle:"暂无 Agent 工作",compactReading:"正在检查 Agent…",compactMonitoringOff:"监测已关闭",compactExample:"示例 · {agents} 个 Agent 工作中",compactExpandLabel:"{status}；悬浮或点击展开",collapsePanel:"收回面板",collapse:"收回",
-          exampleBanner:"Agent 监测为离线示例 · 未连接本机 Agent 日志、网络或 iCloud",exampleUpdated:"Agent 监测为离线示例 · 不读取本机 Agent 日志",
+          exampleBadge:"示例",exampleBanner:"Agent 监测为离线示例 · 未连接本机 Agent 日志、网络或 iCloud",exampleUpdated:"Agent 监测为离线示例 · 不读取本机 Agent 日志",
           exampleModeTitle:"离线示例模式",exampleModeIntro:"使用随 App 内置的虚构数据体验 Agent、对话、时长和 Token 看板；不会读取本机 Agent 日志，不访问网络或 iCloud。",confirmExampleMode:"进入离线示例模式？请先等待当前读取、翻译和云端操作完成。进入后真实监测会停止；退出后需要你手动重新开启监测。",
           exampleModeControl:"审核与体验",exampleModeControlHint:"进入前需等待当前读取、翻译和云端操作完成；进入后停止真实监测。退出后必须由你手动重新开启监测。",
           enterExampleMode:"查看内置示例",exitExampleMode:"退出并重置示例",exampleModeOn:"示例模式开启：当前所有 Agent、对话、时长和 Token 均为虚构数据。",exampleModeOff:"示例模式关闭。",exampleRequiresCloudOff:"进入前请先关闭 iCloud 私有同步并等待操作完成。",
@@ -1620,7 +1620,7 @@
           monitor:"Monitor",workspace:"Workspace",translateLearn:"Translate & Learn",settings:"Settings",localOnly:"Local workspace",
           connecting:"Connecting to local data",updatedAt:"Updated {time}",reading:"Reading local Agents",
           compactWorking:"{agents} Agents active",compactIdle:"No Agents active",compactReading:"Checking Agents…",compactMonitoringOff:"Monitoring off",compactExample:"Example · {agents} Agents active",compactExpandLabel:"{status}; hover or click to expand",collapsePanel:"Collapse panel",collapse:"Collapse",
-          exampleBanner:"Agent monitoring is an offline example · no local Agent logs, network, or iCloud",exampleUpdated:"Agent monitoring is an offline example · no local Agent logs are read",
+          exampleBadge:"EXAMPLE",exampleBanner:"Agent monitoring is an offline example · no local Agent logs, network, or iCloud",exampleUpdated:"Agent monitoring is an offline example · no local Agent logs are read",
           exampleModeTitle:"Offline example mode",exampleModeIntro:"Explore the Agent, conversation, duration, and Token dashboard with fictional data bundled in the app. It does not read local Agent logs or access the network or iCloud.",confirmExampleMode:"Enter offline example mode? First wait for any current read, translation, and cloud activity to finish. Real monitoring then stops; after exit, you must explicitly enable it again.",
           exampleModeControl:"Review and explore",exampleModeControlHint:"Wait for current reads, translation, and cloud activity to finish first. Entry then stops real monitoring; after exit, you must explicitly enable it again.",
           enterExampleMode:"Explore built-in example",exitExampleMode:"Exit & reset example",exampleModeOn:"Example mode is on: every Agent, conversation, duration, and Token value shown is fictional.",exampleModeOff:"Example mode is off.",exampleRequiresCloudOff:"Turn off private iCloud sync and wait for it to finish before entering.",
@@ -2127,6 +2127,7 @@
       function applyStaticTranslations(){
         document.documentElement.lang=state.language==="zh"?"zh-CN":"en";
         $$("[data-i18n]").forEach(function(node){ node.textContent=t(node.dataset.i18n); });
+        $$("[data-i18n-badge]").forEach(function(node){ node.dataset.badge=t(node.dataset.i18nBadge); });
         $$("[data-i18n-placeholder]").forEach(function(node){ node.placeholder=t(node.dataset.i18nPlaceholder); });
         $$("[data-i18n-aria-label]").forEach(function(node){ node.setAttribute("aria-label",t(node.dataset.i18nAriaLabel)); });
         $$("[data-i18n-title]").forEach(function(node){ node.setAttribute("title",t(node.dataset.i18nTitle)); });
