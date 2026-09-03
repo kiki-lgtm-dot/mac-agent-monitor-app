@@ -11,13 +11,69 @@ concurrency:
   cancel-in-progress: true
 jobs:
   source-and-release-gates:
-    name: macOS source and release gates
+    name: macOS gates and iOS build
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@v6
       - name: Run macOS app and release tests
         run: ./scripts/test.sh
-      - name: Validate the iOS project structure
-        run: ./ApplePlatforms/iOS/scripts/validate-project.sh
+      - name: Select Xcode 26 with the iOS 26 SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          selected_developer_dir=""
+          for xcode_app in /Applications/Xcode*.app; do
+            [[ -d "$xcode_app/Contents/Developer" ]] || continue
+            candidate_developer_dir="$xcode_app/Contents/Developer"
+            xcode_version="$(DEVELOPER_DIR="$candidate_developer_dir" /usr/bin/xcodebuild -version 2>/dev/null | /usr/bin/awk '/^Xcode / {print $2; exit}' || true)"
+            iphone_sdk="$(DEVELOPER_DIR="$candidate_developer_dir" /usr/bin/xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || true)"
+            xcode_major="${xcode_version%%.*}"
+            sdk_major="${iphone_sdk%%.*}"
+            if [[ "$xcode_major" =~ ^[0-9]+$ && "$sdk_major" =~ ^[0-9]+$ ]] && \
+                (( xcode_major >= 26 && sdk_major >= 26 )); then
+              selected_developer_dir="$candidate_developer_dir"
+              break
+            fi
+          done
+          if [[ -z "$selected_developer_dir" ]]; then
+            echo "No installed Xcode 26+ toolchain with the iOS 26+ SDK was found." >&2
+            exit 1
+          fi
+          echo "DEVELOPER_DIR=$selected_developer_dir" >> "$GITHUB_ENV"
+          DEVELOPER_DIR="$selected_developer_dir" /usr/bin/xcodebuild -version
+          DEVELOPER_DIR="$selected_developer_dir" /usr/bin/xcrun --sdk iphoneos --show-sdk-version
+      - name: Build the macOS App Store target
+        run: ./ApplePlatforms/macOS/scripts/validate-project.sh --build
+      - name: Build the iOS app and run tests when a simulator is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          simulator_id="$(/usr/bin/xcrun simctl list devices available -j | /usr/bin/jq -r '
+            [
+              .devices
+              | to_entries[]
+              | select(.key | test("SimRuntime\\.iOS-[0-9]+"))
+              | .key as $runtime
+              | .value[]
+              | select(.isAvailable == true and (.name | startswith("iPhone")))
+              | {
+                  udid,
+                  runtime,
+                  major: ($runtime | capture("iOS-(?<major>[0-9]+)").major | tonumber),
+                  minor: (try ($runtime | capture("iOS-[0-9]+-(?<minor>[0-9]+)").minor | tonumber) catch 0)
+                }
+            ]
+            | sort_by(.major, .minor, .runtime, .udid)
+            | last
+            | .udid // empty
+          ')"
+          if [[ -n "$simulator_id" ]]; then
+            echo "Running AgentIslandMobileTests on simulator $simulator_id"
+            AGENT_ISLAND_IOS_TEST_DESTINATION="platform=iOS Simulator,id=$simulator_id" \
+              ./ApplePlatforms/iOS/scripts/validate-project.sh --test
+          else
+            echo "::warning::No available iPhone simulator was found; build-for-testing will still run."
+            ./ApplePlatforms/iOS/scripts/validate-project.sh --build
+          fi
