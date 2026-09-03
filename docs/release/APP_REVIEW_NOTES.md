@@ -1,17 +1,16 @@
 # App Review Notes 草案
 
-> 这份文件用于准备 Mac App Store 的 Review Notes。以英文版本为主要提交文本。当前未完成 App Sandbox 数据源授权和审核演示数据，因此暂不可原样提交。
+> 这份文件用于准备 Mac App Store 的 Review Notes。以英文版本为主要提交文本。内置离线监测示例与 App Sandbox 主目录授权路径已经实现；正式 Apple 身份、签名 Archive、CloudKit Production 配置、翻译审核凭据和真实构建验证仍未完成，因此暂不可原样提交。
 
 ## 上线前必须补齐的审核资源
 
 - `[审核联系人姓名]`
 - `[审核联系电话]`
 - `[审核联系邮箱]`
-- `[无敏感信息的自定义 JSONL 测试文件或审核附件说明]`
 - 翻译功能二选一：
   - `[审核专用 HTTPS 端点、模型和临时 API Key]`；或
   - 在提交构建中提供无需外部凭据、明确标记且不联网的演示模式。
-- `[沙盒版中选择并授权日志目录的准确操作步骤]`
+- 确认提交构建中的系统选择器可授权当前用户主目录，并在该目录中只读扫描受支持工具的已知日志位置。
 
 临时 API Key 只能填写在 App Store Connect 的私密 Review Information 中，不得写进仓库、应用包、截图或公开支持页面；审核结束后应撤销。
 
@@ -21,19 +20,26 @@ MAC版灵动岛--Agent运行监测 is a menu-bar/accessory macOS app. It has no 
 
 No separate app account, purchase, or subscription is required. A separate iOS companion target and Live Activity extension exist in the repository and are not embedded in this macOS binary. The Mac app includes optional private CloudKit sync for that companion. Sync is off by default and requires an explicit disclosure and opt-in; the local monitoring and workspace features can be reviewed without enabling it. This Review Notes draft must be used only after the submitted Mac build has the actual CloudKit entitlement/profile and the matching production container/schema and same-iCloud-account device flow have been verified.
 
-### How to review the core features
+### Built-in offline example — no account, logs, permission, credential, or network required
 
-1. Launch MAC版灵动岛--Agent运行监测. Review the native data-access notice, then choose “Allow Read-Only Monitoring.” No Agent-log scan or refresh timer starts before this confirmation. Use the status-bar icon to choose “Show Panel” if the panel is not already visible.
-2. Open Monitor. If supported local agent logs are present in an authorized folder, the Live view shows active sessions and the Usage History view shows locally readable session-lifetime token totals. In Settings → Local Data Access, stop monitoring and confirm that periodic reads stop and the current monitoring snapshot clears; turn it back on to continue. The notice remains available from Settings and the status-bar menu.
-3. To review without existing Codex or Claude Code data, open Data Sources, select the custom JSONL option, and choose the review fixture described here: `[exact fixture attachment and steps]`.
-4. The Tools view distinguishes installation, host-process activity, verified agent-session activity, and token telemetry. A running IDE is not represented as an active agent unless session evidence exists.
-5. Open Workspace to add a website shortcut and a note. Website links are opened by the default browser only after the user clicks Open. Workspace data remains on the Mac.
-6. Open Translate & Learn. Configure the review endpoint and temporary credential supplied in Review Information, enter a short sentence, and select Translate only or Analyze for learning. No network request occurs until this button is selected. Before the first send to that destination, the App presents a separate off-device transfer dialog. The default DeepSeek destination receives a provider-specific disclosure and official-policy links; a custom review endpoint receives the generic third-party notice.
-7. Open Settings to switch Chinese/English, enable the privacy mask, inspect data-source diagnostics, refresh, or quit.
+1. Launch MAC版灵动岛--Agent运行监测. On the first Local Agent Data Access notice, choose **Not Now**. No Agent-log scan or refresh timer starts. Use the status-bar item → **Show Panel** if needed.
+2. Open **Settings → Offline example mode**, select **Explore built-in example**, and confirm. The same action is also available in the status-bar menu. Private iCloud sync must be off and any prior read, translation, or cloud operation must have finished before entry.
+3. Return to **Monitor**. A persistent purple banner says **Agent monitoring is an offline example · no local Agent logs, network, or iCloud**. The compact pill uses the same purple example state. Live, Usage history, tool, conversation, duration, and Token views show generic fictional bundle data; none of it represents the review Mac or an AI-provider account. Workspace notes, shortcuts, and study entries remain ordinary on-device user content and are not represented as sample data.
+4. Relaunch the App if desired. Only one local Boolean keeps the explicit example state; the sample itself is rebuilt in memory and remains visibly labelled. While it is enabled, GUI-native gates reject Agent-log/source access, hide prior Home-folder/custom-source state, prevent the review notice from starting monitoring, serialize any operation already finishing before entry, and reject translation/external-link network and CloudKit account/upload/delete actions.
+5. In Settings, select **Exit & reset example**. The Boolean and sample are removed. Local monitoring stays off and does not restart until the reviewer explicitly enables it.
+
+### How to review real local monitoring and the remaining features
+
+1. After exiting the example, open **Settings → Local Data Access**, review the notice, and enable read-only monitoring. In the Mac App Store build, use the system picker to authorize the current user's Home folder. The app scans only known supported log locations and explicitly connected sources inside that authorization.
+2. Open Monitor. If supported local Agent logs are present, Live shows active sessions and Usage History shows locally readable session-lifetime Token totals. Stop monitoring and confirm periodic reads stop and the current snapshot clears; turn it back on explicitly to continue.
+3. The tool cards distinguish installation, host-process activity, verified Agent-session activity, and Token telemetry. A running IDE is not represented as an active Agent unless session evidence exists.
+4. Open Workspace to add a website shortcut and a note. Website links are opened by the default browser only after the user clicks Open. Workspace data remains on the Mac.
+5. Open Translate & Learn. Configure the review endpoint and temporary credential supplied in Review Information, enter a short sentence, and select Translate only or Analyze for learning. No network request occurs until this button is selected. Before the first send to that destination, the App presents a separate off-device transfer dialog. The default DeepSeek destination receives a provider-specific disclosure and official-policy links; a custom review endpoint receives the generic third-party notice.
+6. Open Settings to switch Chinese/English, enable the privacy mask, inspect data-source diagnostics, refresh, or quit.
 
 ### Local data access
 
-The monitoring feature reads supported local AI-agent logs and metadata only after the first-run notice is accepted. Access is read-only. It extracts state, duration, Token counts, and titles explicitly supplied by a source; it does not extract, display, or store prompt or response bodies, and those bodies are excluded from iPhone/iCloud sync. The app does not modify or delete third-party logs. Custom sources can be removed, and all monitoring can be stopped, from Settings. The app does not request Camera, Microphone, Screen Recording, or Accessibility access. The Mac App Store build additionally requires the user to select and authorize each external log directory through App Sandbox. `[Replace the sandbox sentence if the final implementation differs.]`
+The monitoring feature reads supported local AI-agent logs and metadata only after the first-run notice is accepted. Access is read-only. It extracts state, duration, Token counts, and titles explicitly supplied by a source; it does not extract, display, or store prompt or response bodies, and those bodies are excluded from iPhone/iCloud sync. The app does not modify or delete third-party logs. Custom sources can be removed, and all monitoring can be stopped, from Settings. The app does not request Camera, Microphone, Screen Recording, or Accessibility access. The Mac App Store build requires the user to select and authorize the current user's Home folder through the system picker; it then scans only supported tools' known log locations and explicitly connected custom sources inside that folder.
 
 Supported source formats currently include local Codex SQLite/JSONL, local Claude Code JSONL, and user-selected custom JSONL. Token values are reported only when a source supplies verifiable usage. Historical figures are session-lifetime totals from logs still readable on the Mac, not provider billing totals or fabricated daily usage.
 
@@ -68,15 +74,17 @@ MAC版灵动岛--Agent运行监测 是状态栏/辅助型 macOS 应用，不显�
 
 审核步骤：
 
-1. 启动后先查看原生数据访问说明，选择“允许只读监测”。确认前不会扫描 Agent 日志或启动周期刷新。如未看到面板，从状态栏菜单选择“显示面板”。
-2. 打开“监控”。若获授权的目录中存在受支持日志，“实时”显示活跃会话，“用量历史”显示本机可读的会话生命周期累计 Token。
-3. 如审核机器没有 Codex 或 Claude Code 数据，在“数据源”中选择自定义 JSONL，并打开审核附件：`[准确的测试文件和操作步骤]`。
-4. “工具”页分别展示安装、宿主运行、可验证会话活动和 Token 遥测，不会仅凭 IDE 运行就声称 Agent 正在工作。
-5. “工作台”可测试网站快捷入口和备忘录；网站只在点击后交给默认浏览器，本地内容留在 Mac。
-6. “翻译学习”需填写 Review Information 中提供的审核端点和临时密钥；只有点击“仅翻译”或“学习解析”后才联网。首次向该目的地发送前会显示独立离机传输同意框；默认 DeepSeek 使用供应商专项说明和官方政策链接，自定义审核端点显示通用第三方风险说明。
-7. “设置”可切换中英文、隐私遮罩、查看数据源诊断、刷新或退出。
+1. 首次启动看到“本机 Agent 数据访问”说明时选择“暂不开始”；此时不会扫描日志或启动刷新定时器。必要时从状态栏菜单选择“显示面板”。
+2. 打开“设置 → 离线示例模式”，点击“查看内置示例”并确认；状态栏菜单也有同一入口。进入前需关闭私有同步并等待已有读取、翻译或云端操作结束。
+3. 回到“监控”。紫色常驻横幅和紧凑胶囊都会明确显示“Agent 监测为离线示例”；实时、历史、工具、对话、时长和 Token 都来自 App 内置的通用虚构数据，不代表审核电脑或任何账号。工作台中的备忘录、网站和学习条目仍是普通的本机用户内容，不属于示例数据。
+4. 可退出并重启验证：本机只保存一个明确的示例模式布尔值，示例本身每次在内存重建且持续标记。示例开启时，GUI 原生层拒绝 Agent 日志/数据源，隐藏既有主目录/自定义源状态，不允许“重新查看说明”启动真实监测，并拒绝翻译/外链网络和 CloudKit 账号/上传/删除操作。
+5. 在设置中点击“退出并重置示例”。示例值和数据会被移除，本机监测保持关闭，只有再次明确开启后才恢复。
+6. 如要审核真实监测，退出示例后在“设置 → 本机数据访问”确认说明并开启；Mac App Store 版通过系统选择器授权当前用户主目录。若存在受支持日志，“实时”显示活跃会话，“用量历史”显示本机可读的会话生命周期累计 Token。
+7. “工具”卡片分别展示安装、宿主运行、可验证会话活动和 Token 遥测，不会仅凭 IDE 运行就声称 Agent 正在工作。“工作台”可测试网站快捷入口和备忘录。
+8. “翻译学习”需填写 Review Information 中提供的审核端点和临时密钥；只有点击“仅翻译”或“学习解析”后才联网，首次发送前显示独立离机传输同意框。
+9. “设置”可切换中英文、隐私遮罩、查看数据源诊断、刷新或退出。
 
-Mac App Store 构建必须启用 App Sandbox，并让用户明确选择和授权每个外部日志目录。读取为只读，不修改或删除第三方日志。`[若最终实现不同，请改写本段。]`
+Mac App Store 构建启用 App Sandbox，并让用户通过系统选择器明确授权当前用户主目录；应用随后只扫描受支持工具的已知日志位置和该授权范围内由用户显式连接的自定义来源。读取为只读，不修改或删除第三方日志。
 
 本机监测在用户首次确认后才开始，可在设置中停止/恢复，并可移除自定义数据源。应用会在本机处理工具是否安装或运行、会话标题、Agent/工具/服务名称、模型名、项目路径、状态、时间戳、工作时长、Token 计数和来源归因信息；不提取、展示或保存 prompt/响应正文，也不请求摄像头、麦克风、屏幕录制或辅助功能权限。周期性监控和工作台存储在本机进行。应用没有分析、广告、追踪、崩溃报告 SDK、开发者后端或独立账号系统。私有同步默认关闭；用户明确开启后，Mac 才把 Agent/工具类别、状态、时长和 Token 精简快照写入其 iCloud 私有数据库。Prompt、任务摘要、项目/文件路径、模型、API Key、备忘录和翻译内容不会上传；对话标题默认不发送，需二次明确确认。关闭同步会停止上传并请求删除云端 `latest` 记录。可选翻译器仅向设置中显示的 OpenAI-compatible 端点发送用户主动提交的内容，API Key 保存在 macOS Keychain，开发者不会收到请求。首次向每个目的地发送前必须接受独立说明；如保留默认 DeepSeek，说明会列明其公开政策中的中国处理/存储、可能训练/优化、固定 API 保留期与不训练承诺未公开，并链接官方政策。
 
@@ -85,5 +93,5 @@ Mac App Store 构建必须启用 App Sandbox，并让用户明确选择和授权
 - 删除本节及所有编写提示。
 - 替换全部方括号占位符。
 - 如果未完成沙盒授权，不得声称已经启用 App Sandbox，也不得提交当前 ad-hoc 二进制。
-- 如果未提供测试 JSONL 或翻译审核凭据，应先加入可审核的演示路径，不能让审核人员自行安装第三方开发工具或购买 API 额度。
+- 内置示例只覆盖监测看板；如果保留联网翻译功能，仍须提供可用的审核端点和临时凭据，或另加不联网的翻译示例，不能要求审核人员购买 API 额度。
 - 确保 Review Notes、隐私政策、App Privacy 标签和最终构建的实际网络行为完全一致。

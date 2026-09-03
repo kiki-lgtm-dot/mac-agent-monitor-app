@@ -53,6 +53,10 @@ A website is handed to the default macOS browser only after the user selects “
 
 The iPhone fetches one fixed snapshot from the current user's private CloudKit database, validates its size, schema, timestamps, text, and token consistency, and atomically writes it to the iPhone sandbox. Cache directories are separated by an irreversible SHA-256 digest of the CloudKit user record identifier. After the same account is verified, a temporary CloudKit error may show that account's last valid cache with an offline label. Signing out of or changing iCloud accounts never falls back to another account's cache.
 
+### 3.5 Built-in offline Agent-monitoring example
+
+The Mac app provides a built-in offline example that the user must enter explicitly and that remains visibly identified in purple. It replaces only Agent, conversation, duration, and token values in the monitoring dashboard. Notes, websites, and study entries in the Workspace remain ordinary on-device user content and are not represented as sample data. The fictional snapshot is rebuilt in memory; only one Boolean example-mode preference is stored locally. While the example is active, the App does not read Agent logs, Home-folder authorization, or custom-source paths and blocks translation/external-link network actions and CloudKit access. Exit and reset removes the preference and fictional snapshot. Real monitoring remains off until the user expressly enables it again.
+
 ## 4. Translation and network transfer
 
 Translation is optional. After the user expressly submits a request, the App sends the following to the OpenAI-compatible endpoint shown in and configured through the App:

@@ -862,7 +862,9 @@ function run(argv) {
     "translationTransferNoticeDeepSeek", "translationConsentEyebrow", "translationConsentTitle",
     "translationConsentDeepSeek", "translationConsentCustom", "translationConsentAuthority",
     "translationConsentCancel", "translationConsentContinue", "studySearchRegion", "searchStudy",
-    "studyStatusFilter", "studyFilterAll", "studyFilterLearning", "studyResultSummary", "noMatchingStudy"]
+    "studyStatusFilter", "studyFilterAll", "studyFilterLearning", "studyResultSummary", "noMatchingStudy",
+    "exampleBanner", "exampleModeTitle", "exampleModeIntro", "exampleModeControl", "exampleModeControlHint",
+    "enterExampleMode", "exitExampleMode", "exampleModeOn", "exampleActionBlocked", "exampleHistoryDisclaimer"]
   for (const key of requiredCopy) {
     if (!(key in messages.zh) || !(key in messages.en)) throw new Error("Missing workspace translation for " + key)
     if (!/[\u3400-\u9fff]/.test(messages.zh[key])) throw new Error("Chinese copy is not localized for " + key)
@@ -876,6 +878,7 @@ function run(argv) {
     "cloudSyncCard", "cloudSyncSwitch", "cloudTitlesSwitch", "syncCloudNowButton", "cloudSyncStatus",
     "dataAccessCard", "monitoringSwitch", "homeAccessRow", "authorizeHomeAccessButton",
     "revokeHomeAccessButton", "reviewDataAccessButton", "dataAccessStatus",
+    "exampleBanner", "exampleModeCard", "exampleModeButton", "exampleModeStatus", "advancedSourcesDetails",
     "privacyPolicyButton", "supportButton", "checkUpdatesButton", "releaseLinksStatus",
     "translationConsentDialog", "translationConsentBody", "deepSeekPolicyLinks", "deepSeekPrivacyButton",
     "deepSeekTermsButton", "translationAppPrivacyButton"]) {
@@ -887,7 +890,7 @@ function run(argv) {
     "workspaceSave", "openURL", "configureTranslator", "translate", "translationResult", "snapshot.cloudSync",
     "configureCloudSync", "syncCloudNow", "openReleaseLink", "cloudSyncResult", "releaseLinkResult",
     "reviewDataAccess", "authorizeHomeAccess", "revokeHomeAccess", "homeAccessStored",
-    "setMonitoringEnabled", "dataAccessResult"]) {
+    "setMonitoringEnabled", "dataAccessResult", "setExampleMode", "bundledOfflineExample", "exampleDataOnly"]) {
     if (!source.includes(required)) throw new Error("Missing Web integration: " + required)
   }
   for (const consentMarker of ["translationTransferNotice", "translationTransferNoticeDeepSeek",
@@ -911,6 +914,7 @@ function run(argv) {
     /bridge\("translate",\{requestId:requestId,text:text,mode:mode,sourceLanguage:state\.sourceLanguage\}\)/,
     /bridge\("syncCloudNow",\{requestId:id\("cloud-sync-now"\)\}\)/,
     /bridge\("setMonitoringEnabled",\{enabled:enableMonitoring\}\)/,
+    /bridge\("setExampleMode",\{enabled:enableExample\}\)/,
     /bridge\("reviewDataAccess"\)/,
     /bridge\("authorizeHomeAccess"\)/,
     /bridge\("revokeHomeAccess"\)/,
@@ -991,7 +995,7 @@ function run(argv) {
     if (!nativeSource.includes(secretGuard)) throw new Error("CloudKit title sanitizer is missing secret guard: " + secretGuard)
   if (!/sourceDevice": @\{@"id": @"mac", @"name": @"Mac", @"platform": @"macOS"\}/.test(nativeSource))
     throw new Error("Mobile snapshots must use a non-identifying constant device descriptor")
-  if (!/cloudSyncSwitch"\)\.disabled=state\.cloudSyncPending\|\|\(!cloudCapable&&!cloudEnabled\)/.test(source))
+  if (!/cloudSyncSwitch"\)\.disabled=example\|\|state\.cloudSyncPending\|\|\(!cloudCapable&&!cloudEnabled\)/.test(source))
     throw new Error("An already-enabled sync preference must remain possible to turn off")
   if (!/accountReconfirmation=enableCloud&&!!state\.cloudSync\.requiresAccountReconfirmation/.test(source) ||
       !/accountChangeConfirmed:accountReconfirmation/.test(source))
@@ -1035,7 +1039,9 @@ function run(argv) {
       !/compactWorking:"\{agents\} 个 Agent 工作中"/.test(source) ||
       !/compactIdle:"暂无 Agent 工作"/.test(source) ||
       !/compactWorking:"\{agents\} Agents active"/.test(source) ||
-      !/compactIdle:"No Agents active"/.test(source))
+      !/compactIdle:"No Agents active"/.test(source) ||
+      !/compactExample:"示例 · \{agents\} 个 Agent 工作中"/.test(source) ||
+      !/compactExample:"Example · \{agents\} Agents active"/.test(source))
     throw new Error("Compact island must show only a localized one-line Agent activity status")
   const compactMarkup=(html.match(/<button id="compact"[\s\S]*?<\/button>/)||[])[0]||""
   if ((compactMarkup.match(/<span\b/g)||[]).length!==1 || /compact-(?:title|sub|usage|chevron|spacer|copy)|status-orb/.test(compactMarkup))
@@ -1049,8 +1055,11 @@ function run(argv) {
     throw new Error("Compact island must be a clean four-corner pill without translucent decorations")
   if (!/function renderCompact\(\)\{[\s\S]{0,900}status=t\("compactWorking",\{agents:active\.length\}\)[\s\S]{0,500}\$\("#compactStatus"\)\.textContent=status/.test(source))
     throw new Error("Compact island activity count is not wired to the one-line status")
-  if (!/var live=state\.dataAccess\.monitoringEnabled&&!!state\.snapshot\.scannedAt&&active\.length>0/.test(source))
+  if (!/var live=!state\.exampleMode&&state\.dataAccess\.monitoringEnabled&&!!state\.snapshot\.scannedAt&&active\.length>0/.test(source))
     throw new Error("Stale Agent activity must not appear live while monitoring is off or before the first scan")
+  if (!/if\(state\.exampleMode\)[\s\S]{0,180}status=t\("compactExample",\{agents:active\.length\}\)/.test(source) ||
+      !/#compact\.example \.compact-status\s*\{[^}]*color\s*:\s*#c4b5fd/.test(stylesheet))
+    throw new Error("Compact island must identify example data on its existing single status line")
   if (!/AICompactIslandWidth\s*=\s*220\.0/.test(nativeSource) ||
       !/AICompactIslandHeight\s*=\s*34\.0/.test(nativeSource) ||
       !/NSMakeRect\(0, 0,\s*AICompactIslandWidth, AICompactIslandHeight\)/.test(nativeSource) ||
@@ -1093,11 +1102,80 @@ function run(argv) {
   if (!refreshMethod || refreshMethod[0].indexOf("!self.dataAccessConsented || !self.monitoringEnabled") < 0 ||
       refreshMethod[0].indexOf("!self.dataAccessConsented || !self.monitoringEnabled") > refreshMethod[0].indexOf("AISnapshot()"))
     throw new Error("Every GUI snapshot read must be guarded by current monitoring consent")
+  if (!refreshMethod || refreshMethod[0].indexOf("if (self.exampleModeEnabled)") < 0 ||
+      refreshMethod[0].indexOf("if (self.exampleModeEnabled)") > refreshMethod[0].indexOf("!self.dataAccessConsented || !self.monitoringEnabled") ||
+      !/if \(self\.exampleModeEnabled\)[\s\S]{0,220}AIOfflineExampleSnapshot\(\)[\s\S]{0,80}return;/.test(refreshMethod[0]))
+    throw new Error("Offline example refresh must return bundled data before every real-log access gate")
+  const exampleBuilder = nativeSource.match(/static NSDictionary \*AIOfflineExampleSnapshot\(void\)[\s\S]*?\n}\n\nstatic NSDictionary \*AISnapshot/)
+  if (!exampleBuilder) throw new Error("Native offline example snapshot builder is missing")
+  for (const forbidden of ["AIScanCodex", "AIScanClaude", "AIScanCustom", "NSFileManager", "CKContainer", "NSURLSession", "AIWorkspaceLoad", "AITranslatorConfig"])
+    if (exampleBuilder[0].includes(forbidden)) throw new Error("Offline example builder performs a forbidden operation: " + forbidden)
+  for (const marker of ["@\"exampleMode\": @YES", "@\"exampleDataOnly\": @YES", "@\"dataOrigin\": @\"bundledOfflineExample\"",
+    "@\"networkRequests\": @NO", "@\"automaticNetworkRequests\": @NO", "@\"project\": @\"\""])
+    if (!exampleBuilder[0].includes(marker)) throw new Error("Offline example snapshot is missing safety marker: " + marker)
+  const exampleToggle = nativeSource.match(/- \(void\)setExampleModeEnabledFromBody:[\s\S]*?\n}\n\n- \(void\)toggleExampleModeFromMenu:/)
+  for (const marker of ["self.refreshing || self.translatorTask", "self.cloudSyncUploading", "self.cloudSyncDeleting",
+    "self.cloudSyncAccountChecking", "self.localDataOperationInFlight", "self.monitoringEnabled = NO", "AIExampleModeDefaultsKey", "monitoringGeneration += 1",
+    "self.cloudSyncForceAfterRefresh = NO", "self.cloudSyncUploadAfterCurrent = NO"])
+    if (!exampleToggle || !exampleToggle[0].includes(marker)) throw new Error("Offline example transition is missing fail-closed behavior: " + marker)
+  const syncMethod = nativeSource.match(/- \(void\)synchronizeSnapshotIfNeeded:[\s\S]*?\n}\n\n- \(void\)refreshSnapshot/)
+  if (!syncMethod || !/self\.exampleModeEnabled \|\| \[snapshot\[@"exampleMode"\] boolValue\]/.test(syncMethod[0]))
+    throw new Error("CloudKit synchronization must reject both example mode and marked example snapshots")
+  const pushSnapshotMethod = nativeSource.match(/- \(void\)pushSnapshot:[\s\S]*?\n}\n\n@end/)
+  for (const marker of ["claimsExample", "validExample", "self.exampleModeEnabled && !validExample", "!self.exampleModeEnabled && claimsExample"])
+    if (!pushSnapshotMethod || !pushSnapshotMethod[0].includes(marker))
+      throw new Error("Native snapshot delivery must reject real/example provenance mismatches: " + marker)
+  if (!/if\(\(claimsExample\|\|expectsExample\)&&!validExample\)\{[\s\S]{0,160}render\(\);\s*return;/.test(source))
+    throw new Error("Web snapshot delivery must discard, not consume, provenance-mismatched payloads")
   const disclosureMethod = nativeSource.match(/- \(void\)presentDataAccessDisclosureAllowingStart:[\s\S]*?\n}\n\n- \(void\)setMonitoringEnabledFromBody:/)
+  if (!disclosureMethod || !disclosureMethod[0].includes("allowingStart = allowingStart && !self.exampleModeEnabled"))
+    throw new Error("Reviewing the local-data disclosure in example mode must not enable real monitoring")
+  if (!disclosureMethod || !disclosureMethod[0].includes("self.localDataOperationInFlight = YES") ||
+      !disclosureMethod[0].includes("self.localDataOperationInFlight = NO") ||
+      (disclosureMethod[0].match(/if \(self\.exampleModeEnabled\)/g)||[]).length < 1)
+    throw new Error("The modal data-access review must block example entry and re-check mode before mutating consent")
   for (const marker of ["Codex", "Claude", "IDE Agent", "prompt", "response bodies", "iPhone/iCloud sync",
     "Agent/tool/provider names", "model names", "project paths", "source-attribution metadata",
     "Camera", "Microphone", "Screen Recording", "Accessibility", "AIDataAccessConsentVersion"]) {
     if (!disclosureMethod || !disclosureMethod[0].includes(marker)) throw new Error("Data-access notice is incomplete: " + marker)
+  }
+  const dataAccessStateMethod = nativeSource.match(/- \(NSDictionary \*\)dataAccessPublicState[\s\S]*?\n}\n\n- \(void\)pushDataAccessStateWithMessage:/)
+  if (!dataAccessStateMethod || !dataAccessStateMethod[0].includes("self.exampleModeEnabled ? NO : AIHomeAccessAuthorized()") ||
+      !dataAccessStateMethod[0].includes("self.exampleModeEnabled ? NO : AIHomeAccessBookmarkStored()"))
+    throw new Error("Offline example state must not resolve or expose a real Home-folder authorization")
+  const pushDataAccessMethod = nativeSource.match(/- \(void\)pushDataAccessStateWithMessage:[\s\S]*?\n}\n\n- \(void\)startMonitoring/)
+  if (!pushDataAccessMethod || !pushDataAccessMethod[0].includes("self.exampleModeEnabled ? @[] : AICustomSources()"))
+    throw new Error("Offline example state must not expose saved custom-source paths")
+  const configureCloudMethod = nativeSource.match(/- \(void\)configureCloudSync:[\s\S]*?\n}\n\n- \(void\)syncCloudNow:/)
+  for (const marker of ["self.cloudSyncAccountChecking || self.cloudSyncDeleting", "self.cloudSyncDeleteAfterUploadRequestID.length", "if (self.cloudSyncUploading)"])
+    if (!configureCloudMethod || !configureCloudMethod[0].includes(marker))
+      throw new Error("Cloud sync configuration must serialize asynchronous operations: " + marker)
+  const fetchCloudAccountMethod = nativeSource.match(/- \(void\)fetchCurrentCloudAccountKey:[\s\S]*?\n}\n\n- \(void\)stopCloudSyncForAccountChange:/)
+  if (!fetchCloudAccountMethod || (fetchCloudAccountMethod[0].match(/if \(self\.exampleModeEnabled\)/g)||[]).length < 3)
+    throw new Error("Every asynchronous CloudKit account step must fail closed in offline example mode")
+  if (!fetchCloudAccountMethod || (fetchCloudAccountMethod[0].match(/dispatch_async\(dispatch_get_main_queue\(\)/g)||[]).length < 2)
+    throw new Error("CloudKit account callbacks must move state decisions to the main thread")
+  const cloudAccountChangedMethod = nativeSource.match(/- \(void\)cloudAccountChanged:[\s\S]*?\n}\n\n- \(void\)configureCloudSync:/)
+  if (!cloudAccountChangedMethod || !cloudAccountChangedMethod[0].includes("if (!NSThread.isMainThread)") ||
+      !cloudAccountChangedMethod[0].includes("dispatch_get_main_queue()"))
+    throw new Error("CloudKit account-change notifications must serialize state on the main thread")
+  const translateMethod = nativeSource.match(/- \(void\)translate:[\s\S]*?\n}\n\n- \(void\)URLSession:\(NSURLSession \*\)session task:/)
+  if (!translateMethod || !translateMethod[0].includes("if (self.translatorTask)") || translateMethod[0].includes("previousTask"))
+    throw new Error("Native translation requests must be single-flight")
+  const redirectMethod = nativeSource.match(/willPerformHTTPRedirection:[\s\S]*?\n}\n\n- \(void\)URLSession:\(NSURLSession \*\)session dataTask:/)
+  if (!redirectMethod || !redirectMethod[0].includes("session != self.translatorSession") ||
+      !redirectMethod[0].includes("task != self.translatorTask") || !redirectMethod[0].includes("self.exampleModeEnabled"))
+    throw new Error("Translation redirects must validate the active task and offline-example state")
+  const translatorSessionMethod = nativeSource.match(/- \(NSURLSession \*\)translatorRequestSession[\s\S]*?\n}\n\n- \(void\)pushTranslationErrorForRequestID:/)
+  if (!translatorSessionMethod || !translatorSessionMethod[0].includes("delegateQueue:NSOperationQueue.mainQueue"))
+    throw new Error("Translation task state must be confined to the main thread")
+  const authorizeHomeMethod = nativeSource.match(/- \(void\)authorizeHomeAccessStartingMonitoring:[\s\S]*?\n}\n\n- \(void\)revokeHomeAccess/)
+  const revokeHomeMethod = nativeSource.match(/- \(void\)revokeHomeAccess[\s\S]*?\n}\n\n- \(void\)checkForUpdatesFromMenu:/)
+  const chooseSourceMethod = nativeSource.match(/- \(void\)chooseSource[\s\S]*?\n}\n\n- \(void\)addConnectionCode:/)
+  for (const [name, method] of [["Home-folder authorization",authorizeHomeMethod],["Home-folder revocation",revokeHomeMethod],["custom-source picker",chooseSourceMethod]]) {
+    if (!method || !method[0].includes("self.localDataOperationInFlight") ||
+        (method[0].match(/self\.exampleModeEnabled/g)||[]).length < 2)
+      throw new Error(name + " must serialize its modal operation and re-check offline-example mode")
   }
   if (!/AIDataAccessConsentVersion\s*=\s*2/.test(nativeSource))
     throw new Error("Expanded local-data disclosure must force existing users to consent again")
@@ -1216,6 +1294,10 @@ for NATIVE_MARKER in \
   '@"openReleaseLink"' \
   '@"cloudSyncResult"' \
   '@"releaseLinkResult"' \
+  'AIExampleModeDefaultsKey' \
+  'AIOfflineExampleSnapshot' \
+  '--offline-example-snapshot' \
+  '--allow-local-agent-data' \
   '--export-mobile-snapshot'; do
   rg -F -q -- "$NATIVE_MARKER" "$PROJECT_DIR/Native/AgentIsland.m"
 done
@@ -1224,7 +1306,15 @@ if rg -q 'dataTaskWithRequest:request[[:space:]]+completionHandler:' "$PROJECT_D
   exit 1
 fi
 
-"$BINARY" --snapshot | jq -e '
+if "$BINARY" --snapshot >"$VERIFY_ROOT/unapproved-snapshot.json" 2>"$VERIFY_ROOT/unapproved-snapshot.err"; then
+  echo "CLI snapshot must require explicit local-Agent-data authorization" >&2
+  exit 1
+fi
+rg -q -- '--allow-local-agent-data' "$VERIFY_ROOT/unapproved-snapshot.err"
+"$BINARY" --snapshot --allow-local-agent-data | jq -e '
+  (.exampleMode == false) and
+  (.exampleDataOnly == false) and
+  (.dataOrigin == "localAgentLogs") and
   (.sessions | type == "array") and
   (.tools | type == "array") and
   (.workspace | type == "object") and
@@ -1339,8 +1429,42 @@ fi
   ))
 ' >/dev/null
 
+EXAMPLE_SNAPSHOT_PATH="$VERIFY_ROOT/offline-example-snapshot.json"
+"$BINARY" --offline-example-snapshot >"$EXAMPLE_SNAPSHOT_PATH"
+jq -e '
+  (.exampleMode == true) and
+  (.exampleDataOnly == true) and
+  (.dataOrigin == "bundledOfflineExample") and
+  (.sessions | type == "array" and length == 4) and
+  ([.sessions[] | select(.status == "working")] | length == 3) and
+  ([.sessions[] | select(.status == "working" and (.isSubagent | not))] | length == 2) and
+  (all(.sessions[];
+    (.id | startswith("example:")) and
+    (.source == "Bundled offline example") and
+    (.project == "") and (.model == "") and
+    (.total == (.input + .output + .unknown)) and
+    (.tokenCoverage == "bundledExample") and
+    (.activityBasis == "bundledExample")
+  )) and
+  (.tools | type == "array" and length == 2) and
+  (.usageHistory.totals.total == ([.sessions[].total] | add)) and
+  (.privacy.localOnly == true) and
+  (.privacy.networkRequests == false) and
+  (.privacy.automaticNetworkRequests == false) and
+  (has("cloudSync") | not) and
+  (has("workspace") | not) and
+  (has("translator") | not) and
+  ([.. | strings | select(startswith("/Users/") or startswith("/home/") or
+    test("(^|[^A-Za-z])(sk-[A-Za-z0-9]|bearer[ ]|api[_ -]?key|authorization:|token=)"; "i"))] | length == 0)
+' "$EXAMPLE_SNAPSHOT_PATH" >/dev/null
+
 MOBILE_SNAPSHOT_PATH="$VERIFY_ROOT/mobile-snapshot.json"
-"$BINARY" --export-mobile-snapshot >"$MOBILE_SNAPSHOT_PATH"
+if "$BINARY" --export-mobile-snapshot >"$VERIFY_ROOT/unapproved-mobile-snapshot.json" 2>"$VERIFY_ROOT/unapproved-mobile-snapshot.err"; then
+  echo "CLI mobile export must require explicit local-Agent-data authorization or a fixture" >&2
+  exit 1
+fi
+rg -q -- '--allow-local-agent-data' "$VERIFY_ROOT/unapproved-mobile-snapshot.err"
+"$BINARY" --export-mobile-snapshot --allow-local-agent-data >"$MOBILE_SNAPSHOT_PATH"
 MOBILE_SNAPSHOT_BYTES="$(wc -c <"$MOBILE_SNAPSHOT_PATH" | tr -d '[:space:]')"
 (( MOBILE_SNAPSHOT_BYTES > 1 && MOBILE_SNAPSHOT_BYTES <= 524289 ))
 jq -e '

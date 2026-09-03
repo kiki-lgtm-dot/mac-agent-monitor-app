@@ -96,6 +96,7 @@
       text-overflow:ellipsis;
     }
     #compact.live .compact-status { color:var(--mint); }
+    #compact.example .compact-status { color:#c4b5fd; }
 
     #dashboard {
       position:absolute;
@@ -130,6 +131,7 @@
     }
     .notch-dot { width:8px; height:8px; border-radius:50%; background:#666; }
     .notch-dot.live { background:var(--mint); box-shadow:0 0 10px var(--mint); }
+    .notch-dot.example { background:#c4b5fd; box-shadow:0 0 10px rgba(196,181,253,.8); }
     .notch-bar { width:64px; height:5px; border-radius:5px; background:#252525; }
     .notch-arrow { font-size:14px; }
 
@@ -258,6 +260,7 @@
       border-radius:50%;
       background:var(--mint);
     }
+    .live-tiny.example { background:#c4b5fd; }
     .header-spacer { flex:1; }
     .icon-btn {
       width:46px;
@@ -301,6 +304,32 @@
       line-height:1.5;
     }
     .warning.visible { display:block; }
+    .example-banner {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:48px;
+      margin-bottom:14px;
+      padding:12px 16px;
+      border:1px solid rgba(167,139,250,.42);
+      border-radius:14px;
+      color:#e4dcff;
+      background:linear-gradient(135deg,rgba(167,139,250,.16),rgba(106,169,255,.08));
+      font-size:14px;
+      font-weight:720;
+      line-height:1.45;
+    }
+    .example-banner:before {
+      content:"EXAMPLE";
+      flex:0 0 auto;
+      padding:4px 8px;
+      border-radius:999px;
+      color:#130f20;
+      background:#c4b5fd;
+      font-size:14px;
+      font-weight:850;
+      letter-spacing:.35px;
+    }
     .section-head {
       display:flex;
       align-items:flex-end;
@@ -980,6 +1009,7 @@
 
     .settings-grid { display:grid; gap:14px; }
     .settings-card { padding:18px; }
+    .settings-card.example-active { border-color:rgba(167,139,250,.62); box-shadow:0 0 0 1px rgba(167,139,250,.12) inset; }
     .settings-card h2 { margin:0; font-size:22px; }
     .settings-card > p { margin:6px 0 16px; color:var(--dim); font-size:14px; line-height:1.5; }
     .setting-row {
@@ -1206,6 +1236,7 @@
       <div class="viewport">
         <section class="view active" id="view-monitor">
           <div class="warning" id="warning" role="status" aria-live="polite"></div>
+          <div class="example-banner" id="exampleBanner" role="status" aria-live="polite" hidden data-i18n="exampleBanner">Agent 监测为离线示例 · 未连接本机 Agent 日志、网络或 iCloud</div>
           <div class="segmented monitor-mode" role="tablist" aria-label="监控视图">
             <button class="active" data-monitor-mode="live" role="tab" aria-selected="true" data-i18n="liveView">实时</button>
             <button data-monitor-mode="history" role="tab" aria-selected="false" data-i18n="usageHistory">用量历史</button>
@@ -1251,7 +1282,7 @@
               <input class="input" id="historySearch" type="search" data-i18n-placeholder="searchHistory" placeholder="搜索对话、工具或项目" />
               <select class="select" id="historyToolFilter" aria-label="历史工具筛选"></select>
             </div>
-            <p class="history-disclaimer" data-i18n="localHistoryDisclaimer">仅统计本机仍可读取的日志，并非账号账单；部分旧记录只能提供总量。</p>
+            <p class="history-disclaimer" id="historyDisclaimer" data-i18n="localHistoryDisclaimer">仅统计本机仍可读取的日志，并非账号账单；部分旧记录只能提供总量。</p>
             <div class="history-list" id="historyRecords"></div>
             <button class="secondary-btn history-more" id="historyMore" data-action="moreHistory" data-i18n="showMore" hidden>查看更多</button>
           </section>
@@ -1362,6 +1393,17 @@
               </div>
             </article>
 
+            <article class="card settings-card" id="exampleModeCard">
+              <h2 data-i18n="exampleModeTitle">离线示例模式</h2>
+              <p data-i18n="exampleModeIntro">使用随 App 内置的虚构数据体验 Agent、对话、时长和 Token 看板；不会读取本机 Agent 日志，不访问网络或 iCloud。</p>
+              <div class="setting-row">
+                <div class="setting-copy"><b data-i18n="exampleModeControl">审核与体验</b><small data-i18n="exampleModeControlHint">进入前需等待当前读取、翻译和云端操作完成；进入后停止真实监测。退出后必须由你手动重新开启监测。</small></div>
+                <div class="setting-spacer"></div>
+                <button class="primary-btn" id="exampleModeButton" data-action="toggleExampleMode" data-i18n="enterExampleMode">查看内置示例</button>
+              </div>
+              <div class="cloud-status" id="exampleModeStatus" aria-live="polite"></div>
+            </article>
+
             <article class="card settings-card" id="dataAccessCard">
               <h2 data-i18n="dataAccessTitle">本机数据访问</h2>
               <p data-i18n="dataAccessIntro">只读扫描受支持的日志与元数据，在本机处理工具/Agent/服务名称、会话标题、模型、项目路径、状态、时间戳、时长、Token 和来源归因。</p>
@@ -1428,7 +1470,7 @@
               <div class="form-message" id="translatorConfigMessage" aria-live="polite"></div>
             </article>
 
-            <details>
+            <details id="advancedSourcesDetails">
               <summary data-i18n="advancedSources">高级 · 自定义数据源</summary>
               <div class="details-body">
                 <p style="margin:0 0 13px;color:var(--dim);font-size:14px;line-height:1.5" data-i18n="advancedSourcesHint">仅在需要接入自定义 Agent JSONL 时使用；Mac App Store 版仅支持已授权主目录内的来源。</p>
@@ -1496,7 +1538,12 @@
         zh:{
           monitor:"监控",workspace:"工作台",translateLearn:"翻译学习",settings:"设置",localOnly:"本地工作台",
           connecting:"正在连接本地数据",updatedAt:"更新于 {time}",reading:"正在读取本机 Agent",
-          compactWorking:"{agents} 个 Agent 工作中",compactIdle:"暂无 Agent 工作",compactReading:"正在检查 Agent…",compactMonitoringOff:"监测已关闭",compactExpandLabel:"{status}；悬浮或点击展开",collapsePanel:"收回面板",collapse:"收回",
+          compactWorking:"{agents} 个 Agent 工作中",compactIdle:"暂无 Agent 工作",compactReading:"正在检查 Agent…",compactMonitoringOff:"监测已关闭",compactExample:"示例 · {agents} 个 Agent 工作中",compactExpandLabel:"{status}；悬浮或点击展开",collapsePanel:"收回面板",collapse:"收回",
+          exampleBanner:"Agent 监测为离线示例 · 未连接本机 Agent 日志、网络或 iCloud",exampleUpdated:"Agent 监测为离线示例 · 不读取本机 Agent 日志",
+          exampleModeTitle:"离线示例模式",exampleModeIntro:"使用随 App 内置的虚构数据体验 Agent、对话、时长和 Token 看板；不会读取本机 Agent 日志，不访问网络或 iCloud。",confirmExampleMode:"进入离线示例模式？请先等待当前读取、翻译和云端操作完成。进入后真实监测会停止；退出后需要你手动重新开启监测。",
+          exampleModeControl:"审核与体验",exampleModeControlHint:"进入前需等待当前读取、翻译和云端操作完成；进入后停止真实监测。退出后必须由你手动重新开启监测。",
+          enterExampleMode:"查看内置示例",exitExampleMode:"退出并重置示例",exampleModeOn:"示例模式开启：当前所有 Agent、对话、时长和 Token 均为虚构数据。",exampleModeOff:"示例模式关闭。",exampleRequiresCloudOff:"进入前请先关闭 iCloud 私有同步并等待操作完成。",
+          exampleActionBlocked:"离线示例模式已阻止这项本机数据或网络操作；退出并重置后可继续。",exampleHistoryTotal:"示例 Token 累计",exampleHistoryScope:"仅来自 App 内置虚构数据",exampleHistoryDisclaimer:"以下均为虚构示例，不是本机日志或账号账单。",
           activeTokens:"活跃 Token",agentsAndConversations:"{agents} 个 Agent · {conversations} 个对话",
           toolsAndComponents:"{tools} 个工具 · {components} 个 Agent 组件",clickToExpand:"点击展开",
           agentComponents:"Agent 组件",tools:"本机工具",runningTools:"运行工具",executingAgents:"执行中 Agent",
@@ -1513,7 +1560,7 @@
           localHistoryDisclaimer:"仅统计本机仍可读取的日志，并非账号账单；部分 Codex 旧记录只能提供总量。",
           historicalToken:"历史 Token",
           currentSessionsTotal:"当前执行会话累计",tokensExact:"精确计数",tokensCurrentCounter:"当前计数器",tokensTotalOnly:"仅总量",tokensEstimated:"估算",tokensReported:"来源报告",tokensQualityUnknown:"精度未提供",tokensPartial:"覆盖不完整",tokensTruncated:"数据已截断",tokensMixed:"含不同精度数据",tokensShared:"多会话共享归因",tokenCoverage:"覆盖 {value}",tokenWindow:"窗口 {value}",
-          activityBasisProcess:"应用进程",activityBasisTurn:"对话正在执行",activityBasisEvents:"会话事件",activityBasisFile:"文件更新",activityBasisHeartbeat:"心跳信号",activityBasisReported:"来源上报状态",activityBasisHeuristic:"根据近期活动推断",activityBasisUnknown:"活动依据未提供",activityConfidence:"活动置信度 {value}",confidenceHigh:"高",confidenceMedium:"中",confidenceLow:"低",confidenceUnknown:"未提供",detectedTools:"检测到的工具",toolsSummary:"{running} / {total} 个工具运行中",
+          activityBasisProcess:"应用进程",activityBasisTurn:"对话正在执行",activityBasisEvents:"会话事件",activityBasisFile:"文件更新",activityBasisHeartbeat:"心跳信号",activityBasisReported:"来源上报状态",activityBasisExample:"内置虚构示例",activityBasisHeuristic:"根据近期活动推断",activityBasisUnknown:"活动依据未提供",activityConfidence:"活动置信度 {value}",confidenceHigh:"高",confidenceMedium:"中",confidenceLow:"低",confidenceUnknown:"未提供",detectedTools:"检测到的工具",toolsSummary:"{running} / {total} 个工具运行中",
           workingNow:"现在正在做",workingSummary:"{agents} 个 Agent 正在执行 · {conversations} 个顶层对话",
           noTools:"未检测到支持的 Agent 工具",noActiveTasks:"当前没有检测到正在执行的 Agent",
           running:"运行中",agentActive:"Agent 执行中",installedNotRunning:"已安装 · 未运行",historicalOnly:"仅检测到历史数据",
@@ -1572,7 +1619,12 @@
         en:{
           monitor:"Monitor",workspace:"Workspace",translateLearn:"Translate & Learn",settings:"Settings",localOnly:"Local workspace",
           connecting:"Connecting to local data",updatedAt:"Updated {time}",reading:"Reading local Agents",
-          compactWorking:"{agents} Agents active",compactIdle:"No Agents active",compactReading:"Checking Agents…",compactMonitoringOff:"Monitoring off",compactExpandLabel:"{status}; hover or click to expand",collapsePanel:"Collapse panel",collapse:"Collapse",
+          compactWorking:"{agents} Agents active",compactIdle:"No Agents active",compactReading:"Checking Agents…",compactMonitoringOff:"Monitoring off",compactExample:"Example · {agents} Agents active",compactExpandLabel:"{status}; hover or click to expand",collapsePanel:"Collapse panel",collapse:"Collapse",
+          exampleBanner:"Agent monitoring is an offline example · no local Agent logs, network, or iCloud",exampleUpdated:"Agent monitoring is an offline example · no local Agent logs are read",
+          exampleModeTitle:"Offline example mode",exampleModeIntro:"Explore the Agent, conversation, duration, and Token dashboard with fictional data bundled in the app. It does not read local Agent logs or access the network or iCloud.",confirmExampleMode:"Enter offline example mode? First wait for any current read, translation, and cloud activity to finish. Real monitoring then stops; after exit, you must explicitly enable it again.",
+          exampleModeControl:"Review and explore",exampleModeControlHint:"Wait for current reads, translation, and cloud activity to finish first. Entry then stops real monitoring; after exit, you must explicitly enable it again.",
+          enterExampleMode:"Explore built-in example",exitExampleMode:"Exit & reset example",exampleModeOn:"Example mode is on: every Agent, conversation, duration, and Token value shown is fictional.",exampleModeOff:"Example mode is off.",exampleRequiresCloudOff:"Turn off private iCloud sync and wait for it to finish before entering.",
+          exampleActionBlocked:"Offline example mode blocked this local-data or network action. Exit and reset it to continue.",exampleHistoryTotal:"Example Token total",exampleHistoryScope:"Bundled fictional data only",exampleHistoryDisclaimer:"Everything below is fictional example data, not local logs or account billing.",
           activeTokens:"Active Tokens",agentsAndConversations:"{agents} Agents · {conversations} conversations",
           toolsAndComponents:"{tools} tools · {components} Agent components",clickToExpand:"Click to expand",
           agentComponents:"Agent components",tools:"Local tools",runningTools:"Running tools",executingAgents:"Executing Agents",
@@ -1589,7 +1641,7 @@
           localHistoryDisclaimer:"Counts only logs still readable on this Mac, not account billing. Some older Codex records provide totals only.",
           historicalToken:"Historical Tokens",
           currentSessionsTotal:"Cumulative for executing sessions",tokensExact:"Exact count",tokensCurrentCounter:"Current counter",tokensTotalOnly:"Total only",tokensEstimated:"Estimated",tokensReported:"Source reported",tokensQualityUnknown:"Quality unavailable",tokensPartial:"Partial coverage",tokensTruncated:"Data truncated",tokensMixed:"Mixed data quality",tokensShared:"Shared across conversations",tokenCoverage:"Coverage {value}",tokenWindow:"Window {value}",
-          activityBasisProcess:"Application process",activityBasisTurn:"Conversation in progress",activityBasisEvents:"Session events",activityBasisFile:"File update",activityBasisHeartbeat:"Heartbeat",activityBasisReported:"Source-reported status",activityBasisHeuristic:"Inferred from recent activity",activityBasisUnknown:"Activity basis unavailable",activityConfidence:"Activity confidence {value}",confidenceHigh:"high",confidenceMedium:"medium",confidenceLow:"low",confidenceUnknown:"unavailable",detectedTools:"Detected tools",toolsSummary:"{running} of {total} tools running",
+          activityBasisProcess:"Application process",activityBasisTurn:"Conversation in progress",activityBasisEvents:"Session events",activityBasisFile:"File update",activityBasisHeartbeat:"Heartbeat",activityBasisReported:"Source-reported status",activityBasisExample:"Bundled fictional example",activityBasisHeuristic:"Inferred from recent activity",activityBasisUnknown:"Activity basis unavailable",activityConfidence:"Activity confidence {value}",confidenceHigh:"high",confidenceMedium:"medium",confidenceLow:"low",confidenceUnknown:"unavailable",detectedTools:"Detected tools",toolsSummary:"{running} of {total} tools running",
           workingNow:"Working now",workingSummary:"{agents} Agents executing · {conversations} top-level conversations",
           noTools:"No supported Agent tools detected",noActiveTasks:"No executing Agents detected",
           running:"Running",agentActive:"Agent executing",installedNotRunning:"Installed · not running",historicalOnly:"Historical data only",
@@ -1697,6 +1749,7 @@
         translationRequest:null,
         translatorConfig:{baseURL:"",model:"",hasAPIKey:false},
         translatorConfigPending:null,
+        exampleMode:false,
         dataAccess:{consented:false,monitoringEnabled:false,consentVersion:0,requiredConsentVersion:1,message:"",sandboxed:false,homeAccessRequired:false,homeAccessAuthorized:true,homeAccessStored:false},
         cloudSync:{enabled:false,includeTitles:false,capabilityConfigured:false,status:"off",message:""},
         cloudSyncPending:false,
@@ -2096,11 +2149,15 @@
 
       function renderCompact(){
         var active=workingSessions();
-        var live=state.dataAccess.monitoringEnabled&&!!state.snapshot.scannedAt&&active.length>0;
+        var live=!state.exampleMode&&state.dataAccess.monitoringEnabled&&!!state.snapshot.scannedAt&&active.length>0;
         var status;
         $("#compact").classList.toggle("live",live);
+        $("#compact").classList.toggle("example",state.exampleMode);
         $("#notchDot").classList.toggle("live",live);
-        if(!state.dataAccess.monitoringEnabled){
+        $("#notchDot").classList.toggle("example",state.exampleMode);
+        if(state.exampleMode){
+          status=t("compactExample",{agents:active.length});
+        } else if(!state.dataAccess.monitoringEnabled){
           status=t("compactMonitoringOff");
         } else if(!state.snapshot.scannedAt){
           status=t("compactReading");
@@ -2128,7 +2185,7 @@
       }
       function localizedEvidenceValue(value,kind){
         var raw=String(value==null?"":value),key=raw.replace(/[\s_-]/g,"").toLowerCase();
-        var coverage={sessionevents:["会话事件","session events"],sessioncounter:["会话计数器","session counter"],sessiontotalonly:["仅会话总量","session total only"],scannedsessionlogs:["已扫描会话日志","scanned session logs"],reportedevents:["来源上报事件","source-reported events"],applicationaggregate:["应用累计","application aggregate"],mixed:["混合范围","mixed scope"],none:["未提供","unavailable"],unspecified:["未提供","unavailable"]};
+        var coverage={sessionevents:["会话事件","session events"],sessioncounter:["会话计数器","session counter"],sessiontotalonly:["仅会话总量","session total only"],scannedsessionlogs:["已扫描会话日志","scanned session logs"],reportedevents:["来源上报事件","source-reported events"],applicationaggregate:["应用累计","application aggregate"],bundledexample:["内置虚构示例","bundled fictional example"],mixed:["混合范围","mixed scope"],none:["未提供","unavailable"],unspecified:["未提供","unavailable"]};
         var windows={sessionlifetime:["会话周期","session lifetime"],availablelocalhistory:["可用本地历史","available local history"],latestfileswithinbudget:["最近文件（扫描预算内）","recent files within scan budget"],availablesourcehistory:["可用来源历史","available source history"],applicationlifetime:["应用生命周期","application lifetime"],mixed:["混合窗口","mixed window"],none:["未提供","unavailable"],unspecified:["未提供","unavailable"]};
         var pair=(kind==="coverage"?coverage:windows)[key];
         return pair?pair[state.language==="zh"?0:1]:sanitizeText(raw,80);
@@ -2187,6 +2244,7 @@
         else if(/event|log/.test(raw))key="activityBasisEvents";
         else if(/file|mtime/.test(raw))key="activityBasisFile";
         else if(/heart|ping/.test(raw))key="activityBasisHeartbeat";
+        else if(/bundledexample/.test(raw))key="activityBasisExample";
         else if(/report|provider|source|sessionstatus|sessiontelemetry/.test(raw))key="activityBasisReported";
         else if(raw)key="activityBasisHeuristic";
         result.push({label:t(key||"activityBasisUnknown"),caution:!key||key==="activityBasisHeuristic"});
@@ -2265,8 +2323,9 @@
         var history=usageHistoryModel(),totals=history.totals||{},all=historicalSessions();
         var first=number(history.earliestAvailableAt||history.firstRecordedAt),last=number(history.lastRecordedAt);
         var period=historyDateRange(first,last),fullPeriod=first&&last?calendarDate(first,false)+" — "+calendarDate(last,false):period;
+        var example=state.exampleMode;
         var stats=[
-          ["readableHistoryTotal",fmt(totals.total),t("localLogsScope"),"#fb923c","#ffae72"],
+          [example?"exampleHistoryTotal":"readableHistoryTotal",fmt(totals.total),t(example?"exampleHistoryScope":"localLogsScope"),"#fb923c","#ffae72"],
           ["recordedConversations",Number(history.sessionCount)||0,t("sessionLifetimeCount"),"#a78bfa","#d5c8ff"],
           ["recordedPeriod",period,last?t("historyUpdated",{date:calendarDate(last,true)}):t("noHistory"),"#6aa9ff","#8fc0ff","range-value",fullPeriod]
         ];
@@ -2281,6 +2340,7 @@
         $("#historyBreakdown").innerHTML=breakdown.map(function(item){
           return '<span class="history-metric"><small>'+esc(t(item[0]))+'</small><b title="'+esc(String(number(item[1])))+'">'+esc(fmt(item[1]))+'</b></span>';
         }).join("");
+        $("#historyDisclaimer").textContent=t(example?"exampleHistoryDisclaimer":"localHistoryDisclaimer");
         $("#historyEvidence").innerHTML=evidenceHTML(tokenEvidence(history,number(totals.total)>0));
 
         var byTool=Array.isArray(history.byTool)?history.byTool.filter(Boolean):[];
@@ -2329,11 +2389,12 @@
         var running=allTools.filter(function(tool){ return !!tool.running; }).length;
         var activeTokens=sessions.reduce(function(total,session){ return total+sessionTotal(session); },0);
         var components=agentComponentCount(allTools);
+        var activeColor=state.exampleMode?"#c4b5fd":"#3deeb3";
         var metrics=[
           ["agentComponents",components,t("installedEntries"),"#a78bfa","#d5c8ff"],
           ["tools",allTools.length,t("installedEntries"),"#6aa9ff","#8fc0ff"],
-          ["runningTools",running,t("appProcesses"),"#3deeb3","#3deeb3"],
-          ["executingAgents",sessions.length,t("liveSessions"),"#3deeb3","#3deeb3"],
+          ["runningTools",running,t("appProcesses"),activeColor,activeColor],
+          ["executingAgents",sessions.length,t("liveSessions"),activeColor,activeColor],
           ["activeConversations",conversations.length,t("topLevelSessions"),"#f5c451","#ffd86b"],
           ["activeTokenUsage",sessions.length?fmt(activeTokens):"—",activeTokenDetail(sessions),"#fb923c","#ffae72"]
         ];
@@ -2368,7 +2429,7 @@
           var conversations=activeForTool.filter(function(session){ return !session.isSubagent; }).length;
           var tokenValue=telemetry?(Number.isFinite(Number(tool.totalTokens))?fmt(tool.totalTokens):fmt(activeForTool.reduce(function(sum,session){return sum+sessionTotal(session);},0))):t("unavailable");
           var statusKey=tool.running?"running":activeCount>0?"agentActive":tool.installed?"installedNotRunning":"historicalOnly";
-          var statusColor=tool.running?"#3deeb3":activeCount>0?"#f5c451":"#7d7d87";
+          var statusColor=state.exampleMode?"#c4b5fd":tool.running?"#3deeb3":activeCount>0?"#f5c451":"#7d7d87";
           var runtime=tool.running&&number(tool.runtimeMs)>0?duration(tool.runtimeMs):t("unavailable");
           var components=extensions.map(function(extension){ return String(extension.name||extension.id||""); }).filter(Boolean);
           if(tool.kind==="agent")components.unshift(String(tool.name||tool.id||"Agent"));
@@ -2416,7 +2477,7 @@
             '<div class="task-main"><div class="task-title" title="'+esc(title)+'">'+esc(title)+'</div>'+
             '<div class="task-meta">'+esc(meta)+'</div>'+
             (parentTask?'<div class="task-parent" title="'+esc(parentTask)+'">'+esc(t("parentConversation",{task:parentTask}))+'</div>':'')+evidence+'</div>'+
-            '<div class="task-cell"><span class="live-label"><i class="status-dot" style="--status-color:var(--mint)"></i>'+esc(tool)+'</span></div>'+
+            '<div class="task-cell"><span class="live-label"><i class="status-dot" style="--status-color:'+(state.exampleMode?'#c4b5fd':'var(--mint)')+'"></i>'+esc(tool)+'</span></div>'+
             '<div class="task-cell"><small>'+esc(t("cumulativeActive"))+'</small><b>'+esc(duration(session.durationMs))+'</b></div>'+
             '<div class="task-cell"><small>'+esc(t("token"))+'</small><b>'+esc(tokens)+'</b><small style="margin-top:4px">'+esc(t("lastUpdate"))+' · '+esc(relative(session.updatedAt))+'</small></div>'+
             '</article>';
@@ -2586,6 +2647,9 @@
       }
       function renderTranslation(){
         var box=$("#translationResult"),result=state.translation;
+        $$('[data-action="translateOnly"],[data-action="translateLearn"]').forEach(function(button){
+          button.disabled=state.exampleMode||state.translationPending;
+        });
         var transferDestination=translatorDestination();
         var transferKey=isDefaultDeepSeekDestination(transferDestination)?"translationTransferNoticeDeepSeek":"translationTransferNotice";
         $("#translationTransferNotice").textContent=t(transferKey,{destination:transferDestination});
@@ -2649,7 +2713,7 @@
         $("#deepSeekTermsButton").dataset.url=state.language==="zh"?
           "https://cdn.deepseek.com/policies/zh-CN/deepseek-open-platform-terms-of-service.html":
           "https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html";
-        $("#translationAppPrivacyButton").disabled=!state.releaseLinks.privacyPolicyConfigured;
+        $("#translationAppPrivacyButton").disabled=state.exampleMode||!state.releaseLinks.privacyPolicyConfigured;
         if(!dialog||typeof dialog.showModal!=="function")return Promise.resolve(window.confirm(body));
         return new Promise(function(resolve){
           dialog.returnValue="cancel";
@@ -2671,6 +2735,11 @@
       }
       async function requestTranslation(mode){
         if(translationRequestStarting||state.translationPending)return;
+        if(state.exampleMode){
+          $("#translationMessage").textContent=t("exampleActionBlocked");
+          $("#translationMessage").className="result-message error";
+          return;
+        }
         var text=$("#translationInput").value.trim();
         if(!text)return;
         translationRequestStarting=true;
@@ -2794,41 +2863,52 @@
       function renderSettings(){
         $("#privacySwitch").classList.toggle("on",state.privacy);
         $("#privacySwitch").setAttribute("aria-checked",String(state.privacy));
+        var example=state.exampleMode;
         var access=state.dataAccess&&typeof state.dataAccess==="object"?state.dataAccess:{};
         var monitoringEnabled=!!access.monitoringEnabled;
         var homeAccessRequired=access.homeAccessRequired===true;
         var homeAccessAuthorized=!homeAccessRequired||access.homeAccessAuthorized===true;
         var homeAccessStored=access.homeAccessStored===true;
-        $("#monitoringSwitch").classList.toggle("on",monitoringEnabled);
-        $("#monitoringSwitch").setAttribute("aria-checked",String(monitoringEnabled));
-        $("#homeAccessRow").hidden=!homeAccessRequired;
-        $("#authorizeHomeAccessButton").textContent=t(homeAccessAuthorized?"reauthorizeHomeFolder":"authorizeHomeFolder");
-        $("#revokeHomeAccessButton").hidden=!homeAccessRequired||!homeAccessStored;
-        $("#dataAccessStatus").textContent=access.message||(!homeAccessAuthorized?t("homeAuthorizationRequired"):t(monitoringEnabled?"monitoringOn":(access.consented?"monitoringOff":"monitoringConsentRequired")));
-        $("#dataAccessStatus").className="cloud-status "+(monitoringEnabled&&homeAccessAuthorized?"success":(!homeAccessAuthorized?"error":""));
-        $("#refreshButton").disabled=state.refreshing||!monitoringEnabled||!homeAccessAuthorized;
         var cloud=state.cloudSync&&typeof state.cloudSync==="object"?state.cloudSync:{};
         var cloudEnabled=!!cloud.enabled,cloudCapable=!!cloud.capabilityConfigured;
+        $("#exampleModeCard").classList.toggle("example-active",example);
+        $("#exampleModeButton").textContent=t(example?"exitExampleMode":"enterExampleMode");
+        $("#exampleModeButton").disabled=!example&&(cloudEnabled||state.cloudSyncPending);
+        $("#exampleModeStatus").textContent=example?t("exampleModeOn"):(cloudEnabled?t("exampleRequiresCloudOff"):t("exampleModeOff"));
+        $("#exampleModeStatus").className="cloud-status "+(example?"success":"");
+        $("#monitoringSwitch").classList.toggle("on",monitoringEnabled);
+        $("#monitoringSwitch").setAttribute("aria-checked",String(monitoringEnabled));
+        $("#monitoringSwitch").disabled=example;
+        $("#homeAccessRow").hidden=!homeAccessRequired;
+        $("#authorizeHomeAccessButton").textContent=t(homeAccessAuthorized?"reauthorizeHomeFolder":"authorizeHomeFolder");
+        $("#authorizeHomeAccessButton").disabled=example;
+        $("#revokeHomeAccessButton").hidden=!homeAccessRequired||!homeAccessStored;
+        $("#revokeHomeAccessButton").disabled=example;
+        $("#dataAccessStatus").textContent=access.message||(!homeAccessAuthorized?t("homeAuthorizationRequired"):t(monitoringEnabled?"monitoringOn":(access.consented?"monitoringOff":"monitoringConsentRequired")));
+        $("#dataAccessStatus").className="cloud-status "+(example||(monitoringEnabled&&homeAccessAuthorized)?"success":(!homeAccessAuthorized?"error":""));
+        $("#refreshButton").disabled=state.refreshing||(!example&&(!monitoringEnabled||!homeAccessAuthorized));
         $("#cloudSyncSwitch").classList.toggle("on",cloudEnabled);
         $("#cloudSyncSwitch").setAttribute("aria-checked",String(cloudEnabled));
-        $("#cloudSyncSwitch").disabled=state.cloudSyncPending||(!cloudCapable&&!cloudEnabled);
+        $("#cloudSyncSwitch").disabled=example||state.cloudSyncPending||(!cloudCapable&&!cloudEnabled);
         $("#cloudTitlesSwitch").classList.toggle("on",cloudEnabled&&!!cloud.includeTitles);
         $("#cloudTitlesSwitch").setAttribute("aria-checked",String(cloudEnabled&&!!cloud.includeTitles));
-        $("#cloudTitlesSwitch").disabled=state.cloudSyncPending||!cloudCapable||!cloudEnabled;
-        $("#syncCloudNowButton").disabled=state.cloudSyncPending||!cloudCapable||!cloudEnabled||!monitoringEnabled;
+        $("#cloudTitlesSwitch").disabled=example||state.cloudSyncPending||!cloudCapable||!cloudEnabled;
+        $("#syncCloudNowButton").disabled=example||state.cloudSyncPending||!cloudCapable||!cloudEnabled||!monitoringEnabled;
         var cloudStatus=$("#cloudSyncStatus"),cloudState=String(cloud.status||"off");
         cloudStatus.textContent=!cloudCapable?t("cloudBuildUnavailable"):(cloud.message||(!cloudEnabled?t("cloudStatusOff"):cloudState));
         cloudStatus.className="cloud-status "+(["error","delete-error","account-changed"].indexOf(cloudState)>=0?"error":(["synced","deleted"].indexOf(cloudState)>=0?"success":""));
         if(document.activeElement!==$("#translatorBaseURL"))$("#translatorBaseURL").value=state.translatorConfig.baseURL||"";
         if(document.activeElement!==$("#translatorModel"))$("#translatorModel").value=state.translatorConfig.model||"";
         $("#translatorAPIKey").placeholder=state.translatorConfig.hasAPIKey?t("keyStored"):"••••••••";
-        $("#saveTranslatorConfigButton").disabled=!!state.translatorConfigPending;
-        $("#clearTranslatorKeyButton").disabled=!!state.translatorConfigPending||!state.translatorConfig.hasAPIKey;
+        $("#saveTranslatorConfigButton").disabled=example||!!state.translatorConfigPending;
+        $("#clearTranslatorKeyButton").disabled=example||!!state.translatorConfigPending||!state.translatorConfig.hasAPIKey;
         var links=state.releaseLinks&&typeof state.releaseLinks==="object"?state.releaseLinks:{};
-        $("#privacyPolicyButton").disabled=!links.privacyPolicyConfigured;
-        $("#translationAppPrivacyButton").disabled=!links.privacyPolicyConfigured;
-        $("#supportButton").disabled=!links.supportConfigured;
-        $("#checkUpdatesButton").disabled=false;
+        $("#privacyPolicyButton").disabled=example||!links.privacyPolicyConfigured;
+        $("#translationAppPrivacyButton").disabled=example||!links.privacyPolicyConfigured;
+        $("#supportButton").disabled=example||!links.supportConfigured;
+        $("#checkUpdatesButton").disabled=example;
+        $("#advancedSourcesDetails").toggleAttribute("inert",example);
+        $("#advancedSourcesDetails").setAttribute("aria-disabled",String(example));
         $("#releaseLinksStatus").textContent=links.privacyPolicyConfigured&&links.supportConfigured?"":t("releaseLinksPending");
         var custom=Array.isArray(state.snapshot.customSources)?state.snapshot.customSources:[];
         $("#customSources").innerHTML=custom.map(function(source,index){
@@ -2843,7 +2923,9 @@
         renderCompact();
         if(!state.expanded)return;
         var loading=!state.snapshot.scannedAt;
-        $("#scanTime").textContent=!state.dataAccess.monitoringEnabled?
+        $("#exampleBanner").hidden=!state.exampleMode;
+        $(".live-tiny").classList.toggle("example",state.exampleMode);
+        $("#scanTime").textContent=state.exampleMode?t("exampleUpdated"):!state.dataAccess.monitoringEnabled?
           t(state.dataAccess.consented?"monitoringOff":"monitoringConsentRequired"):
           (loading?t("connecting"):t("updatedAt",{time:new Date(state.snapshot.scannedAt).toLocaleTimeString(locale(),{hour12:false})}));
         var warnings=Array.isArray(state.snapshot.warnings)?state.snapshot.warnings.filter(Boolean):[];
@@ -2888,13 +2970,28 @@
         var button=$("#refreshButton");
         if(button){
           button.classList.toggle("busy",state.refreshing);
-          button.disabled=state.refreshing||!state.dataAccess.monitoringEnabled;
+          button.disabled=state.refreshing||(!state.exampleMode&&!state.dataAccess.monitoringEnabled);
         }
       }
 
       window.AgentIsland={
         receive:function(snapshot){
-          state.snapshot=snapshot&&typeof snapshot==="object"?snapshot:state.snapshot;
+          var incoming=snapshot&&typeof snapshot==="object"?snapshot:null;
+          if(!incoming)return;
+          var claimsExample=incoming.exampleMode===true||incoming.exampleDataOnly===true||incoming.dataOrigin==="bundledOfflineExample";
+          var expectsExample=state.dataAccess.exampleModeEnabled===true;
+          var validExample=expectsExample&&incoming.exampleMode===true&&incoming.exampleDataOnly===true&&incoming.dataOrigin==="bundledOfflineExample";
+          if((claimsExample||expectsExample)&&!validExample){
+            state.exampleMode=expectsExample;
+            setRefreshing(false);
+            render();
+            return;
+          } else if(validExample){
+            state.exampleMode=true;
+          } else {
+            state.exampleMode=false;
+          }
+          state.snapshot=incoming;
           if(!Array.isArray(state.snapshot.sessions))state.snapshot.sessions=[];
           if(!Array.isArray(state.snapshot.tools))state.snapshot.tools=[];
           if(!state.snapshot.usageHistory||typeof state.snapshot.usageHistory!=="object")state.snapshot.usageHistory={};
@@ -2961,8 +3058,10 @@
             homeAccessRequired:result.homeAccessRequired===true,
             homeAccessAuthorized:result.homeAccessAuthorized===true,
             homeAccessStored:result.homeAccessStored===true,
+            exampleModeEnabled:result.exampleModeEnabled===true,
             message:String(result.message||"")
           };
+          state.exampleMode=result.exampleModeEnabled===true;
           if(result.releaseLinks&&typeof result.releaseLinks==="object")state.releaseLinks=result.releaseLinks;
           if(Array.isArray(result.customSources))state.snapshot.customSources=result.customSources;
           if(result.clearSnapshot===true){
@@ -2971,6 +3070,9 @@
             state.snapshot.warnings=[];
             state.snapshot.usageHistory={};
             state.snapshot.scannedAt=0;
+            state.snapshot.exampleMode=false;
+            state.snapshot.exampleDataOnly=false;
+            state.snapshot.dataOrigin="none";
           }
           setRefreshing(false);
           render();
@@ -3119,6 +3221,16 @@
         var actionButton=event.target.closest("[data-action]");
         if(!actionButton)return;
         var action=actionButton.dataset.action,idValue=actionButton.dataset.id;
+        if(action==="toggleExampleMode"){
+          var enableExample=!state.exampleMode;
+          if(enableExample&&!window.confirm(t("confirmExampleMode")))return;
+          bridge("setExampleMode",{enabled:enableExample});
+          return;
+        }
+        if(state.exampleMode&&["chooseSource","authorizeHomeAccess","revokeHomeAccess","toggleMonitoring","connect","removeConnection","openSite","translateOnly","translateLearn","toggleCloudSync","toggleCloudTitles","syncCloudNow","openReleaseLink","openExternalPolicy","saveTranslatorConfig","clearTranslatorKey"].indexOf(action)>=0){
+          window.alert(t("exampleActionBlocked"));
+          return;
+        }
         if(action==="collapse"||action==="quit"||action==="chooseSource"){ bridge(action); return; }
         if(action==="reviewDataAccess"){ bridge("reviewDataAccess"); return; }
         if(action==="authorizeHomeAccess"){ bridge("authorizeHomeAccess"); return; }

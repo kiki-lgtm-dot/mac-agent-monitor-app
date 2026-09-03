@@ -26,6 +26,7 @@
 - **多种本地来源：**支持 Codex、Claude Code 的结构化本地记录，也可连接自定义 JSONL 遥测。
 - **不把进程当 Agent：**可以检测 VS Code、Cursor 等宿主，但“已安装/进程运行”“Agent 工作中”“Token 可计量”始终分开表达。
 - **快捷工作台：**常用网站、备忘录、中英文界面、翻译、单句定义、拆解、例句和可搜索学习本。
+- **无日志也可体验：**需用户主动进入的紫色离线示例会展示虚构 Agent、会话、时长和 Token，不读取 Agent 数据源，不访问网络或 iCloud。
 - **可选手机伴侣：**`ApplePlatforms/iOS` 中包含实验性的 SwiftUI 看板和 Live Activity Target。
 
 ![MAC版灵动岛--Agent运行监测 折叠与展开状态](docs/media/mac-agent-monitor-states.svg)
@@ -40,6 +41,7 @@
 - 默认情况下，监测数据、备忘录、网站和学习条目只留在 Mac。
 - 只有用户主动提交的翻译文本才会发往所配置的 OpenAI-compatible 服务；API Key 保存在 macOS Keychain。
 - 私有 iCloud 同步默认关闭，只导出经过字段白名单精简的快照；完整对话标题需要单独确认。
+- 离线示例每次在内存重建虚构监测数据，隐藏既有数据源授权，退出后真实监测仍关闭；工作台内容始终是用户本机数据。
 
 实现级细节见[数据处理与隐私标签说明](docs/release/DATA_HANDLING_AND_PRIVACY_LABELS.md)。仓库内隐私政策仍是发布草案，上线前必须按最终构建补齐。
 

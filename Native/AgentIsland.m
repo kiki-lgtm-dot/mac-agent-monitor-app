@@ -16,6 +16,7 @@
 static NSString * const AILanguageDefaultsKey = @"AgentIslandLanguageV1";
 static NSString * const AIDataAccessConsentDefaultsKey = @"AgentIslandDataAccessConsentV1";
 static NSString * const AIMonitoringEnabledDefaultsKey = @"AgentIslandMonitoringEnabledV1";
+static NSString * const AIExampleModeDefaultsKey = @"AgentIslandOfflineExampleModeV1";
 static NSString * const AIHomeAccessBookmarkDefaultsKey = @"AgentIslandHomeAccessBookmarkV1";
 static const NSInteger AIDataAccessConsentVersion = 2;
 static NSString * const AITranslatorDefaultsKey = @"AgentIslandTranslatorConfigV1";
@@ -2888,6 +2889,107 @@ static NSArray<NSDictionary *> *AIDiscoverTools(NSArray<NSDictionary *> *session
     return tools;
 }
 
+// A deliberately self-contained review/demo data source. Keep this function free of
+// Agent-log, filesystem, process, network, Keychain, and CloudKit access. AIText only
+// reads the user's existing interface-language preference.
+static NSDictionary *AIOfflineExampleSnapshot(void) {
+    long long nowMs = (long long)(NSDate.date.timeIntervalSince1970 * 1000.0);
+    NSArray<NSDictionary *> *sessions = @[
+        @{
+            @"id": @"example:codex-main", @"name": AIText(@"整理产品需求", @"Organize product requirements"),
+            @"conversationTitle": AIText(@"整理产品需求", @"Organize product requirements"),
+            @"titleSource": @"bundledExample.title", @"taskSummary": AIText(@"整理产品需求", @"Organize product requirements"),
+            @"agentName": @"Codex", @"provider": @"Codex", @"providerKey": @"codex",
+            @"toolKey": @"vscode", @"toolName": @"Visual Studio Code", @"model": @"", @"project": @"",
+            @"startedAt": @(nowMs - 46ll * 60ll * 1000ll), @"updatedAt": @(nowMs - 8ll * 1000ll),
+            @"durationMs": @(34ll * 60ll * 1000ll), @"input": @12540, @"cached": @3200,
+            @"output": @2840, @"unknown": @0, @"reasoning": @0, @"total": @15380,
+            @"quality": @"exact", @"tokenQuality": @"exact", @"tokenCoverage": @"bundledExample",
+            @"tokenWindow": @"sessionLifetime", @"tokenTruncated": @NO, @"activityBasis": @"bundledExample",
+            @"activityConfidence": @"high", @"status": @"working", @"isSubagent": @NO,
+            @"source": @"Bundled offline example"
+        },
+        @{
+            @"id": @"example:codex-subagent", @"name": AIText(@"核对功能清单", @"Check the feature list"),
+            @"conversationTitle": AIText(@"核对功能清单", @"Check the feature list"),
+            @"titleSource": @"bundledExample.title", @"taskSummary": AIText(@"核对功能清单", @"Check the feature list"),
+            @"agentName": AIText(@"检查 Agent", @"Review Agent"), @"provider": @"Codex", @"providerKey": @"codex",
+            @"toolKey": @"vscode", @"toolName": @"Visual Studio Code", @"model": @"", @"project": @"",
+            @"parentThreadId": @"example:codex-main", @"startedAt": @(nowMs - 19ll * 60ll * 1000ll),
+            @"updatedAt": @(nowMs - 13ll * 1000ll), @"durationMs": @(12ll * 60ll * 1000ll),
+            @"input": @4360, @"cached": @980, @"output": @1120, @"unknown": @0, @"reasoning": @0,
+            @"total": @5480, @"quality": @"exact", @"tokenQuality": @"exact",
+            @"tokenCoverage": @"bundledExample", @"tokenWindow": @"sessionLifetime", @"tokenTruncated": @NO,
+            @"activityBasis": @"bundledExample", @"activityConfidence": @"high", @"status": @"working",
+            @"isSubagent": @YES, @"source": @"Bundled offline example"
+        },
+        @{
+            @"id": @"example:claude-main", @"name": AIText(@"检查示例代码", @"Review sample code"),
+            @"conversationTitle": AIText(@"检查示例代码", @"Review sample code"),
+            @"titleSource": @"bundledExample.title", @"taskSummary": AIText(@"检查示例代码", @"Review sample code"),
+            @"agentName": @"Claude Code", @"provider": @"Claude Code", @"providerKey": @"claude",
+            @"toolKey": @"claude-code", @"toolName": @"Claude Code", @"model": @"", @"project": @"",
+            @"startedAt": @(nowMs - 31ll * 60ll * 1000ll), @"updatedAt": @(nowMs - 5ll * 1000ll),
+            @"durationMs": @(24ll * 60ll * 1000ll), @"input": @7210, @"cached": @1600,
+            @"output": @1980, @"unknown": @0, @"reasoning": @0, @"total": @9190,
+            @"quality": @"exact", @"tokenQuality": @"exact", @"tokenCoverage": @"bundledExample",
+            @"tokenWindow": @"sessionLifetime", @"tokenTruncated": @NO, @"activityBasis": @"bundledExample",
+            @"activityConfidence": @"high", @"status": @"working", @"isSubagent": @NO,
+            @"source": @"Bundled offline example"
+        },
+        @{
+            @"id": @"example:completed", @"name": AIText(@"准备双语说明", @"Prepare bilingual copy"),
+            @"conversationTitle": AIText(@"准备双语说明", @"Prepare bilingual copy"),
+            @"titleSource": @"bundledExample.title", @"taskSummary": AIText(@"准备双语说明", @"Prepare bilingual copy"),
+            @"agentName": @"Codex", @"provider": @"Codex", @"providerKey": @"codex",
+            @"toolKey": @"vscode", @"toolName": @"Visual Studio Code", @"model": @"", @"project": @"",
+            @"startedAt": @(nowMs - 25ll * 60ll * 60ll * 1000ll), @"updatedAt": @(nowMs - 24ll * 60ll * 60ll * 1000ll),
+            @"durationMs": @(51ll * 60ll * 1000ll), @"input": @4900, @"cached": @900,
+            @"output": @1100, @"unknown": @0, @"reasoning": @0, @"total": @6000,
+            @"quality": @"exact", @"tokenQuality": @"exact", @"tokenCoverage": @"bundledExample",
+            @"tokenWindow": @"sessionLifetime", @"tokenTruncated": @NO, @"activityBasis": @"bundledExample",
+            @"activityConfidence": @"high", @"status": @"finished", @"isSubagent": @NO,
+            @"source": @"Bundled offline example"
+        }
+    ];
+
+    NSMutableDictionary *vscode = AICoreTool(@"vscode", @"Visual Studio Code", @"host", @"", @"",
+        @{@"installed": @YES, @"running": @YES, @"runtimeMs": @(58ll * 60ll * 1000ll),
+          @"version": @"", @"path": @"", @"locations": @[]},
+        @[@{@"id": @"example-codex", @"name": @"Codex", @"providerKey": @"codex",
+            @"version": @"", @"telemetry": @"available", @"installed": @YES}]);
+    AIApplyToolMetrics(vscode, AIToolMetrics(sessions, @"vscode", @""), @"available");
+    NSMutableDictionary *claude = AICoreTool(@"claude-code", @"Claude Code", @"agent", @"", @"claude",
+        @{@"installed": @YES, @"running": @YES, @"runtimeMs": @(37ll * 60ll * 1000ll),
+          @"version": @"", @"path": @"", @"locations": @[]}, @[]);
+    AIApplyToolMetrics(claude, AIToolMetrics(sessions, @"claude-code", @"claude"), @"available");
+
+    return @{
+        @"exampleMode": @YES,
+        @"exampleDataOnly": @YES,
+        @"dataOrigin": @"bundledOfflineExample",
+        @"sessions": sessions,
+        @"tools": @[vscode, claude],
+        @"usageHistory": AIUsageHistory(sessions),
+        @"warnings": @[],
+        @"customSources": @[],
+        @"language": AIResolvedLanguage(),
+        @"languagePreference": AILanguagePreference(),
+        @"scannedAt": @(nowMs),
+        @"privacy": @{
+            @"localOnly": @YES,
+            @"displaysPromptText": @NO,
+            @"storesPromptText": @NO,
+            @"networkRequests": @NO,
+            @"automaticNetworkRequests": @NO,
+            @"cloudSyncDefaultEnabled": @NO,
+            @"cloudSyncRequiresExplicitConsent": @YES,
+            @"translationTextStored": @NO,
+            @"workspaceStoredOnExplicitSave": @YES
+        }
+    };
+}
+
 static NSDictionary *AISnapshot(void) {
     @autoreleasepool {
         NSMutableArray<NSString *> *warnings = [NSMutableArray array];
@@ -2932,6 +3034,9 @@ static NSDictionary *AISnapshot(void) {
             @"loadStatus": workspaceLoadStatus ?: @"io-error"
         };
         return @{
+            @"exampleMode": @NO,
+            @"exampleDataOnly": @NO,
+            @"dataOrigin": @"localAgentLogs",
             @"sessions": sessions,
             @"tools": tools,
             @"usageHistory": usageHistory,
@@ -3175,6 +3280,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 @property(atomic) BOOL translatorResponseTooLarge;
 @property(nonatomic) BOOL cloudSyncUploading;
 @property(nonatomic) BOOL cloudSyncDeleting;
+@property(nonatomic) BOOL cloudSyncAccountChecking;
 @property(nonatomic) BOOL cloudSyncUploadAfterCurrent;
 @property(nonatomic) BOOL cloudSyncForceAfterRefresh;
 @property(nonatomic, strong) NSDate *cloudSyncLastAttemptDate;
@@ -3186,6 +3292,8 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 @property(nonatomic) BOOL refreshAfterCurrent;
 @property(nonatomic) BOOL dataAccessConsented;
 @property(nonatomic) BOOL monitoringEnabled;
+@property(nonatomic) BOOL exampleModeEnabled;
+@property(nonatomic) BOOL localDataOperationInFlight;
 @property(nonatomic) NSUInteger monitoringGeneration;
 @property(nonatomic) BOOL webReady;
 @property(nonatomic) BOOL suppressAutoCollapse;
@@ -3207,9 +3315,14 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     AIInstallApplicationMainMenu();
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
     self.dataAccessConsented = [defaults integerForKey:AIDataAccessConsentDefaultsKey] == AIDataAccessConsentVersion;
+    self.exampleModeEnabled = [defaults boolForKey:AIExampleModeDefaultsKey];
     id monitoringPreference = [defaults objectForKey:AIMonitoringEnabledDefaultsKey];
     self.monitoringEnabled = self.dataAccessConsented &&
         (monitoringPreference ? [monitoringPreference boolValue] : YES);
+    if (self.exampleModeEnabled) {
+        self.monitoringEnabled = NO;
+        [defaults setBool:NO forKey:AIMonitoringEnabledDefaultsKey];
+    }
     NSRunningApplication *frontmost = NSWorkspace.sharedWorkspace.frontmostApplication;
     if (frontmost.processIdentifier != NSProcessInfo.processInfo.processIdentifier) self.lastExternalApplication = frontmost;
     [NSWorkspace.sharedWorkspace.notificationCenter addObserver:self selector:@selector(workspaceApplicationActivated:)
@@ -3236,7 +3349,9 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
             }
             return event;
         }];
-    if (self.monitoringEnabled) {
+    if (self.exampleModeEnabled) {
+        // The Web view requests the bundled snapshot after navigation completes.
+    } else if (self.monitoringEnabled) {
         [self startMonitoring];
     } else if (!self.dataAccessConsented) {
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -3284,22 +3399,35 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     NSMenuItem *refreshItem = [menu addItemWithTitle:AIText(@"立即刷新", @"Refresh Now")
         action:@selector(refreshFromMenu:) keyEquivalent:@"r"];
     refreshItem.target = self;
-    refreshItem.enabled = self.monitoringEnabled && AIHomeAccessAuthorized();
-    [menu addItemWithTitle:AIText(@"本机数据访问说明…", @"Local Data Access…")
-        action:@selector(reviewDataAccessFromMenu:) keyEquivalent:@""].target = self;
+    refreshItem.enabled = self.exampleModeEnabled || (self.monitoringEnabled && AIHomeAccessAuthorized());
+    NSMenuItem *exampleItem = [menu addItemWithTitle:AIText(@"离线示例模式", @"Offline Example Mode")
+        action:@selector(toggleExampleModeFromMenu:) keyEquivalent:@""];
+    exampleItem.target = self;
+    exampleItem.state = self.exampleModeEnabled ? NSControlStateValueOn : NSControlStateValueOff;
+    NSMenuItem *dataAccessItem = [menu addItemWithTitle:AIText(@"本机数据访问说明…", @"Local Data Access…")
+        action:@selector(reviewDataAccessFromMenu:) keyEquivalent:@""];
+    dataAccessItem.target = self;
     if (AIAppIsSandboxed()) {
-        NSString *authorizationTitle = AIHomeAccessAuthorized() ?
+        BOOL homeAccessAuthorized = self.exampleModeEnabled ? NO : AIHomeAccessAuthorized();
+        BOOL homeAccessStored = self.exampleModeEnabled ? NO : AIHomeAccessBookmarkStored();
+        NSString *authorizationTitle = homeAccessAuthorized ?
             AIText(@"重新授权主目录…", @"Reauthorize Home Folder…") :
             AIText(@"授权主目录…", @"Authorize Home Folder…");
-        [menu addItemWithTitle:authorizationTitle
-            action:@selector(authorizeHomeAccessFromMenu:) keyEquivalent:@""].target = self;
-        if (AIHomeAccessBookmarkStored()) {
-            [menu addItemWithTitle:AIText(@"撤销主目录授权", @"Revoke Home Folder Access")
-                action:@selector(revokeHomeAccessFromMenu:) keyEquivalent:@""].target = self;
+        NSMenuItem *authorizeItem = [menu addItemWithTitle:authorizationTitle
+            action:@selector(authorizeHomeAccessFromMenu:) keyEquivalent:@""];
+        authorizeItem.target = self;
+        authorizeItem.enabled = !self.exampleModeEnabled;
+        if (homeAccessStored) {
+            NSMenuItem *revokeItem = [menu addItemWithTitle:AIText(@"撤销主目录授权", @"Revoke Home Folder Access")
+                action:@selector(revokeHomeAccessFromMenu:) keyEquivalent:@""];
+            revokeItem.target = self;
+            revokeItem.enabled = !self.exampleModeEnabled;
         }
     }
-    [menu addItemWithTitle:AIText(@"检查更新…", @"Check for Updates…")
-        action:@selector(checkForUpdatesFromMenu:) keyEquivalent:@""].target = self;
+    NSMenuItem *updateItem = [menu addItemWithTitle:AIText(@"检查更新…", @"Check for Updates…")
+        action:@selector(checkForUpdatesFromMenu:) keyEquivalent:@""];
+    updateItem.target = self;
+    updateItem.enabled = !self.exampleModeEnabled;
     NSMenuItem *languageItem = [menu addItemWithTitle:AIText(@"语言", @"Language") action:nil keyEquivalent:@""];
     NSMenu *languageMenu = [[NSMenu alloc] initWithTitle:languageItem.title];
     NSString *preference = AILanguagePreference();
@@ -3377,15 +3505,18 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 
 - (NSDictionary *)dataAccessPublicState {
     BOOL sandboxed = AIAppIsSandboxed();
+    BOOL homeAccessAuthorized = self.exampleModeEnabled ? NO : AIHomeAccessAuthorized();
+    BOOL homeAccessStored = self.exampleModeEnabled ? NO : AIHomeAccessBookmarkStored();
     return @{
         @"consentVersion": @(self.dataAccessConsented ? AIDataAccessConsentVersion : 0),
         @"requiredConsentVersion": @(AIDataAccessConsentVersion),
         @"consented": @(self.dataAccessConsented),
         @"monitoringEnabled": @(self.monitoringEnabled),
+        @"exampleModeEnabled": @(self.exampleModeEnabled),
         @"sandboxed": @(sandboxed),
         @"homeAccessRequired": @(sandboxed),
-        @"homeAccessAuthorized": @(AIHomeAccessAuthorized()),
-        @"homeAccessStored": @(AIHomeAccessBookmarkStored())
+        @"homeAccessAuthorized": @(homeAccessAuthorized),
+        @"homeAccessStored": @(homeAccessStored)
     };
 }
 
@@ -3394,11 +3525,15 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     payload[@"message"] = message ?: @"";
     payload[@"clearSnapshot"] = @(clearSnapshot);
     payload[@"releaseLinks"] = AIReleaseLinksPublicState();
-    payload[@"customSources"] = AICustomSources();
+    payload[@"customSources"] = self.exampleModeEnabled ? @[] : AICustomSources();
     [self pushWebCallback:@"dataAccessResult" payload:payload];
 }
 
 - (void)startMonitoring {
+    if (self.exampleModeEnabled) {
+        [self pushSnapshot:AIOfflineExampleSnapshot()];
+        return;
+    }
     if (!self.dataAccessConsented || !self.monitoringEnabled) return;
     if (!AIHomeAccessAuthorized()) {
         self.monitoringEnabled = NO;
@@ -3450,7 +3585,90 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
         @"Local monitoring is stopped; Agent logs will not be read again") clearSnapshot:YES];
 }
 
+- (void)setExampleModeEnabledFromBody:(NSDictionary *)body {
+    if (![body[@"enabled"] isKindOfClass:NSNumber.class]) return;
+    BOOL enabled = [body[@"enabled"] boolValue];
+    if (enabled == self.exampleModeEnabled) {
+        [self pushDataAccessStateWithMessage:enabled ? AIText(
+            @"离线示例模式已开启；未读取本机 Agent 日志，也不会访问网络或 iCloud",
+            @"Offline example mode is on; local Agent logs, the network, and iCloud are not accessed") : @""
+            clearSnapshot:NO];
+        if (enabled) [self pushSnapshot:AIOfflineExampleSnapshot()];
+        return;
+    }
+    if (enabled) {
+        NSDictionary *cloudPreferences = AICloudSyncPreferences();
+        if ([cloudPreferences[@"enabled"] boolValue] || self.cloudSyncUploading || self.cloudSyncDeleting ||
+            self.cloudSyncAccountChecking ||
+            self.cloudSyncDeleteAfterUploadRequestID.length) {
+            [self pushDataAccessStateWithMessage:AIText(
+                @"请先关闭 iCloud 私有同步并等待云端操作完成，再进入离线示例模式",
+                @"Turn off private iCloud sync and wait for cloud activity to finish before entering offline example mode")
+                clearSnapshot:NO];
+            return;
+        }
+        if (self.refreshing || self.translatorTask || self.localDataOperationInFlight) {
+            [self pushDataAccessStateWithMessage:AIText(
+                @"正在完成已有的本机读取、授权或翻译请求；完成后再进入离线示例模式",
+                @"A local read, authorization, or translation request is still finishing; enter offline example mode after it completes")
+                clearSnapshot:NO];
+            return;
+        }
+        self.exampleModeEnabled = YES;
+        self.monitoringEnabled = NO;
+        NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+        [defaults setBool:YES forKey:AIExampleModeDefaultsKey];
+        [defaults setBool:NO forKey:AIMonitoringEnabledDefaultsKey];
+        self.cloudSyncForceAfterRefresh = NO;
+        self.cloudSyncUploadAfterCurrent = NO;
+        self.refreshAfterCurrent = NO;
+        self.pendingSnapshot = nil;
+        @synchronized (self) { self.monitoringGeneration += 1; }
+        [self.refreshTimer invalidate];
+        self.refreshTimer = nil;
+        [self endActiveHomeAccessIfNeeded];
+        NSURLSessionDataTask *translationTask = self.translatorTask;
+        self.translatorTask = nil;
+        self.activeTranslationRequestID = nil;
+        self.translatorResponseData = nil;
+        self.translatorHTTPResponse = nil;
+        self.translatorRequestContext = nil;
+        self.translatorResponseTooLarge = NO;
+        [translationTask cancel];
+        [self.translatorSession invalidateAndCancel];
+        self.translatorSession = nil;
+        [self rebuildStatusMenu];
+        [self pushDataAccessStateWithMessage:AIText(
+            @"离线示例模式已开启；未读取本机 Agent 日志，也不会访问网络或 iCloud",
+            @"Offline example mode is on; local Agent logs, the network, and iCloud are not accessed")
+            clearSnapshot:YES];
+        [self pushSnapshot:AIOfflineExampleSnapshot()];
+        return;
+    }
+
+    self.exampleModeEnabled = NO;
+    [NSUserDefaults.standardUserDefaults removeObjectForKey:AIExampleModeDefaultsKey];
+    self.monitoringEnabled = NO;
+    [NSUserDefaults.standardUserDefaults setBool:NO forKey:AIMonitoringEnabledDefaultsKey];
+    self.pendingSnapshot = nil;
+    @synchronized (self) { self.monitoringGeneration += 1; }
+    [self rebuildStatusMenu];
+    [self pushDataAccessStateWithMessage:AIText(
+        @"已退出并重置示例模式；本机监测保持关闭，需要时请手动开启",
+        @"Example mode was exited and reset; local monitoring remains off until you enable it")
+        clearSnapshot:YES];
+}
+
+- (void)toggleExampleModeFromMenu:(id)sender {
+    [self setExampleModeEnabledFromBody:@{@"enabled": @(!self.exampleModeEnabled)}];
+}
+
 - (void)presentDataAccessDisclosureAllowingStart:(BOOL)allowingStart {
+    // Reviewing the disclosure remains available in example mode, but it must
+    // never become a back door that changes consent or restarts real monitoring.
+    allowingStart = allowingStart && !self.exampleModeEnabled;
+    if (self.localDataOperationInFlight) return;
+    self.localDataOperationInFlight = YES;
     NSAlert *alert = [[NSAlert alloc] init];
     alert.alertStyle = NSAlertStyleInformational;
     alert.messageText = AIText(@"本机 Agent 数据访问", @"Local Agent Data Access");
@@ -3465,6 +3683,11 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     }
     [NSApp activateIgnoringOtherApps:YES];
     NSModalResponse response = [alert runModal];
+    self.localDataOperationInFlight = NO;
+    if (self.exampleModeEnabled) {
+        [self pushDataAccessStateWithMessage:@"" clearSnapshot:NO];
+        return;
+    }
     if (allowingStart && response == NSAlertFirstButtonReturn) {
         NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
         [defaults setInteger:AIDataAccessConsentVersion forKey:AIDataAccessConsentDefaultsKey];
@@ -3487,6 +3710,12 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)setMonitoringEnabledFromBody:(NSDictionary *)body {
+    if (self.exampleModeEnabled) {
+        [self pushDataAccessStateWithMessage:AIText(
+            @"请先退出并重置离线示例模式，再开启本机监测",
+            @"Exit and reset offline example mode before enabling local monitoring") clearSnapshot:NO];
+        return;
+    }
     id rawEnabled = body[@"enabled"];
     if (![rawEnabled isKindOfClass:NSNumber.class]) return;
     BOOL enabled = [rawEnabled boolValue];
@@ -3516,6 +3745,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 - (void)revokeHomeAccessFromMenu:(id)sender { [self revokeHomeAccess]; }
 
 - (void)authorizeHomeAccessStartingMonitoring:(BOOL)startAfterAuthorization {
+    if (self.exampleModeEnabled || self.localDataOperationInFlight) return;
     if (!AIAppIsSandboxed()) {
         if (startAfterAuthorization && self.dataAccessConsented) {
             self.monitoringEnabled = YES;
@@ -3535,10 +3765,13 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     openPanel.allowsMultipleSelection = NO;
     openPanel.canCreateDirectories = NO;
     openPanel.directoryURL = [NSURL fileURLWithPath:AIUserHomeDirectory() isDirectory:YES];
+    self.localDataOperationInFlight = YES;
     self.suppressAutoCollapse = YES;
     [openPanel beginWithCompletionHandler:^(NSModalResponse result) {
+        self.localDataOperationInFlight = NO;
         self.suppressAutoCollapse = NO;
         [self.panel makeKeyAndOrderFront:nil];
+        if (self.exampleModeEnabled) return;
         if (result != NSModalResponseOK) {
             BOOL existingAccess = AIHomeAccessAuthorized();
             [self pushDataAccessStateWithMessage:existingAccess ? AIText(
@@ -3603,6 +3836,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)revokeHomeAccess {
+    if (self.exampleModeEnabled || self.localDataOperationInFlight) return;
     if (!AIAppIsSandboxed() || !AIHomeAccessBookmarkStored()) return;
     NSAlert *alert = [[NSAlert alloc] init];
     alert.alertStyle = NSAlertStyleWarning;
@@ -3613,7 +3847,10 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     [alert addButtonWithTitle:AIText(@"撤销授权", @"Revoke Access")];
     [alert addButtonWithTitle:AIText(@"取消", @"Cancel")];
     [NSApp activateIgnoringOtherApps:YES];
-    if ([alert runModal] != NSAlertFirstButtonReturn) return;
+    self.localDataOperationInFlight = YES;
+    NSModalResponse response = [alert runModal];
+    self.localDataOperationInFlight = NO;
+    if (self.exampleModeEnabled || response != NSAlertFirstButtonReturn) return;
     [NSUserDefaults.standardUserDefaults removeObjectForKey:AIHomeAccessBookmarkDefaultsKey];
     self.monitoringEnabled = NO;
     [NSUserDefaults.standardUserDefaults setBool:NO forKey:AIMonitoringEnabledDefaultsKey];
@@ -3624,6 +3861,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)checkForUpdatesFromMenu:(id)sender {
+    if (self.exampleModeEnabled) return;
     NSURL *url = AIConfiguredHTTPSURLForInfoKey(@"AgentIslandSupportURL");
     if (url && [NSWorkspace.sharedWorkspace openURL:url]) return;
     NSAlert *alert = [[NSAlert alloc] init];
@@ -3715,7 +3953,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     self.workspaceDelivered = NO;
     [self pushResolvedLanguage];
     [self pushExpandedStateAllowingFocus:self.expanded && !self.expandedFromHover];
-    [self pushDataAccessStateWithMessage:@"" clearSnapshot:!self.monitoringEnabled];
+    [self pushDataAccessStateWithMessage:@"" clearSnapshot:!self.monitoringEnabled && !self.exampleModeEnabled];
     NSDictionary *pending = self.pendingSnapshot;
     self.pendingSnapshot = nil;
     if (pending) [self pushSnapshot:pending];
@@ -3763,6 +4001,26 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 - (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message {
     NSDictionary *body = [message.body isKindOfClass:NSDictionary.class] ? message.body : @{};
     NSString *action = body[@"action"];
+    if ([action isEqual:@"setExampleMode"]) {
+        [self setExampleModeEnabledFromBody:body];
+        return;
+    }
+    static NSSet<NSString *> *exampleBlockedActions;
+    static dispatch_once_t blockedActionsOnceToken;
+    dispatch_once(&blockedActionsOnceToken, ^{
+        exampleBlockedActions = [NSSet setWithArray:@[
+            @"connect", @"chooseSource", @"removeConnection", @"authorizeHomeAccess", @"revokeHomeAccess",
+            @"setMonitoringEnabled", @"openURL", @"openReleaseLink", @"configureTranslator", @"translate",
+            @"configureCloudSync", @"syncCloudNow"
+        ]];
+    });
+    if (self.exampleModeEnabled && [exampleBlockedActions containsObject:action]) {
+        [self pushDataAccessStateWithMessage:AIText(
+            @"离线示例模式中已阻止本机数据与网络操作；退出并重置后可继续",
+            @"Local-data and network actions are blocked in offline example mode; exit and reset it to continue")
+            clearSnapshot:NO];
+        return;
+    }
     if ([action isEqual:@"expand"]) [self setExpanded:YES restoreFocus:NO];
     else if ([action isEqual:@"collapse"]) [self setExpanded:NO restoreFocus:YES];
     else if ([action isEqual:@"toggle"]) [self setExpanded:!self.expanded restoreFocus:self.expanded];
@@ -3888,6 +4146,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)openExternalURL:(id)value {
+    if (self.exampleModeEnabled) return;
     NSString *message = nil;
     NSURL *url = AIValidatedExternalURL(value, &message);
     BOOL success = url && [NSWorkspace.sharedWorkspace openURL:url];
@@ -3898,6 +4157,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)openReleaseLink:(NSDictionary *)body {
+    if (self.exampleModeEnabled) return;
     NSString *kind = [body[@"kind"] isKindOfClass:NSString.class] ? body[@"kind"] : @"";
     NSString *key = [kind isEqual:@"privacyPolicy"] ? @"AgentIslandPrivacyPolicyURL" :
         (([kind isEqual:@"support"] || [kind isEqual:@"update"]) ? @"AgentIslandSupportURL" : nil);
@@ -3955,25 +4215,50 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 
 - (void)fetchCurrentCloudAccountKey:(void (^)(CKContainer *container, NSString *accountKey,
     NSError *error))completion {
+    if (self.exampleModeEnabled) {
+        NSError *error = [NSError errorWithDomain:@"AgentIslandOfflineExample" code:1
+            userInfo:@{NSLocalizedDescriptionKey: AIText(@"离线示例模式不会访问 iCloud",
+                @"Offline example mode does not access iCloud")}];
+        completion(nil, nil, error);
+        return;
+    }
     CKContainer *container = [CKContainer defaultContainer];
     [container accountStatusWithCompletionHandler:^(CKAccountStatus status, NSError *statusError) {
-        if (statusError || status != CKAccountStatusAvailable) {
-            NSError *error = statusError;
-            if (!error) {
-                CKErrorCode code = status == CKAccountStatusNoAccount ? CKErrorNotAuthenticated :
-                    (status == CKAccountStatusRestricted ? CKErrorPermissionFailure : CKErrorServiceUnavailable);
-                error = [NSError errorWithDomain:CKErrorDomain code:code userInfo:nil];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (self.exampleModeEnabled) {
+                NSError *error = [NSError errorWithDomain:@"AgentIslandOfflineExample" code:1
+                    userInfo:@{NSLocalizedDescriptionKey: AIText(@"离线示例模式不会访问 iCloud",
+                        @"Offline example mode does not access iCloud")}];
+                completion(nil, nil, error);
+                return;
             }
-            dispatch_async(dispatch_get_main_queue(), ^{ completion(container, nil, error); });
-            return;
-        }
-        [container fetchUserRecordIDWithCompletionHandler:^(CKRecordID *recordID, NSError *recordError) {
-            NSString *accountKey = recordError ? nil : AICloudAccountKeyForRecordName(recordID.recordName);
-            NSError *error = recordError;
-            if (!accountKey.length && !error)
-                error = [NSError errorWithDomain:CKErrorDomain code:CKErrorNotAuthenticated userInfo:nil];
-            dispatch_async(dispatch_get_main_queue(), ^{ completion(container, accountKey, error); });
-        }];
+            if (statusError || status != CKAccountStatusAvailable) {
+                NSError *error = statusError;
+                if (!error) {
+                    CKErrorCode code = status == CKAccountStatusNoAccount ? CKErrorNotAuthenticated :
+                        (status == CKAccountStatusRestricted ? CKErrorPermissionFailure : CKErrorServiceUnavailable);
+                    error = [NSError errorWithDomain:CKErrorDomain code:code userInfo:nil];
+                }
+                completion(container, nil, error);
+                return;
+            }
+            [container fetchUserRecordIDWithCompletionHandler:^(CKRecordID *recordID, NSError *recordError) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (self.exampleModeEnabled) {
+                        NSError *error = [NSError errorWithDomain:@"AgentIslandOfflineExample" code:1
+                            userInfo:@{NSLocalizedDescriptionKey: AIText(@"离线示例模式不会访问 iCloud",
+                                @"Offline example mode does not access iCloud")}];
+                        completion(nil, nil, error);
+                        return;
+                    }
+                    NSString *accountKey = recordError ? nil : AICloudAccountKeyForRecordName(recordID.recordName);
+                    NSError *error = recordError;
+                    if (!accountKey.length && !error)
+                        error = [NSError errorWithDomain:CKErrorDomain code:CKErrorNotAuthenticated userInfo:nil];
+                    completion(container, accountKey, error);
+                });
+            }];
+        });
     }];
 }
 
@@ -3991,10 +4276,19 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)cloudAccountChanged:(NSNotification *)notification {
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self cloudAccountChanged:notification]; });
+        return;
+    }
+    if (self.exampleModeEnabled) return;
     NSDictionary *preferences = AICloudSyncPreferences();
     if (![preferences[@"enabled"] boolValue]) return;
+    if (self.cloudSyncAccountChecking) return;
     NSString *boundAccountKey = preferences[@"accountKey"];
+    self.cloudSyncAccountChecking = YES;
     [self fetchCurrentCloudAccountKey:^(__unused CKContainer *container, NSString *accountKey, NSError *error) {
+        self.cloudSyncAccountChecking = NO;
+        if (self.exampleModeEnabled) return;
         if (![AICloudSyncPreferences()[@"enabled"] boolValue]) return;
         if (error || !AICloudAccountKeysMatch(boundAccountKey, accountKey)) {
             [self stopCloudSyncForAccountChange:@""];
@@ -4010,18 +4304,30 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 
 - (void)configureCloudSync:(NSDictionary *)body {
     NSString *requestID = [self cloudSyncRequestID:body];
+    if (self.exampleModeEnabled) {
+        [self pushCloudSyncResult:requestID success:NO message:AIText(
+            @"离线示例模式不会访问 iCloud", @"Offline example mode does not access iCloud")];
+        return;
+    }
     if (!requestID.length || ![body[@"enabled"] isKindOfClass:NSNumber.class]) {
         [self pushCloudSyncResult:requestID success:NO
             message:AIText(@"云同步请求无效", @"The cloud sync request is invalid.")];
         return;
     }
+    if (self.cloudSyncAccountChecking || self.cloudSyncDeleting ||
+        self.cloudSyncDeleteAfterUploadRequestID.length) {
+        [self pushCloudSyncResult:requestID success:NO message:AIText(
+            @"上一个 iCloud 操作仍在进行，请等待完成后再试",
+            @"A previous iCloud operation is still in progress. Wait for it to finish and try again.")];
+        return;
+    }
     BOOL enabled = [body[@"enabled"] boolValue];
     BOOL includeTitles = [body[@"includeTitles"] boolValue];
     if (enabled) {
-        if (self.cloudSyncDeleting || self.cloudSyncDeleteAfterUploadRequestID.length) {
+        if (self.cloudSyncUploading) {
             [self pushCloudSyncResult:requestID success:NO message:AIText(
-                @"请等待上一条云端数据删除完成后再开启",
-                @"Wait for the previous cloud record deletion to finish before enabling sync.")];
+                @"请等待当前 iCloud 同步完成后再更改配置",
+                @"Wait for the current iCloud sync to finish before changing its configuration.")];
             return;
         }
         if (!AICloudSyncCapabilityConfigured()) {
@@ -4042,7 +4348,14 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
         BOOL accountChangeConfirmed = [body[@"accountChangeConfirmed"] boolValue];
         AICloudSyncUpdateRuntime(@"checking-account", AIText(@"正在确认当前 iCloud 账户…",
             @"Verifying the current iCloud account…"), nil, nil, nil);
+        self.cloudSyncAccountChecking = YES;
         [self fetchCurrentCloudAccountKey:^(__unused CKContainer *container, NSString *accountKey, NSError *error) {
+            self.cloudSyncAccountChecking = NO;
+            if (self.exampleModeEnabled) {
+                [self pushCloudSyncResult:requestID success:NO message:AIText(
+                    @"离线示例模式不会访问 iCloud", @"Offline example mode does not access iCloud")];
+                return;
+            }
             if (error || !accountKey.length) {
                 NSString *message = [self cloudSyncMessageForError:error deleting:NO];
                 AICloudSyncUpdateRuntime(@"error", message, nil, nil, nil);
@@ -4090,6 +4403,11 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 
 - (void)syncCloudNow:(NSDictionary *)body {
     NSString *requestID = [self cloudSyncRequestID:body];
+    if (self.exampleModeEnabled) {
+        [self pushCloudSyncResult:requestID success:NO message:AIText(
+            @"离线示例模式不会访问 iCloud", @"Offline example mode does not access iCloud")];
+        return;
+    }
     if (!requestID.length || ![AICloudSyncPreferences()[@"enabled"] boolValue]) {
         [self pushCloudSyncResult:requestID success:NO
             message:AIText(@"请先开启 iCloud 私有同步", @"Enable private iCloud sync first.")];
@@ -4109,6 +4427,11 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)deleteCloudSnapshotWithRequestID:(NSString *)requestID {
+    if (self.exampleModeEnabled) {
+        [self pushCloudSyncResult:requestID success:NO message:AIText(
+            @"离线示例模式不会访问 iCloud", @"Offline example mode does not access iCloud")];
+        return;
+    }
     if (!AICloudSyncCapabilityConfigured()) {
         NSString *message = AIText(@"当前构建无 CloudKit 权限，无法确认云端记录已删除",
             @"This build has no CloudKit entitlement, so cloud deletion cannot be confirmed.");
@@ -4119,6 +4442,10 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     self.cloudSyncDeleting = YES;
     NSString *boundAccountKey = AICloudSyncPreferences()[@"accountKey"];
     [self fetchCurrentCloudAccountKey:^(CKContainer *container, NSString *accountKey, NSError *accountError) {
+        if (self.exampleModeEnabled) {
+            self.cloudSyncDeleting = NO;
+            return;
+        }
         if (accountError) {
             self.cloudSyncDeleting = NO;
             NSString *message = [self cloudSyncMessageForError:accountError deleting:YES];
@@ -4232,7 +4559,9 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     configuration.timeoutIntervalForRequest = 30;
     configuration.timeoutIntervalForResource = 45;
     configuration.HTTPMaximumConnectionsPerHost = 1;
-    self.translatorSession = [NSURLSession sessionWithConfiguration:configuration delegate:self delegateQueue:nil];
+    // All task identity and example-mode state lives on the main thread.
+    self.translatorSession = [NSURLSession sessionWithConfiguration:configuration
+        delegate:self delegateQueue:NSOperationQueue.mainQueue];
     return self.translatorSession;
 }
 
@@ -4246,11 +4575,23 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 
 - (void)translate:(NSDictionary *)body {
     NSString *requestID = [body[@"requestId"] isKindOfClass:NSString.class] ? body[@"requestId"] : @"";
+    if (self.exampleModeEnabled) {
+        [self pushTranslationErrorForRequestID:requestID code:@"offline_example_mode"
+            message:AIText(@"离线示例模式不会访问翻译网络服务",
+                @"Offline example mode does not access the translation network service")];
+        return;
+    }
     if (!requestID.length || requestID.length > 128 ||
         [requestID rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location != NSNotFound) {
         [self pushTranslationErrorForRequestID:requestID code:@"invalid_request_id"
             message:AIText(@"翻译 requestId 为空、过长或包含控制字符",
                 @"The translation requestId is empty, too long, or contains control characters")];
+        return;
+    }
+    if (self.translatorTask) {
+        [self pushTranslationErrorForRequestID:requestID code:@"request_in_progress"
+            message:AIText(@"上一个翻译请求仍在进行，请等待完成后再试",
+                @"A translation request is already in progress. Wait for it to finish and try again.")];
         return;
     }
     NSString *mode = [body[@"mode"] isKindOfClass:NSString.class] ? body[@"mode"] : @"learn";
@@ -4295,10 +4636,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
     NSString *apiKey = AITranslatorAPIKey(baseURL);
     if (apiKey.length) [request setValue:[@"Bearer " stringByAppendingString:apiKey] forHTTPHeaderField:@"Authorization"];
 
-    NSURLSessionDataTask *previousTask = self.translatorTask;
-    self.translatorTask = nil;
     self.activeTranslationRequestID = requestID;
-    [previousTask cancel];
     self.translatorResponseData = [NSMutableData data];
     self.translatorHTTPResponse = nil;
     self.translatorResponseTooLarge = NO;
@@ -4318,6 +4656,10 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task
     willPerformHTTPRedirection:(NSHTTPURLResponse *)response newRequest:(NSURLRequest *)request
     completionHandler:(void (^)(NSURLRequest * _Nullable))completionHandler {
+    if (session != self.translatorSession || task != self.translatorTask || self.exampleModeEnabled) {
+        completionHandler(nil);
+        return;
+    }
     NSURL *validated = AIValidatedExternalURL(request.URL.absoluteString, NULL);
     NSURL *sourceURL = response.URL ?: task.currentRequest.URL;
     completionHandler(validated && AISameURLOrigin(sourceURL, validated) ? request : nil);
@@ -4326,7 +4668,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask
     didReceiveResponse:(NSURLResponse *)response
     completionHandler:(void (^)(NSURLSessionResponseDisposition disposition))completionHandler {
-    if (dataTask != self.translatorTask) {
+    if (session != self.translatorSession || dataTask != self.translatorTask || self.exampleModeEnabled) {
         completionHandler(NSURLSessionResponseCancel);
         return;
     }
@@ -4343,7 +4685,8 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask
     didReceiveData:(NSData *)data {
-    if (dataTask != self.translatorTask || self.translatorResponseTooLarge) return;
+    if (session != self.translatorSession || dataTask != self.translatorTask ||
+        self.exampleModeEnabled || self.translatorResponseTooLarge) return;
     NSMutableData *responseData = self.translatorResponseData;
     NSUInteger currentLength = responseData.length;
     if (currentLength >= AITranslatorMaximumResponseBytes ||
@@ -4357,7 +4700,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task
     didCompleteWithError:(NSError *)error {
-    if (task != self.translatorTask) return;
+    if (session != self.translatorSession || task != self.translatorTask) return;
     NSDictionary *context = [self.translatorRequestContext copy] ?: @{};
     NSString *requestID = [context[@"requestId"] isKindOfClass:NSString.class] ? context[@"requestId"] : @"";
     NSData *responseData = [self.translatorResponseData copy] ?: NSData.data;
@@ -4374,6 +4717,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
         self.translatorHTTPResponse = nil;
         self.translatorRequestContext = nil;
         self.translatorResponseTooLarge = NO;
+        if (self.exampleModeEnabled) return;
         if (usage) AIRecordTranslationUsage(usage);
         [self pushWebCallback:@"translationResult" payload:payload];
         if (usage) {
@@ -4384,6 +4728,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)chooseSource {
+    if (self.exampleModeEnabled || self.localDataOperationInFlight) return;
     NSOpenPanel *openPanel = [NSOpenPanel openPanel];
     openPanel.title = AIText(@"选择 Agent JSONL 或目录", @"Choose an Agent JSONL File or Folder");
     openPanel.prompt = AIText(@"选择", @"Choose");
@@ -4394,10 +4739,13 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
         openPanel.directoryURL = [NSURL fileURLWithPath:AIUserHomeDirectory() isDirectory:YES];
     UTType *jsonlType = [UTType typeWithFilenameExtension:@"jsonl"];
     if (jsonlType) openPanel.allowedContentTypes = @[jsonlType];
+    self.localDataOperationInFlight = YES;
     self.suppressAutoCollapse = YES;
     [openPanel beginWithCompletionHandler:^(NSModalResponse result) {
+        self.localDataOperationInFlight = NO;
         self.suppressAutoCollapse = NO;
         [self.panel makeKeyAndOrderFront:nil];
+        if (self.exampleModeEnabled) return;
         if (result != NSModalResponseOK || !openPanel.URL.path.length) return;
         NSString *selectedPath = [openPanel.URL.path copy];
         if (AIAppIsSandboxed() && !AIPathIsInsideDirectory(selectedPath, AIUserHomeDirectory())) {
@@ -4417,6 +4765,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)addConnectionCode:(NSString *)rawCode {
+    if (self.exampleModeEnabled) return;
     NSString *value = [rawCode isKindOfClass:NSString.class] ? rawCode : @"";
     NSString *code = [value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     if (code.length == 0 || code.length > 16384) {
@@ -4507,6 +4856,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)removeConnectionID:(NSString *)connectionID {
+    if (self.exampleModeEnabled) return;
     if (![connectionID isKindOfClass:NSString.class]) return;
     NSMutableArray *sources = [AICustomSources() mutableCopy];
     NSIndexSet *indexes = [sources indexesOfObjectsPassingTest:^BOOL(NSDictionary *entry,
@@ -4714,8 +5064,16 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)uploadMobileSnapshotData:(NSData *)data {
+    if (self.exampleModeEnabled) {
+        self.cloudSyncUploading = NO;
+        return;
+    }
     NSString *boundAccountKey = AICloudSyncPreferences()[@"accountKey"];
     [self fetchCurrentCloudAccountKey:^(CKContainer *container, NSString *accountKey, NSError *accountError) {
+        if (self.exampleModeEnabled) {
+            self.cloudSyncUploading = NO;
+            return;
+        }
         if (![AICloudSyncPreferences()[@"enabled"] boolValue]) {
             [self finishCloudUploadWithData:data error:nil];
             return;
@@ -4754,6 +5112,7 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)synchronizeSnapshotIfNeeded:(NSDictionary *)snapshot force:(BOOL)force {
+    if (self.exampleModeEnabled || [snapshot[@"exampleMode"] boolValue]) return;
     NSDictionary *preferences = AICloudSyncPreferences();
     if (![preferences[@"enabled"] boolValue]) return;
     if (!AICloudSyncCapabilityConfigured()) {
@@ -4792,6 +5151,12 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)refreshSnapshot {
+    if (self.exampleModeEnabled) {
+        self.refreshing = NO;
+        self.lastRefreshDate = NSDate.date;
+        [self pushSnapshot:AIOfflineExampleSnapshot()];
+        return;
+    }
     if (!self.dataAccessConsented || !self.monitoringEnabled) {
         [self pushDataAccessStateWithMessage:AIText(
             @"本机监测已停止；开启前不会扫描 Agent 日志",
@@ -4859,6 +5224,13 @@ static NSDictionary *AIStandardEditShortcutSelfTest(void) {
 }
 
 - (void)pushSnapshot:(NSDictionary *)snapshot {
+    BOOL claimsExample = [snapshot[@"exampleMode"] boolValue] ||
+        [snapshot[@"exampleDataOnly"] boolValue] ||
+        [snapshot[@"dataOrigin"] isEqual:@"bundledOfflineExample"];
+    BOOL validExample = [snapshot[@"exampleMode"] boolValue] &&
+        [snapshot[@"exampleDataOnly"] boolValue] &&
+        [snapshot[@"dataOrigin"] isEqual:@"bundledOfflineExample"];
+    if ((self.exampleModeEnabled && !validExample) || (!self.exampleModeEnabled && claimsExample)) return;
     if (!self.webReady) {
         self.pendingSnapshot = snapshot;
         return;
@@ -4973,8 +5345,20 @@ int main(int argc, const char *argv[]) {
             return [payload[@"ok"] boolValue] ? 0 : 2;
         }
         if (argc > 1 && strcmp(argv[1], "--snapshot") == 0) {
+            if (argc < 3 || strcmp(argv[2], "--allow-local-agent-data") != 0) {
+                fprintf(stderr, "Refusing to read local Agent data without explicit --allow-local-agent-data.\n");
+                return 64;
+            }
             NSDictionary *snapshot = AISnapshot();
             NSData *data = [NSJSONSerialization dataWithJSONObject:snapshot options:NSJSONWritingPrettyPrinted error:nil];
+            fwrite(data.bytes, 1, data.length, stdout);
+            fputc('\n', stdout);
+            return 0;
+        }
+        if (argc > 1 && strcmp(argv[1], "--offline-example-snapshot") == 0) {
+            NSDictionary *snapshot = AIOfflineExampleSnapshot();
+            NSData *data = [NSJSONSerialization dataWithJSONObject:snapshot
+                options:NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys error:nil];
             fwrite(data.bytes, 1, data.length, stdout);
             fputc('\n', stdout);
             return 0;
@@ -4998,7 +5382,9 @@ int main(int argc, const char *argv[]) {
         }
         if (argc > 1 && strcmp(argv[1], "--export-mobile-snapshot") == 0) {
             NSDictionary *snapshot = nil;
-            if (argc > 2) {
+            if (argc > 2 && strcmp(argv[2], "--allow-local-agent-data") == 0) {
+                snapshot = AISnapshot();
+            } else if (argc > 2) {
                 NSString *path = [[NSString stringWithUTF8String:argv[2]] stringByStandardizingPath];
                 NSDictionary *attributes = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
                 unsigned long long size = [attributes[NSFileSize] unsignedLongLongValue];
@@ -5011,7 +5397,8 @@ int main(int argc, const char *argv[]) {
                     return 2;
                 }
             } else {
-                snapshot = AISnapshot();
+                fprintf(stderr, "Refusing to read local Agent data without explicit --allow-local-agent-data or a fixture path.\n");
+                return 64;
             }
             NSError *error = nil;
             NSData *data = AIMobileSnapshotJSONData(snapshot, NO, &error);

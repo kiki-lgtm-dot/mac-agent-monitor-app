@@ -14,6 +14,7 @@ App Privacy 回答位于 **App 记录级别**，不是单个 Target 或单个平
 - 状态快照包含工具/Agent 类别与安全名称、状态、时长、Token、时间戳、数量和临时序号；
 - 完整对话标题默认关闭，但提交构建中保留了单独选择同步标题的能力；
 - Mac 翻译器由用户主动提交自由文本，当前预览默认远程端点为 DeepSeek API；
+- Mac 提供用户主动开启、持续显式标识的内置离线 Agent 监测示例；示例快照每次在内存重建，只保存一个开关，不读本机 Agent 日志或自定义源，不访问网络或 CloudKit；
 - 没有开发者后端、广告、分析、崩溃上报或跨 App/网站追踪；
 - iOS Widget 不自行访问 CloudKit，只显示主 App 提供的不含标题的 ActivityKit 状态。
 
@@ -62,6 +63,8 @@ DeepSeek 的公开材料没有为本应用 API 请求提供固定保留期、不
 在当前功能不变时，不要申报仅留在设备上的数据：本机原始 Agent 日志、项目路径、备忘录、网站列表、本地学习条目、运行进程清单和 Keychain 中的 API Key。App Privacy 的“收集”不等于设备内处理。
 
 当前也没有证据支持选择广告、购买、位置、联系人、健康、照片、音频、浏览历史、搜索历史、崩溃、性能或设备标识等类型。若最终归档引入新的 SDK 或网络服务，必须重新审计，不能沿用本段。
+
+内置虚构示例本身不是“收集”数据，也不改变上述 App Privacy 类型。候选包的网络观测和审核路径证据必须另外证明：示例期间没有 Agent 日志/数据源读取、CloudKit 访问、翻译或外链请求；“重新查看数据访问说明”不会开启真实监测；且退出示例后监测仍为关闭。
 
 ## 6. 与 Privacy Manifest 的固定映射
 
@@ -127,7 +130,7 @@ node scripts/validate-app-privacy.mjs
 }
 ```
 
-`recordScope` 只能是 `macOS`、`iOS`、`universal-purchase` 或 `separate-records`；macOS 候选项的 `distribution` 必须是 `mac-app-store`，iOS 必须是 `app-store`。共用记录必须绑定各一份 iOS 与 macOS 候选包且 App Bundle ID 相同；分开记录也要绑定两份候选包，但 App Bundle ID 必须不同。八份证据依次覆盖：最终包内 Manifest、Xcode Privacy Report、网络观测、CloudKit Production/删除验证、标题同步边界、翻译供应商决策、公开双语页面的 HTTP/`#delete-data` 验证，以及 App Store Connect App Privacy 已 Publish 的导出或截图索引。
+`recordScope` 只能是 `macOS`、`iOS`、`universal-purchase` 或 `separate-records`；macOS 候选项的 `distribution` 必须是 `mac-app-store`，iOS 必须是 `app-store`。共用记录必须绑定各一份 iOS 与 macOS 候选包且 App Bundle ID 相同；分开记录也要绑定两份候选包，但 App Bundle ID 必须不同。八份证据依次覆盖：最终包内 Manifest、Xcode Privacy Report、网络观测（含 macOS 离线示例的零网络/零 Agent 日志读取证据）、CloudKit Production/删除验证、标题同步边界、翻译供应商决策、公开双语页面的 HTTP/`#delete-data` 验证，以及 App Store Connect App Privacy 已 Publish 的导出或截图索引。
 
 ## 9. 发布操作顺序
 

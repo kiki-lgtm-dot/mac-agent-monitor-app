@@ -26,6 +26,7 @@ Know which agents are working—without leaving your flow.
 - **Multiple local sources:** reads supported Codex and Claude Code structured records and can connect to custom JSONL telemetry.
 - **Tool discovery without guesswork:** detects supported hosts such as VS Code and Cursor, while keeping “installed/running” separate from “an agent is working” and “tokens are measurable.”
 - **Useful workspace:** quick websites, notes, bilingual UI, translation, one-sentence definitions, breakdowns, examples, and a searchable study book.
+- **Review without local logs:** an explicitly entered, purple-labelled offline example shows fictional Agent, conversation, duration, and token data without reading Agent sources or accessing the network/iCloud.
 - **Optional companion:** an experimental SwiftUI iPhone dashboard and Live Activity target are included under `ApplePlatforms/iOS`.
 
 ![MAC版灵动岛--Agent运行监测 compact and expanded states](docs/media/mac-agent-monitor-states.svg)
@@ -40,6 +41,7 @@ The app starts local monitoring only after the user accepts a native disclosure.
 - Notes, links, study items, and monitoring data stay on the Mac by default.
 - Translation sends only the text the user explicitly submits to the configured OpenAI-compatible endpoint. Its API key is stored in macOS Keychain, not the web view or workspace file.
 - Private iCloud sync is off by default and exports a minimized allow-listed snapshot. Conversation titles require a separate opt-in.
+- The offline example rebuilds fictional monitoring data in memory, hides prior source authorization, and leaves real monitoring off after exit; existing Workspace content remains ordinary local user content.
 
 Review the implementation-specific details in [Data handling and privacy labels](docs/release/DATA_HANDLING_AND_PRIVACY_LABELS.md). The bundled policies are release drafts and must be completed for the shipping build.
 

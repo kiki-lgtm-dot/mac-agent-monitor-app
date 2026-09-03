@@ -52,6 +52,9 @@ MAC版灵动岛--Agent运行监测 是一个位于 Mac 屏幕顶部的本地 AI 
 • 主动提交中英文文本，获得翻译、一句话定义和结构拆解
 • 将有用的翻译结果保存到本地学习本
 
+无需日志即可体验
+用户可主动进入持续以紫色标记的内置离线示例，了解 Agent、会话、时长和 Token 看板。示例不读取本机 Agent 日志或访问网络/iCloud，可随时退出并重置；真实监测不会自动恢复。
+
 本地优先
 Agent 日志解析、Token 聚合、网站清单、备忘录和学习条目均在当前 Mac 上处理和保存。本应用不包含广告、追踪或分析 SDK，也不会把 Agent prompt、回复正文或项目文件上传给开发者。翻译功能仅在你点击提交后，才会把当前文本发送到你在设置中确认的 OpenAI-compatible 服务。
 
@@ -102,6 +105,9 @@ A compact workspace
 • Submit Chinese or English text for translation, a one-sentence definition, and a learning breakdown
 • Save useful translation results to an on-device study list
 
+Explore without local logs
+Users can explicitly enter a built-in offline example, persistently identified in purple, to understand the Agent, conversation, duration, and token dashboard. The example reads no local Agent logs and accesses neither the network nor iCloud. It can be exited and reset at any time, and real monitoring does not restart automatically.
+
 Local first
 Agent log parsing, token aggregation, website shortcuts, notes, and study entries are processed and stored on the current Mac. The app contains no ads, tracking, or analytics SDK and does not upload agent prompts, response bodies, or project files to the developer. Translation text is sent only after you submit it to the OpenAI-compatible service confirmed in Settings.
 
@@ -124,7 +130,7 @@ AI agent,token usage,developer tools,local dashboard,productivity,notes,translat
 
 ## 截图建议
 
-截图必须来自最终签名的提交构建，不得使用竞品界面、竞品 Logo 或无法在应用内复现的数据。项目中现有截图可作为构图参考，但提交前应重新截取无个人路径、真实姓名、密钥、项目名或敏感会话标题的商店图。
+截图必须来自最终签名的提交构建，不得使用竞品界面、竞品 Logo 或无法在应用内复现的数据。项目中现有截图可作为构图参考，但提交前应重新截取。可使用应用内置且全程明示“离线示例”的虚构 Agent 数据；若使用真实数据，必须移除个人路径、真实姓名、密钥、项目名或敏感会话标题。
 
 建议顺序：
 
