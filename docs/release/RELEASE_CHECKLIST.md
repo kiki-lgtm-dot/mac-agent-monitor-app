@@ -108,6 +108,7 @@
 - [ ] 生成 Development/TestFlight Archive，先邀请内部测试；正式签名/Production schema/同账号真机链路未验收时，不邀请外部测试或提交 Beta App Review。
 - [ ] 外部 TestFlight 前填写中英文 Beta Description、What to Test、反馈邮箱、审核联系人和可复现的配对/演示步骤。
 - [ ] App Store 提交前使用 `IOS_APP_REVIEW_NOTES.md` 提供无需审核员自行搭建开发环境的可审核路径。
+- [ ] 仅在 Production CloudKit schema、同账号 Mac→iPhone 真机同步、Live Activity 真机表现和审核演示路径都针对同一签名 Build 验收后，才把 `Config/Release.example.env` 中对应四个手工证据开关设为 `true`；`readyForFunctionalIOSTestFlight` 不再只凭源码与占位配置推断。
 
 ## 4. 功能与隐私 QA
 

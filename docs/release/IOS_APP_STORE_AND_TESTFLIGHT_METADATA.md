@@ -65,7 +65,7 @@ iPhone 不会直接读取或浏览 Mac 文件。Mac 私有同步默认关闭，�
 
 Token 来自 Mac 端可验证的本地数据源摘要，可能受工具支持、日志保留和来源质量影响，不代表服务商账单。
 
-需要 iOS 17.0 或更高版本，并需要安装兼容的 Mac 版应用，在两台设备使用同一 iCloud 账户并启用同步。没有同步时，iPhone 会显示明确的未配置状态，不会生成或猜测 Agent 数据。
+需要 iOS 17.0 或更高版本。查看真实 Mac 数据时，需要安装兼容的 Mac 版应用，在两台设备使用同一 iCloud 账户并启用同步。没有同步时，iPhone 会显示明确的未配置状态，不会生成或猜测真实 Agent 数据。用户也可主动打开带“示例模式 · 非真实数据”标识的内置离线样例来了解界面；样例不访问 CloudKit，不写入同步缓存，可随时“退出并重置”。
 
 ### 关键词（不超过 100 字节；提交前复核）
 
@@ -76,6 +76,7 @@ Token 来自 Mac 端可验证的本地数据源摘要，可能受工具支持、
 • 在 iPhone 查看 Mac 上的 Agent 状态摘要
 • 展示运行中 Agent、活跃对话、工作时长和 Token
 • 支持锁屏 Live Activity 与灵动岛状态
+• 提供带明确标识、可退出重置的离线示例模式
 • 默认隐藏完整对话标题并排除 prompt、回复和 Mac 路径
 • 支持简体中文与 English
 
@@ -117,7 +118,7 @@ The iPhone app never browses or reads files on your Mac. Private sync is off by 
 
 Token values come from verifiable local-source summaries on the Mac. They may be incomplete because of tool support, log retention, or source quality and are not provider billing totals.
 
-Requires iOS 17.0 or later, the compatible Mac app, and sync enabled under the same iCloud account on both devices. When sync is not configured, the iPhone shows a clear empty state and never invents agent data.
+Requires iOS 17.0 or later. Viewing real Mac data requires the compatible Mac app and sync enabled under the same iCloud account on both devices. Without sync, the iPhone shows a clear unconfigured state and never invents real agent data. Users can deliberately open a built-in offline sample marked **EXAMPLE MODE · SAMPLE DATA** to learn the interface; it does not access CloudKit or the synced cache and can be exited and reset at any time.
 
 ### Keywords (100 bytes maximum; recheck before submission)
 
@@ -128,6 +129,7 @@ AI monitor,token usage,developer tools,Live Activity,Mac companion,productivity
 • View privacy-minimized Mac agent status on iPhone
 • See running agents, active conversations, active time, and tokens
 • Use a Lock Screen Live Activity and Dynamic Island status
+• Explore a clearly labelled offline example mode that can be exited and reset
 • Keep full conversation titles hidden by default and exclude prompts, responses, and Mac paths
 • Use the app in English or Simplified Chinese
 
@@ -149,22 +151,23 @@ AI monitor,token usage,developer tools,Live Activity,Mac companion,productivity
 
 ### Beta App Description — 简体中文
 
-MAC版灵动岛--Agent运行监测 iPhone Beta 是 Mac Agent 状态的隐私化伴侣看板。在 Mac 与 iPhone 使用同一 iCloud 账户，并在 Mac 上阅读范围后明确开启私有同步，可查看运行中 Agent、活跃对话、工作时长和 Token 摘要，并测试锁屏 Live Activity 与灵动岛。同步摘要不包含 prompt、任务摘要、回复、模型名、API Key、备忘录、翻译内容或 Mac 路径，完整对话标题默认不发送且每次启动重新隐藏。Live Activity 仅在 App 启动、回前台或手动刷新时更新。
+MAC版灵动岛--Agent运行监测 iPhone Beta 是 Mac Agent 状态的隐私化伴侣看板。在 Mac 与 iPhone 使用同一 iCloud 账户，并在 Mac 上阅读范围后明确开启私有同步，可查看运行中 Agent、活跃对话、工作时长和 Token 摘要，并测试锁屏 Live Activity 与灵动岛。也可从同步卡片下方主动进入“示例模式 · 非真实数据”；该离线样例无需 Mac/iCloud、不写同步缓存，可退出并重置，且在看板与实时活动中持续显示示例标识。同步摘要不包含 prompt、任务摘要、回复、模型名、API Key、备忘录、翻译内容或 Mac 路径，完整对话标题默认不发送且每次启动重新隐藏。Live Activity 仅在 App 启动、回前台或手动刷新时更新。
 
 ### Beta App Description — English
 
-MAC版灵动岛--Agent运行监测 for iPhone Beta is a privacy-minimized companion for Mac agent status. After reviewing the scope and expressly enabling private sync on a Mac that uses the same iCloud account, it shows running agents, active conversations, active time, and token summaries and lets testers exercise the Lock Screen Live Activity and Dynamic Island. Synced summaries exclude prompts, task summaries, responses, model names, API keys, notes, translation content, and Mac paths. Full titles are excluded by default and hidden again on every launch. Live Activity updates occur only on app launch, foreground return, or manual refresh.
+MAC版灵动岛--Agent运行监测 for iPhone Beta is a privacy-minimized companion for Mac agent status. After reviewing the scope and expressly enabling private sync on a Mac that uses the same iCloud account, it shows running agents, active conversations, active time, and token summaries and lets testers exercise the Lock Screen Live Activity and Dynamic Island. Testers may also deliberately enter **EXAMPLE MODE · SAMPLE DATA** below the sync card; this offline sample needs no Mac or iCloud, never writes the synced cache, can be exited and reset, and remains visibly labelled in the dashboard and Live Activity. Synced summaries exclude prompts, task summaries, responses, model names, API keys, notes, translation content, and Mac paths. Full titles are excluded by default and hidden again on every launch. Live Activity updates occur only on app launch, foreground return, or manual refresh.
 
 ### What to Test — 简体中文
 
 请重点测试：
 
-1. Mac 与 iPhone 使用同一 iCloud 账户时的首次同步、禁用、恢复和账号切换。
-2. Agent 数、活跃对话、时长和 Token 是否与同一时刻的 Mac 摘要一致。
-3. 下拉刷新、离线缓存、陈旧数据、iCloud/网络不可用和账号切换。
-4. 完整标题默认隐藏、选择显示后重启再次隐藏。
-5. 开启/更新/停止 Live Activity，验证它只在 App 启动、回前台或手动刷新时获得新状态；强制结束并重启 App 时已存在活动的控制状态会恢复；两分钟无更新时明确显示过期，以及无活跃 Agent 和系统禁用时的提示。
-6. 支持灵动岛和不支持灵动岛的 iPhone、深浅色、旋转、Dynamic Type、VoiceOver 与中英文。
+1. 从同步卡片下进入示例模式，核对看板/锁屏/灵动岛的示例标识，再“退出并重置”；确认示例未被表示为真实同步。
+2. Mac 与 iPhone 使用同一 iCloud 账户时的首次同步、禁用、恢复和账号切换。
+3. Agent 数、活跃对话、时长和 Token 是否与同一时刻的 Mac 摘要一致。
+4. 下拉刷新、离线缓存、陈旧数据、iCloud/网络不可用和账号切换。
+5. 完整标题默认隐藏、选择显示后重启再次隐藏。
+6. 开启/更新/停止 Live Activity，验证它只在 App 启动、回前台或手动刷新时获得新状态；强制结束并重启 App 时已存在活动的控制状态会恢复；两分钟无更新时明确显示过期，以及无活跃 Agent 和系统禁用时的提示。
+7. 支持灵动岛和不支持灵动岛的 iPhone、深浅色、旋转、Dynamic Type、VoiceOver 与中英文。
 
 反馈时请注明 iPhone 型号、iOS 版本、Mac 版本、是否使用缓存，以及问题发生前的操作。不要在反馈截图中包含真实项目名、会话标题或密钥。
 
@@ -172,12 +175,13 @@ MAC版灵动岛--Agent运行监测 for iPhone Beta is a privacy-minimized compan
 
 Please focus on:
 
-1. First sync, disabling/re-enabling sync, and account changes under the same iCloud account on Mac and iPhone.
-2. Whether agent count, active conversations, time, and tokens match the same privacy-minimized Mac snapshot.
-3. Pull to refresh, offline cache, stale data, unavailable iCloud/network, and account changes.
-4. Full titles being hidden by default and hidden again after relaunch.
-5. Starting, updating, and stopping Live Activities; verify that new state arrives only on app launch, foreground return, or manual refresh, that relaunch restores the control state of an existing activity, that two minutes without a host-app update is visibly stale, and that no-active-agent/system-disabled states are handled.
-6. Devices with and without Dynamic Island, light/dark appearance, rotation, Dynamic Type, VoiceOver, English, and Simplified Chinese.
+1. Enter example mode below the sync card, verify the sample labels on the dashboard, Lock Screen, and Dynamic Island, then **Exit & reset**; confirm that it is never represented as real sync.
+2. First sync, disabling/re-enabling sync, and account changes under the same iCloud account on Mac and iPhone.
+3. Whether agent count, active conversations, time, and tokens match the same privacy-minimized Mac snapshot.
+4. Pull to refresh, offline cache, stale data, unavailable iCloud/network, and account changes.
+5. Full titles being hidden by default and hidden again after relaunch.
+6. Starting, updating, and stopping Live Activities; verify that new state arrives only on app launch, foreground return, or manual refresh, that relaunch restores the control state of an existing activity, that two minutes without a host-app update is visibly stale, and that no-active-agent/system-disabled states are handled.
+7. Devices with and without Dynamic Island, light/dark appearance, rotation, Dynamic Type, VoiceOver, English, and Simplified Chinese.
 
 Include the iPhone model, iOS version, Mac app version, cache status, and steps before the issue. Do not include real project names, conversation titles, or credentials in feedback screenshots.
 
@@ -185,7 +189,7 @@ Include the iPhone model, iOS version, Mac app version, cache status, and steps 
 
 - 当前功能无广告、公开用户内容、社交发布、购买、赌博、医疗或位置功能；仍须按提交当日完整问卷作答。
 - App 不内嵌网页浏览或翻译模型；iOS 只展示同步摘要和 Live Activity。
-- iOS App Target 的 Privacy Manifest 已同时声明与用户关联的 Other Usage Data 和 Other User Content，用于 App Functionality、不用于追踪，且无 tracking domains；后者覆盖当前候选版中默认关闭、需单独同意的完整标题同步。Widget Extension 有独立清单，collected data/accessed API/tracking domains 均为空，tracking 为 false。正式签名/Container/schema 验收后必须通过 Xcode Privacy Report 复核，并在 App Store Connect 采用相同口径；加入 APNs 或其他网络路径时再次更新。
+- iOS App Target 的 Privacy Manifest 已同时声明与用户关联的 Other Usage Data 和 Other User Content，用于 App Functionality、不用于追踪，且无 tracking domains；后者覆盖当前候选版中默认关闭、需单独同意的完整标题同步。它还为应用自身的示例模式布尔开关声明 UserDefaults `CA92.1` 理由。Widget Extension 有独立清单，collected data/accessed API/tracking domains 均为空，tracking 为 false。正式签名/Container/schema 验收后必须通过 Xcode Privacy Report 复核，并在 App Store Connect 采用相同口径；加入 APNs 或其他网络路径时再次更新。
 - 若 iOS 与 macOS 共用同一 App Store Connect 记录，App Privacy 回答应覆盖该记录中所有平台的最全面实际行为。
 - 不把同步 Token 描述为账单、每日趋势或跨工具绝对精确值。
 
@@ -195,7 +199,7 @@ Include the iPhone model, iOS version, Mac app version, cache status, and steps 
 - 删除“不可提交”“草案”等内部提示。
 - 只有生产同步、配对、缓存和错误恢复都可审核时，才保留“连接 Mac 后查看”的产品描述。
 - 最终 Build 若不支持横屏或 iPad，应让元数据与实际一致；当前 Live Activity 明确不支持 APNs 远程更新，元数据、截图和审核说明不得暗示后台实时监控。
-- 不使用 Preview 数据制作声称真实同步已完成的商店截图。
+- 可以展示最终构建中带持续“示例/非真实数据”标识的内置示例 UI，但不得裁掉标识，也不得将示例或 Preview 数据写成真实同步已完成；若截图声称跨设备同步，必须来自已验收的真实生产链路。
 
 ## 7. Apple 官方参考
 

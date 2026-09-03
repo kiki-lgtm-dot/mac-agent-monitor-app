@@ -1,6 +1,6 @@
 # App Store 最终截图目录
 
-这里仅放从最终签名、可复现提交 Build 截取的商店原图。当前 `docs/screenshots` 中的 2120×1440 RGBA 图片只是界面走查参考：尺寸不属于 Apple 接受的 Mac 截图规格，而且含 alpha，不能上传 App Store Connect。
+这里仅放从最终签名、可复现提交 Build 截取的商店原图。当前 `docs/media` 中的 1280×960 演示图只是开源仓库的功能示意：尺寸不属于 Apple 接受的 Mac 截图规格，不能上传 App Store Connect；`docs/screenshots` 继续只用于本地界面走查并保持忽略。
 
 最终文件按平台和语言放置：
 

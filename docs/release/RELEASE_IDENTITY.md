@@ -96,4 +96,4 @@ export AGENT_ISLAND_ENTITLEMENTS="$PWD/.release/CloudKit.entitlements"
 export AGENT_ISLAND_PROVISIONING_PROFILE="/absolute/path/AgentIsland_Developer_ID.provisionprofile"
 ```
 
-正式显示名、版本、Build、公开隐私/支持 URL、Developer ID 签名身份和 Keychain 中的 notarytool profile 继续按 `Config/Release.example.env` 设置。显示名只在已完成名称清查后配置；当前冲突工作名不会通过正式 macOS 发布门禁。密码、App 专用密码、API Key、证书私钥和 App Store Connect API 私钥始终只进入系统 Keychain 或受控 CI Secret，不进入身份 JSON、锁或构建日志。
+正式显示名、版本、Build、公开隐私/支持 URL、Developer ID 签名身份和 Keychain 中的 notarytool profile 继续按 `Config/Release.example.env` 设置。显示名只在已完成名称清查后配置；当前公开名称虽然通过字数门禁，仍须另行完成 App Store 可用性与 Apple 商标规范核验。密码、App 专用密码、API Key、证书私钥和 App Store Connect API 私钥始终只进入系统 Keychain 或受控 CI Secret，不进入身份 JSON、锁或构建日志。

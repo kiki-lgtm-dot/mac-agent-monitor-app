@@ -126,7 +126,12 @@ plutil -convert json -o "$privacy_json" "$project_root/Config/PrivacyInfo.xcpriv
 jq -e '
   .NSPrivacyTracking == false
   and .NSPrivacyTrackingDomains == []
-  and .NSPrivacyAccessedAPITypes == []
+  and (.NSPrivacyAccessedAPITypes | length == 1)
+  and any(
+    .NSPrivacyAccessedAPITypes[];
+    .NSPrivacyAccessedAPIType == "NSPrivacyAccessedAPICategoryUserDefaults"
+    and .NSPrivacyAccessedAPITypeReasons == ["CA92.1"]
+  )
   and (.NSPrivacyCollectedDataTypes | length == 2)
   and ([.NSPrivacyCollectedDataTypes[].NSPrivacyCollectedDataType] | sort)
     == [
@@ -150,7 +155,7 @@ jq -e '
       | index("NSPrivacyCollectedDataTypePurposeAppFunctionality") != null)
   )
 ' "$privacy_json" >/dev/null \
-  || fail "privacy manifest must disclose synced usage data and optional conversation titles for app functionality"
+  || fail "privacy manifest must disclose synced data and the CA92.1 example-mode preference"
 
 widget_privacy_json="$work_dir/widget-privacy.json"
 plutil -convert json -o "$widget_privacy_json" \
@@ -555,6 +560,41 @@ grep -Fq 'SHA256.hash' "$project_root/App/CloudKitSnapshotProvider.swift" \
 if grep -Fq 'cache.fetchSnapshot()' "$project_root/App/CloudKitSnapshotProvider.swift"; then
   fail "unscoped CloudKit cache fallback is forbidden"
 fi
+
+for example_mode_marker in \
+  'private let productionProvider: any AgentSnapshotProviding' \
+  'private let exampleProvider: any AgentSnapshotProviding' \
+  'userDefaults.set(true, forKey: Self.exampleModePreferenceKey)' \
+  'userDefaults.removeObject(forKey: Self.exampleModePreferenceKey)' \
+  'latest.sync.transport != .preview' \
+  'public func enterExampleMode() async' \
+  'public func exitAndResetExampleMode() async'; do
+  grep -Fq "$example_mode_marker" "$project_root/App/DashboardStore.swift" \
+    || fail "review example mode is missing: $example_mode_marker"
+done
+grep -Fq 'exampleModeControl' "$project_root/App/DashboardView.swift" \
+  || fail "the dashboard must expose a discoverable example-mode control"
+grep -Fq 'example.banner.title' "$project_root/App/DashboardView.swift" \
+  || fail "example data must be visibly labelled in the dashboard"
+grep -Fq 'isExampleData: snapshot.sync.transport == .preview' \
+  "$project_root/Shared/AgentIslandActivityAttributes.swift" \
+  || fail "ActivityKit state must preserve the example-data label"
+grep -Fq 'widget.example_short' \
+  "$project_root/WidgetExtension/AgentIslandLiveActivity.swift" \
+  || fail "Dynamic Island must visibly label example activity"
+grep -Fq 'widget.example_summary' \
+  "$project_root/WidgetExtension/AgentIslandLiveActivity.swift" \
+  || fail "Lock Screen activity must visibly label example activity"
+grep -Fq 'public struct PreviewSnapshotProvider' \
+  "$project_root/App/SyncedSnapshotStore.swift" \
+  || fail "the bundled example provider is missing"
+if grep -Fq '#if DEBUG' "$project_root/App/SyncedSnapshotStore.swift" \
+  || grep -Fq '#if DEBUG' "$project_root/Shared/AgentSnapshot.swift"; then
+  fail "the review example provider and snapshot must remain available in Release builds"
+fi
+grep -Fq 'includesFullConversationTitles: false' \
+  "$project_root/Shared/AgentSnapshot.swift" \
+  || fail "the bundled example must not expose full conversation titles"
 
 dashboard_store="$project_root/App/DashboardStore.swift"
 [ "$(grep -Fc 'await clearAccountScopedState()' "$dashboard_store")" -eq 2 ] \

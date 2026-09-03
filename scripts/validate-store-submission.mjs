@@ -245,7 +245,9 @@ for (const platform of ["macos", "ios"]) {
   }
 }
 
-const referenceDirectory = join(projectRoot, "docs/screenshots");
+// Public demo images are tracked so a clean clone exercises this draft check.
+// Local QA captures remain intentionally ignored under docs/screenshots/.
+const referenceDirectory = join(projectRoot, "docs/media");
 const referenceScreenshots = imageFiles(referenceDirectory).map((path) => {
   const properties = imageProperties(path);
   const dimensions = `${properties.width}x${properties.height}`;

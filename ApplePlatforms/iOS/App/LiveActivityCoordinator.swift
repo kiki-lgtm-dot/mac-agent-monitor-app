@@ -38,7 +38,9 @@
       }
 
       _ = try Activity.request(
-        attributes: AgentIslandActivityAttributes(sourceLabel: "Mac"),
+        attributes: AgentIslandActivityAttributes(
+          sourceLabel: snapshot.sync.transport == .preview ? "SAMPLE" : "Mac"
+        ),
         content: content,
         pushType: nil
       )

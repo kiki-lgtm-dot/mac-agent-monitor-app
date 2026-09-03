@@ -24,6 +24,10 @@ Mac collector
   -> SwiftUI dashboard
   -> ActivityKit state (no conversation titles)
   -> Lock Screen / Dynamic Island
+
+Explicit example mode
+  -> bundled non-sensitive PreviewSnapshotProvider (memory only)
+  -> the same SwiftUI dashboard and visibly labelled ActivityKit presentation
 ```
 
 The mobile schema contains counts, state, active duration, token usage, tool
@@ -74,6 +78,29 @@ becomes stale after two minutes without a host-app update; the Lock Screen and
 Dynamic Island then use the localized stale label and orange treatment instead
 of presenting old data as current.
 
+## Review-safe example mode
+
+The dashboard always exposes **Explore with example data / 使用示例数据体验** below
+the sync status. After an explicit confirmation, the same dashboard can display
+a small bundled dataset without requiring a Mac, an iCloud account, an AI tool,
+or a paid API. This path is compiled into Release builds for App Review and is
+not a hidden debug gesture or special reviewer credential.
+
+The sample is deliberately unmistakable: the sync header says **EXAMPLE DATA**,
+an orange explanation states that every agent, conversation, duration, and token
+value is fictional, and sample names are generic and bilingual. A Live Activity
+started from this mode carries an example flag; the Lock Screen, expanded and
+compact Dynamic Island presentations use sample text, color, or the test-tube
+symbol rather than presenting the values as Mac-synced activity.
+
+`PreviewSnapshotProvider` returns the bundle's sample directly in memory. It
+does not call `CloudKitSnapshotProvider`, write a CloudKit record, or place the
+sample in `SyncedSnapshotStore`. The only persisted example-mode value is one
+Boolean in `UserDefaults`. **Exit & reset example mode / 退出并重置示例模式** removes
+that preference, clears the visible sample, ends any sample Live Activity, and
+then refreshes through the unchanged production CloudKit provider. Full
+conversation titles are absent from the sample and cannot be revealed.
+
 ## Open and sign in Xcode
 
 Use Xcode 26 or newer. The project deployment target is iOS 17.0.
@@ -114,9 +141,11 @@ Developer portal and enable it for the production App ID.
 The App target and Widget Extension have separate privacy manifests. The App's
 `Config/PrivacyInfo.xcprivacy` declares linked Other Usage Data and conditional
 Other User Content (the separately opted-in conversation-title field) for App
-Functionality, no required-reason API categories, no tracking, and no tracking
-domains. App Store Connect privacy answers must match both categories while the
-optional title-sync feature remains in the submitted build. The Widget's
+Functionality, no tracking, and no tracking domains. It also declares the
+`NSPrivacyAccessedAPICategoryUserDefaults` reason `CA92.1` for the app-owned
+example-mode Boolean. App Store Connect privacy answers must match both data
+categories while the optional title-sync feature remains in the submitted
+build. The Widget's
 `WidgetExtension/PrivacyInfo.xcprivacy` declares no collected data, no accessed
 API categories, no tracking, and no tracking domains. The Widget does not link
 CloudKit or receive an iCloud entitlement.
@@ -212,7 +241,9 @@ hidden until a fresh local reveal action, that iCloud sign-out/account changes
 remove the previous account's snapshot and title state, and that synchronized
 snapshots reject invalid source devices, duplicate identifiers, future agent
 timestamps, control characters in visible text, or a title supplied without the
-corresponding title-sync consent flag.
+corresponding title-sync consent flag. It also verifies that example mode does
+not consume the production provider, persists only its Boolean switch, rejects
+unlabelled provider data, and returns to the real provider after reset.
 
 Before archiving, run the release-mode static check as well. It intentionally
 fails while the privacy-policy or support URL still points at `example.invalid`:
@@ -294,5 +325,6 @@ the separate, deliberate upload step.
   shipping sync behavior. The included manifest declares linked Other Usage Data
   plus conditional Other User Content for App Functionality because tool state,
   duration, token totals, and separately opted-in conversation titles can be
-  stored in the user's private CloudKit database; it declares no required-reason
-  API categories, tracking, or analytics.
+  stored in the user's private CloudKit database. It also declares UserDefaults
+  reason `CA92.1` for the app-owned example-mode Boolean, with no tracking or
+  analytics.

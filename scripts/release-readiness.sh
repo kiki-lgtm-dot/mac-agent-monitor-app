@@ -7,7 +7,7 @@ READINESS_ROOT="$(mktemp -d /private/tmp/agentisland-readiness.XXXXXX)"
 trap '[[ "$READINESS_ROOT" == /private/tmp/agentisland-readiness.* ]] && /bin/rm -rf "$READINESS_ROOT"' EXIT HUP INT TERM
 DEVELOPER_PATH="$(/usr/bin/xcode-select -p 2>/dev/null || true)"
 FULL_XCODE=false
-[[ "$DEVELOPER_PATH" == */Xcode.app/Contents/Developer ]] && FULL_XCODE=true
+[[ "$DEVELOPER_PATH" == */Xcode*.app/Contents/Developer ]] && FULL_XCODE=true
 
 valid_bundle_id() {
   local value="$1"
@@ -139,6 +139,10 @@ DISPLAY_NAME_READY=false
 IOS_CONTAINER_READY=false
 IOS_PRIVACY_READY=false
 IOS_SUPPORT_READY=false
+IOS_CLOUDKIT_PRODUCTION_SCHEMA_VERIFIED=false
+IOS_REAL_DEVICE_SYNC_VERIFIED=false
+IOS_LIVE_ACTIVITY_VERIFIED=false
+IOS_REVIEW_PATH_VERIFIED=false
 production_bundle_id "$MAC_BUNDLE_ID" && MAC_BUNDLE_READY=true
 production_display_name "$DISPLAY_NAME" && DISPLAY_NAME_READY=true
 production_bundle_id "$IOS_APP_BUNDLE_ID" && IOS_APP_BUNDLE_READY=true
@@ -230,6 +234,10 @@ fi
 [[ "$CLOUDKIT_CONTAINER_READY" == true ]] && IOS_CONTAINER_READY=true
 production_https_url "$IOS_PRIVACY_URL" && IOS_PRIVACY_READY=true
 production_https_url "$IOS_SUPPORT_URL" && IOS_SUPPORT_READY=true
+[[ "${AGENT_ISLAND_CLOUDKIT_PRODUCTION_SCHEMA_VERIFIED:-false}" == "true" ]] && IOS_CLOUDKIT_PRODUCTION_SCHEMA_VERIFIED=true
+[[ "${AGENT_ISLAND_IOS_REAL_DEVICE_SYNC_VERIFIED:-false}" == "true" ]] && IOS_REAL_DEVICE_SYNC_VERIFIED=true
+[[ "${AGENT_ISLAND_IOS_LIVE_ACTIVITY_VERIFIED:-false}" == "true" ]] && IOS_LIVE_ACTIVITY_VERIFIED=true
+[[ "${AGENT_ISLAND_IOS_REVIEW_PATH_VERIFIED:-false}" == "true" ]] && IOS_REVIEW_PATH_VERIFIED=true
 
 IOS_PROJECT_PATH="$PROJECT_DIR/ApplePlatforms/iOS/AgentIsland.xcodeproj/project.pbxproj"
 IOS_PROJECT=false
@@ -308,6 +316,10 @@ fi
   --argjson iosCloudKitContainerConfigured "$IOS_CONTAINER_READY" \
   --argjson iosPrivacyPolicyURLConfigured "$IOS_PRIVACY_READY" \
   --argjson iosSupportURLConfigured "$IOS_SUPPORT_READY" \
+  --argjson cloudKitProductionSchemaVerified "$IOS_CLOUDKIT_PRODUCTION_SCHEMA_VERIFIED" \
+  --argjson iosRealDeviceSyncVerified "$IOS_REAL_DEVICE_SYNC_VERIFIED" \
+  --argjson iosLiveActivityVerified "$IOS_LIVE_ACTIVITY_VERIFIED" \
+  --argjson iosReviewPathVerified "$IOS_REVIEW_PATH_VERIFIED" \
   --argjson iosProject "$IOS_PROJECT" \
   --argjson iosPrivacyManifest "$IOS_PRIVACY_MANIFEST" \
   --argjson iosAppIcon "$IOS_APP_ICON" \
@@ -350,6 +362,10 @@ fi
     iosCloudKitContainer: (if $iosCloudKitContainer == "" then null else $iosCloudKitContainer end),
     iosPrivacyPolicyURLConfigured: $iosPrivacyPolicyURLConfigured,
     iosSupportURLConfigured: $iosSupportURLConfigured,
+    cloudKitProductionSchemaVerified: $cloudKitProductionSchemaVerified,
+    iosRealDeviceSyncVerified: $iosRealDeviceSyncVerified,
+    iosLiveActivityVerified: $iosLiveActivityVerified,
+    iosReviewPathVerified: $iosReviewPathVerified,
     iosProjectConfigured: $iosProject,
     iosPrivacyManifestPresent: $iosPrivacyManifest,
     iosAppIconPresent: $iosAppIcon,
@@ -357,5 +373,7 @@ fi
     readyForDeveloperIDRelease: $readyDeveloperID,
     readyForIOSArchive: $readyIOSArchive,
     readyForFunctionalIOSTestFlight: ($readyIOSArchive and $iosSyncImplemented and
-      $iosCloudKitContainerConfigured and $iosPrivacyPolicyURLConfigured and $iosSupportURLConfigured)
+      $iosCloudKitContainerConfigured and $iosPrivacyPolicyURLConfigured and $iosSupportURLConfigured and
+      $cloudKitProductionSchemaVerified and $iosRealDeviceSyncVerified and
+      $iosLiveActivityVerified and $iosReviewPathVerified)
   }'

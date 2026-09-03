@@ -116,7 +116,7 @@ App Privacy 标签和 `PrivacyInfo.xcprivacy` 是两套相关但不同的申报�
 
 当前应用没有第三方二进制 SDK，但仍需让 Xcode 生成 Privacy Report，并检查 WebKit、系统框架、SQLite 链接和最终归档中是否出现额外清单或警告。
 
-macOS 的 `Resources/PrivacyInfo.xcprivacy` 与 iOS App Target 的 `Config/PrivacyInfo.xcprivacy` 都已声明 `NSPrivacyCollectedDataTypeOtherUsageData` 和条件性的 `NSPrivacyCollectedDataTypeOtherUserContent`：与用户关联，用于 App Functionality，不用于追踪；`NSPrivacyTracking` 为 `false`，没有 tracking domains。后者覆盖用户单独同意后可能进入私有 CloudKit 的对话标题；即使默认关闭，也按 Apple 对持续性可选功能的口径申报。macOS 清单另声明 UserDefaults 的 `CA92.1` 理由。iOS Widget Extension 使用独立的 `WidgetExtension/PrivacyInfo.xcprivacy`，其 collected data、accessed API、tracking domains 均为空，tracking 为 false；Widget 不拥有 CloudKit entitlement，只接收主 App 生成的不含标题 ActivityKit 状态。
+macOS 的 `Resources/PrivacyInfo.xcprivacy` 与 iOS App Target 的 `Config/PrivacyInfo.xcprivacy` 都已声明 `NSPrivacyCollectedDataTypeOtherUsageData` 和条件性的 `NSPrivacyCollectedDataTypeOtherUserContent`：与用户关联，用于 App Functionality，不用于追踪；`NSPrivacyTracking` 为 `false`，没有 tracking domains。后者覆盖用户单独同意后可能进入私有 CloudKit 的对话标题；即使默认关闭，也按 Apple 对持续性可选功能的口径申报。两个主 App 清单都声明 UserDefaults 的 `CA92.1` 理由；iOS 目前只用它保存是否开启明确标识的离线示例模式。iOS Widget Extension 使用独立的 `WidgetExtension/PrivacyInfo.xcprivacy`，其 collected data、accessed API、tracking domains 均为空，tracking 为 false；Widget 不拥有 CloudKit entitlement，只接收主 App 生成的不含标题 ActivityKit 状态。
 
 上述 App Target 披露与私有 CloudKit 中的 Agent/工具状态、时长、Token 摘要及条件性标题一致，但仍必须在正式 Container/schema、签名和真机链路确定后使用 Xcode Privacy Report 复核，并在 App Store Connect 中采用相同口径。加入 APNs、认证 HTTPS、崩溃报告或分析时同样重审。
 

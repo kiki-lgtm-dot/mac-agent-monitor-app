@@ -240,9 +240,10 @@ public enum SnapshotValidationError: LocalizedError, Equatable {
   }
 }
 
-#if DEBUG
-  public struct PreviewSnapshotProvider: AgentSnapshotProviding {
-    public init() {}
-    public func fetchSnapshot() async throws -> AgentIslandSnapshot { .preview }
-  }
-#endif
+/// Supplies only the bundled, visibly labelled example snapshot. This provider
+/// is separate from `CloudKitSnapshotProvider`: selecting example mode neither
+/// reads nor writes CloudKit and never stores the sample in the synced cache.
+public struct PreviewSnapshotProvider: AgentSnapshotProviding {
+  public init() {}
+  public func fetchSnapshot() async throws -> AgentIslandSnapshot { .preview }
+}

@@ -293,69 +293,85 @@ public enum SnapshotCodecError: LocalizedError, Equatable {
   }
 }
 
-#if DEBUG
-  extension AgentIslandSnapshot {
-    public static let preview = AgentIslandSnapshot(
+extension AgentIslandSnapshot {
+  /// A bundled, non-sensitive snapshot used by Xcode previews and the explicit
+  /// in-app example mode. It is intentionally available in Release builds so
+  /// App Review can inspect the dashboard without a Mac, iCloud account, paid
+  /// AI service, or fabricated CloudKit record.
+  ///
+  /// The provider returns this value directly in memory. It never enters the
+  /// CloudKit receiver or the account-scoped synced-snapshot cache.
+  public static var preview: AgentIslandSnapshot {
+    AgentIslandSnapshot(
       generatedAt: .now,
-      sourceDevice: SourceDevice(id: "preview-mac", name: "Studio Mac", platform: "macOS"),
+      sourceDevice: SourceDevice(
+        id: "preview-mac",
+        name: "Example data / 示例数据",
+        platform: "macOS"
+      ),
       usage: TokenUsage(
-        total: 1_284_920,
-        input: 1_107_200,
-        cachedInput: 620_400,
-        output: 151_720,
-        reasoning: 26_000
+        total: 18_420,
+        input: 13_200,
+        cachedInput: 4_100,
+        output: 4_320,
+        reasoning: 900
       ),
       agents: [
         AgentSummary(
-          id: "codex-root",
-          displayName: "Codex",
-          toolName: "Codex",
+          id: "example-agent-a",
+          displayName: "Sample Agent A / 示例 Agent A",
+          toolName: "Sample CLI / 示例工具",
           state: .working,
-          activeDurationSeconds: 2_884,
+          activeDurationSeconds: 754,
           usage: TokenUsage(
-            total: 982_430, input: 830_000, cachedInput: 440_000, output: 134_430, reasoning: 18_000
+            total: 12_300,
+            input: 8_800,
+            cachedInput: 2_600,
+            output: 2_900,
+            reasoning: 600
           ),
           conversations: [
             ConversationSummary(
-              id: "conversation-1",
-              title: "Prepare the iOS companion release",
-              safeSummary: "Preparing mobile release",
+              id: "example-conversation-1",
+              safeSummary: "Sample task 1 / 示例任务 1",
               state: .working,
-              activeDurationSeconds: 1_924,
-              usage: TokenUsage(total: 631_240)
+              activeDurationSeconds: 514,
+              usage: TokenUsage(total: 8_100)
             ),
             ConversationSummary(
-              id: "conversation-2",
-              title: "Review token aggregation",
-              safeSummary: "Reviewing usage totals",
+              id: "example-conversation-2",
+              safeSummary: "Sample task 2 / 示例任务 2",
               state: .working,
-              activeDurationSeconds: 960,
-              usage: TokenUsage(total: 351_190)
+              activeDurationSeconds: 240,
+              usage: TokenUsage(total: 4_200)
             ),
           ],
           updatedAt: .now
         ),
         AgentSummary(
-          id: "claude-reviewer",
-          displayName: "Claude Code",
-          toolName: "Claude Code",
+          id: "example-agent-b",
+          displayName: "Sample Agent B / 示例 Agent B",
+          toolName: "Sample IDE / 示例 IDE",
           state: .idle,
-          activeDurationSeconds: 713,
-          usage: TokenUsage(total: 302_490),
+          activeDurationSeconds: 305,
+          usage: TokenUsage(total: 6_120),
           conversations: [
             ConversationSummary(
-              id: "conversation-3",
-              safeSummary: "Review complete",
+              id: "example-conversation-3",
+              safeSummary: "Completed sample / 已完成示例",
               state: .completed,
-              activeDurationSeconds: 713,
-              usage: TokenUsage(total: 302_490)
+              activeDurationSeconds: 305,
+              usage: TokenUsage(total: 6_120)
             )
           ],
           updatedAt: .now.addingTimeInterval(-600)
         ),
       ],
       sync: SyncMetadata(
-        transport: .preview, receivedAt: .now, includesFullConversationTitles: true)
+        transport: .preview,
+        receivedAt: .now,
+        includesFullConversationTitles: false
+      )
     )
   }
-#endif
+}

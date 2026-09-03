@@ -3,6 +3,71 @@ import XCTest
 
 final class DashboardStoreTests: XCTestCase {
   @MainActor
+  func testExampleModeUsesBundledDataThenResumesTheUntouchedProductionProvider() async {
+    let (userDefaults, suiteName) = makeIsolatedUserDefaults()
+    defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+    let productionSnapshot = SnapshotFixtures.titledSnapshot()
+    let productionProvider = MockSnapshotProvider([.snapshot(productionSnapshot)])
+    let store = DashboardStore(
+      provider: productionProvider,
+      userDefaults: userDefaults
+    )
+
+    XCTAssertFalse(store.isExampleModeEnabled)
+    XCTAssertNil(userDefaults.object(forKey: DashboardStore.exampleModePreferenceKey))
+
+    await store.enterExampleMode()
+
+    XCTAssertTrue(store.isExampleModeEnabled)
+    XCTAssertEqual(store.snapshot.sync.transport, .preview)
+    XCTAssertFalse(store.snapshot.sync.includesFullConversationTitles)
+    XCTAssertTrue(
+      store.snapshot.agents.flatMap(\.conversations).allSatisfy { $0.title == nil }
+    )
+    XCTAssertEqual(
+      userDefaults.object(forKey: DashboardStore.exampleModePreferenceKey) as? Bool,
+      true
+    )
+    let responsesAfterEnteringExample = await productionProvider.remainingResponseCount()
+    XCTAssertEqual(
+      responsesAfterEnteringExample,
+      1,
+      "Example mode must not consume or replace the production CloudKit provider."
+    )
+
+    await store.exitAndResetExampleMode()
+
+    XCTAssertFalse(store.isExampleModeEnabled)
+    XCTAssertEqual(store.snapshot, productionSnapshot)
+    XCTAssertNil(userDefaults.object(forKey: DashboardStore.exampleModePreferenceKey))
+    let responsesAfterReset = await productionProvider.remainingResponseCount()
+    XCTAssertEqual(responsesAfterReset, 0)
+  }
+
+  @MainActor
+  func testExampleModePreferenceSurvivesRelaunchAndRejectsUnlabelledData() async {
+    let (userDefaults, suiteName) = makeIsolatedUserDefaults()
+    defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+    userDefaults.set(true, forKey: DashboardStore.exampleModePreferenceKey)
+    let unlabelledProvider = MockSnapshotProvider([
+      .snapshot(SnapshotFixtures.titledSnapshot())
+    ])
+    let store = DashboardStore(
+      provider: MockSnapshotProvider([]),
+      exampleProvider: unlabelledProvider,
+      userDefaults: userDefaults
+    )
+
+    XCTAssertTrue(store.isExampleModeEnabled)
+    await store.refresh()
+
+    XCTAssertEqual(store.snapshot, .empty)
+    XCTAssertNotNil(store.errorMessage)
+  }
+
+  @MainActor
   func testSuccessfulRefreshKeepsFullTitlesHiddenByDefault() async {
     let snapshot = SnapshotFixtures.titledSnapshot()
     let provider = MockSnapshotProvider([
@@ -64,5 +129,12 @@ final class DashboardStoreTests: XCTestCase {
     XCTAssertFalse(store.revealFullConversationTitles, file: file, line: line)
     XCTAssertFalse(store.isLiveActivityRunning, file: file, line: line)
     XCTAssertNotNil(store.errorMessage, file: file, line: line)
+  }
+
+  private func makeIsolatedUserDefaults() -> (UserDefaults, String) {
+    let suiteName = "DashboardStoreTests.ExampleMode.\(UUID().uuidString)"
+    let userDefaults = UserDefaults(suiteName: suiteName)!
+    userDefaults.removePersistentDomain(forName: suiteName)
+    return (userDefaults, suiteName)
   }
 }

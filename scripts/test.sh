@@ -217,8 +217,11 @@ for READINESS_GATE in \
   'productionDisplayNameConfigured' 'provisioningProfileSigningCertificateConfigured' \
   'iosDevelopmentTeamConfigured' 'iosCloudKitContainerConfigured' \
   'iosPrivacyPolicyURLConfigured' 'iosSupportURLConfigured' \
+  'cloudKitProductionSchemaVerified' 'iosRealDeviceSyncVerified' \
+  'iosLiveActivityVerified' 'iosReviewPathVerified' \
   '$ENTITLEMENTS_READY' '$CLOUDKIT_CONTAINER_READY' '$PROVISIONING_PROFILE_READY' '$RELEASE_PRIVACY_READY' '$RELEASE_SUPPORT_READY' \
-  '$iosCloudKitContainerConfigured and $iosPrivacyPolicyURLConfigured and $iosSupportURLConfigured'; do
+  '$cloudKitProductionSchemaVerified and $iosRealDeviceSyncVerified' \
+  '$iosLiveActivityVerified and $iosReviewPathVerified'; do
   rg -q --fixed-strings "$READINESS_GATE" "$PROJECT_DIR/scripts/release-readiness.sh"
 done
 
@@ -233,6 +236,10 @@ done
   -u AGENT_ISLAND_SUPPORT_URL \
   -u AGENT_ISLAND_DEVELOPMENT_TEAM \
   -u AGENT_ISLAND_ICLOUD_CONTAINER_ID \
+  -u AGENT_ISLAND_CLOUDKIT_PRODUCTION_SCHEMA_VERIFIED \
+  -u AGENT_ISLAND_IOS_REAL_DEVICE_SYNC_VERIFIED \
+  -u AGENT_ISLAND_IOS_LIVE_ACTIVITY_VERIFIED \
+  -u AGENT_ISLAND_IOS_REVIEW_PATH_VERIFIED \
   "$PROJECT_DIR/scripts/release-readiness.sh" | jq -e '
   (.fullXcode | type == "boolean") and
   (.developerPath | type == "string") and
@@ -265,6 +272,10 @@ done
   (.iosCloudKitContainerConfigured | type == "boolean") and
   (.iosPrivacyPolicyURLConfigured | type == "boolean") and
   (.iosSupportURLConfigured | type == "boolean") and
+  (.cloudKitProductionSchemaVerified | type == "boolean") and
+  (.iosRealDeviceSyncVerified | type == "boolean") and
+  (.iosLiveActivityVerified | type == "boolean") and
+  (.iosReviewPathVerified | type == "boolean") and
   (.iosProjectConfigured | type == "boolean") and
   (.iosPrivacyManifestPresent | type == "boolean") and
   (.iosAppIconPresent | type == "boolean") and
@@ -279,7 +290,12 @@ done
   (.cloudKitContainerConfigured == false) and
   (.iosCloudKitContainerConfigured == false) and
   (.iosPrivacyPolicyURLConfigured == false) and
-  (.iosSupportURLConfigured == false)
+  (.iosSupportURLConfigured == false) and
+  (.cloudKitProductionSchemaVerified == false) and
+  (.iosRealDeviceSyncVerified == false) and
+  (.iosLiveActivityVerified == false) and
+  (.iosReviewPathVerified == false) and
+  (.readyForFunctionalIOSTestFlight == false)
 ' >/dev/null
 
 /usr/bin/env \

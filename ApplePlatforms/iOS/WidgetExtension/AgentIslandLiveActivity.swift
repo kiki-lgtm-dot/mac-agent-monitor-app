@@ -35,6 +35,11 @@
               Circle()
                 .fill(statusColor(state: context.state, isStale: context.isStale))
                 .frame(width: 8, height: 8)
+              if context.state.isExampleData == true {
+                Text("widget.example_short")
+                  .font(.caption2.bold())
+                  .foregroundStyle(.orange)
+              }
               Text(statusLabel(state: context.state, isStale: context.isStale))
                 .font(.headline)
             }
@@ -61,8 +66,8 @@
           }
         } compactLeading: {
           HStack(spacing: 4) {
-            Image(systemName: "cpu.fill")
-              .foregroundStyle(context.isStale ? Color.orange : Color.green)
+            Image(systemName: context.state.isExampleData == true ? "testtube.2" : "cpu.fill")
+              .foregroundStyle(statusColor(state: context.state, isStale: context.isStale))
             Text(context.state.runningAgentCount.formatted())
               .font(.caption.bold())
           }
@@ -73,11 +78,17 @@
         } minimal: {
           ZStack {
             Circle().fill(
-              (context.isStale ? Color.orange : Color.green).opacity(0.18)
+              statusColor(state: context.state, isStale: context.isStale).opacity(0.18)
             )
-            Text(context.state.runningAgentCount.formatted())
-              .font(.caption2.bold())
-              .foregroundStyle(context.isStale ? Color.orange : Color.green)
+            if context.state.isExampleData == true {
+              Image(systemName: "testtube.2")
+                .font(.caption2.bold())
+                .foregroundStyle(statusColor(state: context.state, isStale: context.isStale))
+            } else {
+              Text(context.state.runningAgentCount.formatted())
+                .font(.caption2.bold())
+                .foregroundStyle(statusColor(state: context.state, isStale: context.isStale))
+            }
           }
         }
         .keylineTint(.mint)
@@ -111,10 +122,16 @@
               .font(.headline)
           }
 
-          Text("widget.privacy_summary")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
+          Text(
+            LocalizedStringKey(
+              state.isExampleData == true
+                ? "widget.example_summary"
+                : "widget.privacy_summary"
+            )
+          )
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
         }
 
         Spacer(minLength: 10)
@@ -138,6 +155,7 @@
     isStale: Bool
   ) -> Color {
     if isStale { return .orange }
+    if state.isExampleData == true { return .purple }
     return state.status == .working ? .green : .secondary
   }
 

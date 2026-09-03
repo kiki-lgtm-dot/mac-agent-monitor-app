@@ -3,6 +3,7 @@
 "sync.not_configured" = "尚未配置 Mac 同步";
 "sync.connected" = "已从 Mac 同步";
 "sync.cached" = "离线 · 显示上次同步快照";
+"sync.example" = "示例数据";
 "sync.last_update" = "更新于";
 "sync.refreshing" = "正在刷新";
 "sync.error" = "无法载入最新的同步快照。";
@@ -28,6 +29,20 @@
 "empty.title" = "还没有同步的 Agent";
 "empty.description" = "请让 Mac 和 iPhone 登录同一 iCloud 账号，在 Mac 版应用中开启“iCloud 私有同步”，再进行刷新。";
 "action.refresh" = "刷新";
+"action.cancel" = "取消";
+
+"example.entry.title" = "使用示例数据体验";
+"example.entry.description" = "内置无敏感信息的样例 · 无需 Mac 或 iCloud";
+"example.entry.hint" = "确认后显示有明确示例标识的虚构数据。";
+"example.confirm.title" = "开启示例模式？";
+"example.confirm.message" = "所有 Agent、对话、时长和 Token 都是虚构示例，并会明确标注为示例数据；不会读取或写入 CloudKit。";
+"example.action.enter" = "查看示例看板";
+"example.action.exit_reset" = "退出并重置示例模式";
+"example.banner.title" = "示例模式 · 非真实数据";
+"example.banner.description" = "这里的 Agent、对话、时长和 Token 都是虚构示例，不来自本机、Mac 或 iCloud。";
+"example.not_synced" = "内置样例 · 未同步";
+"example.error" = "无法载入内置示例。";
+"example.error.invalid_data" = "示例模式拒绝了未标记为样例的数据。";
 
 "privacy.show_titles" = "显示完整标题";
 "privacy.hide_titles" = "隐藏完整标题";
@@ -40,6 +55,7 @@
 
 "activity.title" = "灵动岛";
 "activity.description" = "打开或刷新本应用后，灵动岛会显示最新的 Agent 数、工作时长和 Token；它不显示对话标题。";
+"activity.description.example" = "仅使用上方虚构数值启动带“示例”标识的实时活动，不会读取或写入 CloudKit。";
 "activity.start" = "开启实时活动";
 "activity.stop" = "停止实时活动";
 "activity.error.disabled" = "请先在系统设置中允许实时活动。";
@@ -51,3 +67,5 @@
 "widget.agent_short" = "Agent";
 "widget.token_short" = "Token";
 "widget.privacy_summary" = "隐私活动摘要";
+"widget.example_short" = "示例";
+"widget.example_summary" = "示例活动 · 未同步";

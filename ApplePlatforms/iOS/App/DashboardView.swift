@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DashboardView: View {
   @ObservedObject var store: DashboardStore
+  @State private var isConfirmingExampleMode = false
 
   private var snapshot: AgentIslandSnapshot { store.snapshot }
   private var releaseLinks: DashboardReleaseLinks { DashboardReleaseLinks() }
@@ -11,6 +12,7 @@ struct DashboardView: View {
       ScrollView {
         LazyVStack(alignment: .leading, spacing: 20) {
           syncHeader
+          exampleModeControl
 
           if let errorMessage = store.errorMessage {
             errorBanner(errorMessage)
@@ -34,6 +36,18 @@ struct DashboardView: View {
       .navigationTitle(Text(verbatim: releaseLinks.displayName))
       .toolbar { privacyToolbar }
       .refreshable { await store.refresh() }
+      .confirmationDialog(
+        "example.confirm.title",
+        isPresented: $isConfirmingExampleMode,
+        titleVisibility: .visible
+      ) {
+        Button("example.action.enter") {
+          Task { await store.enterExampleMode() }
+        }
+        Button("action.cancel", role: .cancel) {}
+      } message: {
+        Text("example.confirm.message")
+      }
     }
   }
 
@@ -47,14 +61,16 @@ struct DashboardView: View {
       VStack(alignment: .leading, spacing: 3) {
         Text(
           LocalizedStringKey(
-            snapshot.sync.transport == .notConfigured
-              ? "sync.not_configured"
-              : (snapshot.sync.isFromCache == true ? "sync.cached" : "sync.connected")
+            syncStatusLocalizationKey
           )
         )
         .font(.headline)
 
-        if snapshot.sync.transport != .notConfigured {
+        if snapshot.sync.transport == .preview {
+          Text("example.not_synced")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        } else if snapshot.sync.transport != .notConfigured {
           Text(snapshot.sourceDevice.name)
             .font(.subheadline)
             .foregroundStyle(.secondary)
@@ -79,10 +95,78 @@ struct DashboardView: View {
     .accessibilityElement(children: .combine)
   }
 
+  private var syncStatusLocalizationKey: String {
+    if snapshot.sync.transport == .preview { return "sync.example" }
+    if snapshot.sync.transport == .notConfigured { return "sync.not_configured" }
+    return snapshot.sync.isFromCache == true ? "sync.cached" : "sync.connected"
+  }
+
   private var syncIndicatorColor: Color {
+    if snapshot.sync.transport == .preview { return .orange }
     if snapshot.sync.transport == .notConfigured { return .secondary }
     if snapshot.sync.isFromCache == true { return .orange }
     return .green
+  }
+
+  @ViewBuilder
+  private var exampleModeControl: some View {
+    if store.isExampleModeEnabled {
+      VStack(alignment: .leading, spacing: 12) {
+        Label("example.banner.title", systemImage: "testtube.2")
+          .font(.headline)
+          .foregroundStyle(.orange)
+
+        Text("example.banner.description")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+
+        Button(role: .destructive) {
+          Task { await store.exitAndResetExampleMode() }
+        } label: {
+          Label("example.action.exit_reset", systemImage: "arrow.uturn.backward.circle")
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+      }
+      .padding(16)
+      .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 18))
+      .overlay {
+        RoundedRectangle(cornerRadius: 18)
+          .strokeBorder(Color.orange.opacity(0.35))
+      }
+      .accessibilityElement(children: .contain)
+    } else {
+      Button {
+        isConfirmingExampleMode = true
+      } label: {
+        HStack(spacing: 14) {
+          Image(systemName: "testtube.2")
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(.orange)
+            .frame(width: 32)
+
+          VStack(alignment: .leading, spacing: 3) {
+            Text("example.entry.title")
+              .font(.headline)
+              .foregroundStyle(.primary)
+            Text("example.entry.description")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .multilineTextAlignment(.leading)
+          }
+
+          Spacer(minLength: 8)
+          Image(systemName: "chevron.right")
+            .font(.caption.bold())
+            .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(.background, in: RoundedRectangle(cornerRadius: 18))
+      }
+      .buttonStyle(.plain)
+      .accessibilityHint(Text("example.entry.hint"))
+    }
   }
 
   private var summaryGrid: some View {
@@ -170,9 +254,15 @@ struct DashboardView: View {
           Label("activity.title", systemImage: "dot.radiowaves.left.and.right")
             .font(.headline)
 
-          Text("activity.description")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+          Text(
+            LocalizedStringKey(
+              store.isExampleModeEnabled
+                ? "activity.description.example"
+                : "activity.description"
+            )
+          )
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
 
           Button {
             Task { await store.toggleLiveActivity() }

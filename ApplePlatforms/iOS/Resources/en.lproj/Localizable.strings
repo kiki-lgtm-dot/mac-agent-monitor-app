@@ -3,6 +3,7 @@
 "sync.not_configured" = "Mac sync not configured";
 "sync.connected" = "Synced from Mac";
 "sync.cached" = "Offline · Last synced snapshot";
+"sync.example" = "EXAMPLE DATA";
 "sync.last_update" = "Updated";
 "sync.refreshing" = "Refreshing";
 "sync.error" = "The latest synced snapshot could not be loaded.";
@@ -28,6 +29,20 @@
 "empty.title" = "No synced agents yet";
 "empty.description" = "Use the same iCloud account on Mac and iPhone, enable Private iCloud Sync in the Mac app, then refresh.";
 "action.refresh" = "Refresh";
+"action.cancel" = "Cancel";
+
+"example.entry.title" = "Explore with example data";
+"example.entry.description" = "Built-in, non-sensitive sample · No Mac or iCloud required";
+"example.entry.hint" = "Opens a confirmation before showing clearly labelled sample metrics.";
+"example.confirm.title" = "Turn on example mode?";
+"example.confirm.message" = "Every agent, conversation, duration, and token value is fictional and will be labelled as example data. Nothing is read from or written to CloudKit.";
+"example.action.enter" = "Show example dashboard";
+"example.action.exit_reset" = "Exit & reset example mode";
+"example.banner.title" = "EXAMPLE MODE · SAMPLE DATA";
+"example.banner.description" = "These agents, conversations, times, and tokens are fictional examples. They are not from this iPhone, a Mac, or iCloud.";
+"example.not_synced" = "Built-in sample · Not synced";
+"example.error" = "The built-in example could not be loaded.";
+"example.error.invalid_data" = "Example mode refused data that was not marked as a sample.";
 
 "privacy.show_titles" = "Show full titles";
 "privacy.hide_titles" = "Hide full titles";
@@ -40,6 +55,7 @@
 
 "activity.title" = "Dynamic Island";
 "activity.description" = "Shows the latest agent count, active time, and tokens after you open or refresh this app. Conversation titles stay off the Live Activity.";
+"activity.description.example" = "Starts a clearly labelled SAMPLE Live Activity using only the fictional values above. It does not read or write CloudKit.";
 "activity.start" = "Start Live Activity";
 "activity.stop" = "Stop Live Activity";
 "activity.error.disabled" = "Live Activities are disabled in Settings.";
@@ -51,3 +67,5 @@
 "widget.agent_short" = "Agents";
 "widget.token_short" = "Tokens";
 "widget.privacy_summary" = "Private activity summary";
+"widget.example_short" = "SAMPLE";
+"widget.example_summary" = "Sample activity · Not synced";

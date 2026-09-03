@@ -80,4 +80,8 @@ actor MockSnapshotProvider: AgentSnapshotProviding {
       throw CloudKitSnapshotError.accountChanged
     }
   }
+
+  func remainingResponseCount() -> Int {
+    responses.count
+  }
 }

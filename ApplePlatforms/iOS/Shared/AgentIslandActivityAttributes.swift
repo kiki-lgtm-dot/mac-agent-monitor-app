@@ -11,6 +11,9 @@
       public var totalTokens: UInt64
       public var status: LiveAgentStatus
       public var lastUpdatedAt: Date
+      /// Optional for compatibility with an activity created by an older build.
+      /// `true` makes every supported presentation visibly identify sample data.
+      public var isExampleData: Bool?
 
       public init(
         runningAgentCount: Int,
@@ -18,7 +21,8 @@
         activeDurationSeconds: UInt64,
         totalTokens: UInt64,
         status: LiveAgentStatus,
-        lastUpdatedAt: Date
+        lastUpdatedAt: Date,
+        isExampleData: Bool = false
       ) {
         self.runningAgentCount = runningAgentCount
         self.activeConversationCount = activeConversationCount
@@ -26,6 +30,7 @@
         self.totalTokens = totalTokens
         self.status = status
         self.lastUpdatedAt = lastUpdatedAt
+        self.isExampleData = isExampleData
       }
 
       public init(snapshot: AgentIslandSnapshot) {
@@ -39,7 +44,8 @@
           activeDurationSeconds: snapshot.longestActiveDurationSeconds,
           totalTokens: activeTokenTotal,
           status: snapshot.activeAgents.isEmpty ? .idle : .working,
-          lastUpdatedAt: snapshot.generatedAt
+          lastUpdatedAt: snapshot.generatedAt,
+          isExampleData: snapshot.sync.transport == .preview
         )
       }
     }
