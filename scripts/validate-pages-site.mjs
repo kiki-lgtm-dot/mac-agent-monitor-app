@@ -38,7 +38,7 @@ const requireText = (source, values, label) => {
   for (const value of values) if (!source.includes(value)) fail(`${label} is missing ${JSON.stringify(value)}`);
 };
 
-for (const [name, source] of Object.entries(pages)) {
+for (const [name, source] of Object.entries({ home: pages.home, privacy: pages.privacy, support: pages.support })) {
   if (!source.trim()) fail(`${name} is empty`);
   if (/\[(?:Effective Date|Support Email|Support URL|Developer Legal Name|[^\]]*YYYY-MM-DD)[^\]]*\]/i.test(source)) {
     fail(`${name} contains a release placeholder`);
@@ -48,12 +48,21 @@ for (const [name, source] of Object.entries(pages)) {
 requireText(pages.home, [
   "MAC版灵动岛--Agent运行监测",
   "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/",
+  "styles.css?v=20260903-cn-demo",
   "media/mac-agent-monitor-overview-zh.png",
   "media/mac-agent-monitor-overview-en.png",
   "media/mac-agent-monitor-states-zh.svg",
   "privacy/",
   "support/"
 ], "home page");
+for (const [name, source] of Object.entries({ home: pages.home, privacy: pages.privacy, support: pages.support })) {
+  if (!source.includes("styles.css?v=20260903-cn-demo")) {
+    fail(`${name} does not cache-bust the responsive site stylesheet`);
+  }
+}
+if ((pages.home.match(/style="height:auto"/g) || []).length !== 3) {
+  fail("home page screenshots need an inline intrinsic-ratio fallback");
+}
 requireText(pages.privacy, [
   "lang=\"zh-CN\"",
   "id=\"en\" lang=\"en\"",
