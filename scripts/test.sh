@@ -1,6 +1,11 @@
 #!/bin/zsh
 set -euo pipefail
 
+# Keep CI failures actionable even when a command intentionally writes its
+# result to a temporary file (for example a jq contract check). GitHub's job
+# summary otherwise reports only an opaque exit code.
+trap 'rc=$?; print -u2 -- "test.sh failed at line $LINENO (exit $rc)"; trap - ZERR; exit $rc' ZERR
+
 # GitHub's macOS runners do not include ripgrep by default. Keep local runs fast
 # when it is available, while making the release checks portable to stock macOS.
 if ! command -v rg >/dev/null 2>&1; then
