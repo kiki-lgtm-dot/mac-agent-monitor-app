@@ -58,7 +58,7 @@ MAC版灵动岛--Agent运行监测 是一个位于 Mac 屏幕顶部的本地 AI 
 本地优先
 Agent 日志解析、Token 聚合、网站清单、备忘录和学习条目均在当前 Mac 上处理和保存。本应用不包含广告、追踪或分析 SDK，也不会把 Agent prompt、回复正文或项目文件上传给开发者。翻译功能仅在你点击提交后，才会把当前文本发送到你在设置中确认的 OpenAI-compatible 服务。
 
-可选的 iPhone 私有同步默认关闭。只有在你阅读离机字段说明并明确开启后，Mac 才会将 Agent/工具类别、状态、时长和 Token 精简快照写入你 Apple ID 的 CloudKit 私有数据库。对话标题默认不发送，需要单独确认；关闭同步会停止上传并删除云端 `latest` 快照。
+可选的 iPhone 私有同步默认关闭。只有在你阅读离机字段说明并明确开启后，Mac 才会将 Agent/工具类别、状态、时长和 Token 精简快照写入你 Apple ID 的 CloudKit 私有数据库。对话标题默认不发送，需要单独确认；关闭同步会停止上传并删除云端“latest”快照。
 
 Token 数字来自本机仍可读取的结构化日志，可能因工具、日志保留期限和数据质量而不完整，也不代表服务商账单。并非所有已安装工具都会提供会话或 Token 遥测。
 
@@ -111,7 +111,7 @@ Users can explicitly enter a built-in offline example, persistently identified i
 Local first
 Agent log parsing, token aggregation, website shortcuts, notes, and study entries are processed and stored on the current Mac. The app contains no ads, tracking, or analytics SDK and does not upload agent prompts, response bodies, or project files to the developer. Translation text is sent only after you submit it to the OpenAI-compatible service confirmed in Settings.
 
-Optional private iPhone sync is off by default. Only after you review the off-device fields and expressly enable it does the Mac write a reduced snapshot—agent/tool category, state, duration, and token totals—to your Apple ID's private CloudKit database. Conversation titles are excluded by default and require separate confirmation. Turning sync off stops uploads and deletes the cloud `latest` snapshot.
+Optional private iPhone sync is off by default. Only after you review the off-device fields and expressly enable it does the Mac write a reduced snapshot—agent/tool category, state, duration, and token totals—to your Apple ID's private CloudKit database. Conversation titles are excluded by default and require separate confirmation. Turning sync off stops uploads and deletes the cloud "latest" snapshot.
 
 Token figures come from structured logs still available on the Mac. They may be incomplete because of tool support, log retention, or source quality, and they are not provider billing totals. An installed tool does not necessarily expose conversation or token telemetry.
 

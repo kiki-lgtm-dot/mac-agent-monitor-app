@@ -53,7 +53,9 @@ for marker in \
   'ApplicationIdentifierPrefix.0' \
   'TeamIdentifier.0' \
   'IPA App signature/profile failed exact production CloudKit entitlement validation' \
-  'IPA Widget signature/profile identifiers are wrong or an iCloud entitlement leaked'; do
+  'IPA Widget signature/profile identifiers are wrong or an iCloud entitlement leaked' \
+  '"$PREFLIGHT_ASSERTION" ios-upload "$UPLOAD_PREFLIGHT_REPORT"' \
+  'iosUploadCandidateLocalPreflightPassed: true'; do
   contains "$marker" "$SCRIPT"
 done
 for delivery_marker in \
@@ -68,14 +70,56 @@ for delivery_marker in \
   'release artifact paths must already be canonical'; do
   contains "$delivery_marker" "$SCRIPT"
 done
+[[ "$(/usr/bin/grep -Ec \
+    '^[[:space:]]*assert_upload_identity_lock_unchanged$' "$SCRIPT")" == "3" ]] \
+  || fail "TestFlight upload must check its identity lock initially and before validation/upload"
 
 STUB_DIRECTORY="$TEST_ROOT/stubs"
 INSTRUMENTED_ROOT="$TEST_ROOT/ApplePlatforms/iOS"
 INSTRUMENTED_SCRIPT="$INSTRUMENTED_ROOT/scripts/submit-testflight.sh"
 /bin/mkdir -p "$STUB_DIRECTORY" "$INSTRUMENTED_ROOT/scripts" \
-  "$INSTRUMENTED_ROOT/Config"
+  "$INSTRUMENTED_ROOT/Config" "$TEST_ROOT/scripts"
 /bin/cp "$PROJECT_ROOT/ApplePlatforms/iOS/scripts/privacy-manifest-contract.jq" \
   "$INSTRUMENTED_ROOT/scripts/privacy-manifest-contract.jq"
+/bin/cp "$PROJECT_ROOT/scripts/assert-release-preflight.sh" \
+  "$TEST_ROOT/scripts/assert-release-preflight.sh"
+/bin/chmod 0755 "$TEST_ROOT/scripts/assert-release-preflight.sh"
+IDENTITY_LOCK_PATH="$TEST_ROOT/.release/identity.lock.json"
+/bin/mkdir -p "$TEST_ROOT/.release"
+/usr/bin/jq -n '{schemaVersion: 1, fixture: "TestFlight identity lock"}' \
+  >"$IDENTITY_LOCK_PATH"
+/bin/chmod 0600 "$IDENTITY_LOCK_PATH"
+IDENTITY_LOCK_SHA256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
+  "$IDENTITY_LOCK_PATH" | /usr/bin/awk '{print $1}')"
+export AGENT_ISLAND_TEST_IDENTITY_LOCK_PATH="$IDENTITY_LOCK_PATH"
+export AGENT_ISLAND_TEST_IDENTITY_LOCK_SHA256="$IDENTITY_LOCK_SHA256"
+
+/bin/cat >"$TEST_ROOT/scripts/release-readiness.sh" <<'EOF'
+#!/bin/zsh
+set -euo pipefail
+[[ "$#" == 1 && "$1" == "--json" ]] || exit 64
+ready="${AGENT_ISLAND_TEST_RELEASE_IDENTITY_READY:-true}"
+/usr/bin/jq -n --argjson ready "$ready" \
+  --arg lockPath "$AGENT_ISLAND_TEST_IDENTITY_LOCK_PATH" \
+  --arg lockSHA256 "$AGENT_ISLAND_TEST_IDENTITY_LOCK_SHA256" '{
+  releaseIdentityLockConfigured: true,
+  releaseIdentityLockValid: true,
+  releaseIdentityAppliedFilesMatch: true,
+  releaseIdentityMatchesConfiguration: true,
+  releaseIdentityLockPath: $lockPath,
+  releaseIdentityLockSHA256: $lockSHA256,
+  releaseIdentityReady: $ready,
+  readyForIOSArchive: $ready,
+  iosAppBundleID: "com.agentisland.release",
+  iosWidgetBundleID: "com.agentisland.release.liveactivity",
+  iosDevelopmentTeam: "ABCDE12345",
+  iosCloudKitContainer: "iCloud.com.agentisland.release",
+  iosDisplayName: "Agent Island Release",
+  iosMarketingVersion: "1.2.3",
+  iosBuildNumber: "42"
+}'
+EOF
+/bin/chmod 0755 "$TEST_ROOT/scripts/release-readiness.sh"
 
 /bin/cat >"$STUB_DIRECTORY/codesign" <<'EOF'
 #!/bin/zsh
@@ -166,6 +210,10 @@ if [[ "$operation" == "${AGENT_ISLAND_TEST_RACE_OPERATION:-validation}" \
 fi
 if [[ "$operation" == "validation" ]]; then
   /bin/cat "$AGENT_ISLAND_TEST_VALIDATION_RESPONSE"
+  if [[ "${AGENT_ISLAND_TEST_MUTATE_IDENTITY_LOCK_AFTER_VALIDATE:-}" == true ]]; then
+    print -n -r -- 'tampered after validation' \
+      >>"$AGENT_ISLAND_TEST_IDENTITY_LOCK_PATH"
+  fi
 else
   /bin/cat "$AGENT_ISLAND_TEST_UPLOAD_RESPONSE"
 fi
@@ -331,6 +379,7 @@ WIDGET_PRIVACY_SHA256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
   --arg widgetPrivacySHA "$WIDGET_PRIVACY_SHA256" \
   --arg identity "$SIGNING_IDENTITY" \
   --arg certificateSHA1 "$SIGNING_CERTIFICATE_SHA1" \
+  --arg releaseIdentityLockSHA256 "$IDENTITY_LOCK_SHA256" \
   --arg expiration "$PROFILE_EXPIRATION" '{
     schemaVersion: 1,
     product: "Agent Island iOS fixture",
@@ -358,6 +407,7 @@ WIDGET_PRIVACY_SHA256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
     cloudKitEnvironment: "Production",
     signingIdentity: $identity,
     signingCertificateSHA1: $certificateSHA1,
+    releaseIdentityLockSHA256: $releaseIdentityLockSHA256,
     exportedProvisioningProfileExpiration: {app: $expiration, widget: $expiration},
     allowProvisioningUpdates: false,
     uploaded: false
@@ -538,6 +588,33 @@ expect_remote_rejected() {
 
 clear_remote_outputs
 : >"$XCRUN_LOG"
+export AGENT_ISLAND_TEST_RELEASE_IDENTITY_READY=false
+expect_remote_rejected \
+  'ios-upload archive prerequisites are not satisfied' --upload
+[[ ! -s "$XCRUN_LOG" ]] \
+  || fail "identity-lock rejection contacted App Store Connect"
+unset AGENT_ISLAND_TEST_RELEASE_IDENTITY_READY
+
+IDENTITY_LOCK_BASELINE="$TEST_ROOT/identity-lock-baseline.json"
+/bin/cp "$IDENTITY_LOCK_PATH" "$IDENTITY_LOCK_BASELINE"
+print -r -- 'changed after the readiness snapshot' >>"$IDENTITY_LOCK_PATH"
+expect_remote_rejected \
+  'release identity lock changed after the readiness report was generated' --upload
+[[ ! -s "$XCRUN_LOG" ]] \
+  || fail "changed identity lock contacted App Store Connect"
+/bin/mv "$IDENTITY_LOCK_BASELINE" "$IDENTITY_LOCK_PATH"
+/bin/chmod 0600 "$IDENTITY_LOCK_PATH"
+
+GATE_METADATA_BASELINE="$TEST_ROOT/gate-metadata-baseline.json"
+/bin/cp "$METADATA_PATH" "$GATE_METADATA_BASELINE"
+/usr/bin/jq '.releaseIdentityLockSHA256 = ("d" * 64)' \
+  "$GATE_METADATA_BASELINE" >"$METADATA_PATH"
+expect_remote_rejected \
+  'ios-upload archive prerequisites are not satisfied' --upload
+[[ ! -s "$XCRUN_LOG" ]] \
+  || fail "candidate identity-lock mismatch contacted App Store Connect"
+/bin/cp "$GATE_METADATA_BASELINE" "$METADATA_PATH"
+
 export AGENT_ISLAND_TEST_VALIDATION_RESPONSE="$MULTIPLE_TOP_LEVEL_RESPONSE"
 expect_remote_rejected \
   'does not contain an unambiguous altool success response' --validate
@@ -615,6 +692,27 @@ contains 'another TestFlight validation or upload is already active' \
   || fail "submission removed a collaboration lock it did not own"
 [[ ! -s "$XCRUN_LOG" ]] || fail "locked submission contacted the remote service"
 /bin/rmdir "$RELEASE_DIRECTORY/.testflight-submit.lock"
+
+TOCTOU_IDENTITY_BASELINE="$TEST_ROOT/toctou-identity-baseline.json"
+/bin/cp "$IDENTITY_LOCK_PATH" "$TOCTOU_IDENTITY_BASELINE"
+: >"$XCRUN_LOG"
+export AGENT_ISLAND_TEST_MUTATE_IDENTITY_LOCK_AFTER_VALIDATE=true
+expect_remote_rejected \
+  'release identity lock changed after the readiness report was generated' --upload
+unset AGENT_ISLAND_TEST_MUTATE_IDENTITY_LOCK_AFTER_VALIDATE
+contains 'validation:' "$XCRUN_LOG"
+if /usr/bin/grep -Fq 'upload:' "$XCRUN_LOG"; then
+  fail "identity-lock drift still reached the TestFlight upload operation"
+fi
+[[ -f "$VALIDATION_RESULT_PATH" && ! -L "$VALIDATION_RESULT_PATH" && \
+    "$(/usr/bin/stat -f '%Lp' "$VALIDATION_RESULT_PATH")" == "444" ]] \
+  || fail "identity-lock drift did not retain sealed validation evidence"
+/bin/cp "$TOCTOU_IDENTITY_BASELINE" "$IDENTITY_LOCK_PATH"
+/bin/chmod 0600 "$IDENTITY_LOCK_PATH"
+[[ "$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IDENTITY_LOCK_PATH" \
+  | /usr/bin/awk '{print $1}')" == "$IDENTITY_LOCK_SHA256" ]] \
+  || fail "identity-lock fixture could not be restored after the drift test"
+clear_remote_outputs
 
 export AGENT_ISLAND_TEST_UPLOAD_RESPONSE="$FALSE_PRODUCT_ERRORS_RESPONSE"
 : >"$XCRUN_LOG"

@@ -8,7 +8,7 @@ public final class DashboardStore: ObservableObject {
   @Published public private(set) var snapshot: AgentIslandSnapshot = .empty
   @Published public private(set) var isRefreshing = false
   @Published public private(set) var errorMessage: String?
-  @Published public var revealFullConversationTitles = false
+  @Published public private(set) var revealFullConversationTitles = false
   @Published public private(set) var isLiveActivityRunning = false
   @Published public private(set) var isExampleModeEnabled: Bool
 
@@ -172,6 +172,12 @@ public final class DashboardStore: ObservableObject {
   public func toggleTitlePrivacy() {
     guard fullTitlesAvailable else { return }
     revealFullConversationTitles.toggle()
+  }
+
+  /// Hides sensitive titles as soon as the scene leaves the foreground so an
+  /// app-switcher snapshot cannot retain the user's explicit reveal state.
+  public func hideFullConversationTitles() {
+    revealFullConversationTitles = false
   }
 
   #if os(iOS) && canImport(ActivityKit)

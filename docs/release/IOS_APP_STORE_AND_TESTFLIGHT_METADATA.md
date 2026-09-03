@@ -15,17 +15,29 @@
 | 主语言 | 简体中文（可按实际市场调整） |
 | 主类别 | Developer Tools |
 | 次类别 | Productivity |
+| 年龄分级 | `[根据最终构建完成问卷并记录结果]` |
+| 内容权利（Content Rights） | `[核实工具名、用户同步内容及商店素材权利后选择]` |
+| 许可协议 | `[使用 Apple 标准 EULA，或提供最终自定义协议]` |
+| DSA 交易者状态 | `[由 Account Holder 确认 trader / non-trader 及所需联系验证]` |
 | 价格 | `[免费或具体价格档位]` |
+| 上架国家/地区 | `[最终可用范围；另行完成中国大陆、韩国、越南等区域要求]` |
+| 版本发布方式 | `[审核通过后手动、自动或指定日期发布]` |
 | 版权 | `[年份] [版权所有者]` |
 | 隐私政策 URL | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/` |
 | 支持 URL | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/` |
+| 支持页公开联系方式 | `[可验证的邮箱、国际电话或法律联系地址]`；仅 GitHub Issues 不应作为最终联系资料 |
 | 营销 URL | `[营销URL，可选]` |
+| 无障碍营养标签 | 当前可自愿填写；只能在 iPhone 上按完整常用任务验证后如实发布，不能只凭使用 SwiftUI 推断支持 |
+| Accessibility URL | `[无障碍说明页，可选]` |
 | 实际提交版本 | `0.6.1`（Build `8`） |
 | 最低系统 | iOS 17.0（当前工程配置） |
 | 支持设备 | iPhone；是否开放 iPad 兼容安装须以最终 Target/QA 决定 |
 | 登录/IAP | 当前无应用账号、订阅或 App 内购买 |
+| 加密出口合规 | 代码当前声明 `ITSAppUsesNonExemptEncryption = false`；仍由提交者按最终构建与所在地要求确认 |
 
 如果 iOS 与 macOS 放在同一个 App Store Connect App 记录中，应确认平台名称、价格、隐私标签和通用购买策略一致；各平台版本仍需分别提交审核。
+
+App Store Connect 的 Content Rights、年龄分级、DSA 状态、地区合规和发布方式是账号/业务决策，不能从 Xcode 工程自动推导。无障碍营养标签目前可自愿提供，但发布过的声明也必须经过完整常用任务验证并保持准确。上表任一方括号项未由有权提交者完成时，即使 IPA 已通过本地预检也仍不应进入 App Review。
 
 ## 2. 简体中文（zh-Hans）
 
@@ -61,7 +73,7 @@ Mac AI Agent 随身看板
 • App 重启后会恢复已存在 Live Activity 的控制状态；两分钟无主 App 更新时会明确标记为过期
 
 隐私优先
-iPhone 不会直接读取或浏览 Mac 文件。Mac 私有同步默认关闭，只有用户阅读字段范围并明确开启后，才会向其 iCloud 私有数据库写入为手机设计的状态摘要。数据模型不包含 prompt、任务摘要、回复、模型名、API Key、进程 ID、备忘录、翻译内容、Mac 文件路径或工作区路径。完整对话标题默认不发送，需要单独明确同意；即使用户选择同步标题，iPhone 每次启动也会重新隐藏。用户在 Mac 关闭同步时，应用会停止上传并删除云端 `latest` 快照。
+iPhone 不会直接读取或浏览 Mac 文件。Mac 私有同步默认关闭，只有用户阅读字段范围并明确开启后，才会向其 iCloud 私有数据库写入为手机设计的状态摘要。数据模型不包含 prompt、任务摘要、回复、模型名、API Key、进程 ID、备忘录、翻译内容、Mac 文件路径或工作区路径。完整对话标题默认不发送，需要单独明确同意；即使用户选择同步标题，iPhone 在应用离开前台时也会重新隐藏，重新启动后同样保持隐藏。用户在 Mac 关闭同步时，应用会停止上传并删除云端“latest”快照。
 
 Token 来自 Mac 端可验证的本地数据源摘要，可能受工具支持、日志保留和来源质量影响，不代表服务商账单。
 
@@ -114,11 +126,11 @@ Lock Screen and Dynamic Island
 • Relaunching the app restores the control state of an existing Live Activity; two minutes without a host-app update is visibly marked stale
 
 Privacy first
-The iPhone app never browses or reads files on your Mac. Private sync is off by default on the Mac and starts only after the user reviews the field scope and expressly opts in. The Mac then writes a mobile-specific status summary to the user's private iCloud database. The schema has no fields for prompts, task summaries, responses, model names, API keys, process identifiers, notes, translation content, Mac file paths, or workspace paths. Full conversation titles are excluded by default and require a separate opt-in. Even then, the iPhone hides them again on every launch. Turning sync off on the Mac stops uploads and deletes the cloud `latest` snapshot.
+The iPhone app never browses or reads files on your Mac. Private sync is off by default on the Mac and starts only after the user reviews the field scope and expressly opts in. The Mac then writes a mobile-specific status summary to the user's private iCloud database. The schema has no fields for prompts, task summaries, responses, model names, API keys, process identifiers, notes, translation content, Mac file paths, or workspace paths. Full conversation titles are excluded by default and require a separate opt-in. Even then, the iPhone hides them whenever the app leaves the foreground and after every relaunch. Turning sync off on the Mac stops uploads and deletes the cloud “latest” snapshot.
 
 Token values come from verifiable local-source summaries on the Mac. They may be incomplete because of tool support, log retention, or source quality and are not provider billing totals.
 
-Requires iOS 17.0 or later. Viewing real Mac data requires the compatible Mac app and sync enabled under the same iCloud account on both devices. Without sync, the iPhone shows a clear unconfigured state and never invents real agent data. Users can deliberately open a built-in offline sample marked **EXAMPLE MODE · SAMPLE DATA** to learn the interface; it does not access CloudKit or the synced cache and can be exited and reset at any time.
+Requires iOS 17.0 or later. Viewing real Mac data requires the compatible Mac app and sync enabled under the same iCloud account on both devices. Without sync, the iPhone shows a clear unconfigured state and never invents real agent data. Users can deliberately open a built-in offline sample marked EXAMPLE MODE · SAMPLE DATA to learn the interface; it does not access CloudKit or the synced cache and can be exited and reset at any time.
 
 ### Keywords (100 bytes maximum; recheck before submission)
 
@@ -151,11 +163,11 @@ AI monitor,token usage,developer tools,Live Activity,Mac companion,productivity
 
 ### Beta App Description — 简体中文
 
-MAC版灵动岛--Agent运行监测 iPhone Beta 是 Mac Agent 状态的隐私化伴侣看板。在 Mac 与 iPhone 使用同一 iCloud 账户，并在 Mac 上阅读范围后明确开启私有同步，可查看运行中 Agent、活跃对话、工作时长和 Token 摘要，并测试锁屏 Live Activity 与灵动岛。也可从同步卡片下方主动进入“示例模式 · 非真实数据”；该离线样例无需 Mac/iCloud、不写同步缓存，可退出并重置，且在看板与实时活动中持续显示示例标识。同步摘要不包含 prompt、任务摘要、回复、模型名、API Key、备忘录、翻译内容或 Mac 路径，完整对话标题默认不发送且每次启动重新隐藏。Live Activity 仅在 App 启动、回前台或手动刷新时更新。
+MAC版灵动岛--Agent运行监测 iPhone Beta 是 Mac Agent 状态的隐私化伴侣看板。在 Mac 与 iPhone 使用同一 iCloud 账户，并在 Mac 上阅读范围后明确开启私有同步，可查看运行中 Agent、活跃对话、工作时长和 Token 摘要，并测试锁屏 Live Activity 与灵动岛。也可从同步卡片下方主动进入“示例模式 · 非真实数据”；该离线样例无需 Mac/iCloud、不写同步缓存，可退出并重置，且在看板与实时活动中持续显示示例标识。同步摘要不包含 prompt、任务摘要、回复、模型名、API Key、备忘录、翻译内容或 Mac 路径，完整对话标题默认不发送，并在 App 离开前台时重新隐藏。Live Activity 仅在 App 启动、回前台或手动刷新时更新。
 
 ### Beta App Description — English
 
-MAC版灵动岛--Agent运行监测 for iPhone Beta is a privacy-minimized companion for Mac agent status. After reviewing the scope and expressly enabling private sync on a Mac that uses the same iCloud account, it shows running agents, active conversations, active time, and token summaries and lets testers exercise the Lock Screen Live Activity and Dynamic Island. Testers may also deliberately enter **EXAMPLE MODE · SAMPLE DATA** below the sync card; this offline sample needs no Mac or iCloud, never writes the synced cache, can be exited and reset, and remains visibly labelled in the dashboard and Live Activity. Synced summaries exclude prompts, task summaries, responses, model names, API keys, notes, translation content, and Mac paths. Full titles are excluded by default and hidden again on every launch. Live Activity updates occur only on app launch, foreground return, or manual refresh.
+MAC版灵动岛--Agent运行监测 for iPhone Beta is a privacy-minimized companion for Mac agent status. After reviewing the scope and expressly enabling private sync on a Mac that uses the same iCloud account, it shows running agents, active conversations, active time, and token summaries and lets testers exercise the Lock Screen Live Activity and Dynamic Island. Testers may also deliberately enter EXAMPLE MODE · SAMPLE DATA below the sync card; this offline sample needs no Mac or iCloud, never writes the synced cache, can be exited and reset, and remains visibly labelled in the dashboard and Live Activity. Synced summaries exclude prompts, task summaries, responses, model names, API keys, notes, translation content, and Mac paths. Full titles are excluded by default and hidden again whenever the app leaves the foreground. Live Activity updates occur only on app launch, foreground return, or manual refresh.
 
 ### What to Test — 简体中文
 
@@ -165,7 +177,7 @@ MAC版灵动岛--Agent运行监测 for iPhone Beta is a privacy-minimized compan
 2. Mac 与 iPhone 使用同一 iCloud 账户时的首次同步、禁用、恢复和账号切换。
 3. Agent 数、活跃对话、时长和 Token 是否与同一时刻的 Mac 摘要一致。
 4. 下拉刷新、离线缓存、陈旧数据、iCloud/网络不可用和账号切换。
-5. 完整标题默认隐藏、选择显示后重启再次隐藏。
+5. 完整标题默认隐藏；选择显示后，离开前台或重启都会再次隐藏。
 6. 开启/更新/停止 Live Activity，验证它只在 App 启动、回前台或手动刷新时获得新状态；强制结束并重启 App 时已存在活动的控制状态会恢复；两分钟无更新时明确显示过期，以及无活跃 Agent 和系统禁用时的提示。
 7. 支持灵动岛和不支持灵动岛的 iPhone、深浅色、旋转、Dynamic Type、VoiceOver 与中英文。
 
@@ -175,11 +187,11 @@ MAC版灵动岛--Agent运行监测 for iPhone Beta is a privacy-minimized compan
 
 Please focus on:
 
-1. Enter example mode below the sync card, verify the sample labels on the dashboard, Lock Screen, and Dynamic Island, then **Exit & reset**; confirm that it is never represented as real sync.
+1. Enter example mode below the sync card, verify the sample labels on the dashboard, Lock Screen, and Dynamic Island, then Exit & reset; confirm that it is never represented as real sync.
 2. First sync, disabling/re-enabling sync, and account changes under the same iCloud account on Mac and iPhone.
 3. Whether agent count, active conversations, time, and tokens match the same privacy-minimized Mac snapshot.
 4. Pull to refresh, offline cache, stale data, unavailable iCloud/network, and account changes.
-5. Full titles being hidden by default and hidden again after relaunch.
+5. Full titles being hidden by default and hidden again after the app leaves the foreground or relaunches.
 6. Starting, updating, and stopping Live Activities; verify that new state arrives only on app launch, foreground return, or manual refresh, that relaunch restores the control state of an existing activity, that two minutes without a host-app update is visibly stale, and that no-active-agent/system-disabled states are handled.
 7. Devices with and without Dynamic Island, light/dark appearance, rotation, Dynamic Type, VoiceOver, English, and Simplified Chinese.
 
@@ -204,6 +216,9 @@ Include the iPhone model, iOS version, Mac app version, cache status, and steps 
 ## 7. Apple 官方参考
 
 - [Platform version information](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information)
+- [Required, localizable, and editable properties](https://developer.apple.com/help/app-store-connect/reference/app-information/required-localizable-and-editable-properties)
+- [Screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)
+- [Overview of Accessibility Nutrition Labels](https://developer.apple.com/help/app-store-connect/manage-app-accessibility/overview-of-accessibility-nutrition-labels)
 - [TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview)
 - [Provide TestFlight test information](https://developer.apple.com/help/app-store-connect/test-a-beta-version/provide-test-information)
 - [Invite external testers](https://developer.apple.com/help/app-store-connect/test-a-beta-version/invite-external-testers)

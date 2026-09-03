@@ -27,6 +27,7 @@ file_sha256() {
 [[ -x "$VALIDATOR_SOURCE" ]] || fail "functional QA evidence validator is missing or not executable"
 /bin/zsh -n "$GENERATOR_SOURCE"
 /bin/zsh -n "$VALIDATOR_SOURCE"
+contains 'export_method_matches_xcode' "$VALIDATOR_SOURCE"
 
 for marker in \
   'AGENT_ISLAND_CONFIRM_MAC_APP_STORE_FUNCTIONAL_QA' \
@@ -140,8 +141,8 @@ FUNCTIONAL_TESTED_AT="$(/bin/date -u -v-10M '+%Y-%m-%dT%H:%M:%SZ')"
     packageSHA256: $packageSHA,
     exportMethod: "app-store-connect",
     exportDestination: "export",
-    xcodeVersion: "Xcode 26.0",
-    macosSDK: "macOS 26.0",
+    xcodeVersion: "26.0",
+    macosSDK: "26.0",
     teamID: "ABCDE12345",
     appBundleID: $appBundleID,
     displayName: "MAC版灵动岛--Agent运行监测",

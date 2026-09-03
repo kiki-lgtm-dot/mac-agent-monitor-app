@@ -4,8 +4,10 @@ setopt NULL_GLOB
 umask 077
 
 IOS_ROOT="${0:A:h:h}"
+PRODUCT_ROOT="${IOS_ROOT:h:h}"
 CONFIG_FILE="$IOS_ROOT/Config/Project.xcconfig"
 PRIVACY_CONTRACT="$IOS_ROOT/scripts/privacy-manifest-contract.jq"
+PREFLIGHT_ASSERTION="$PRODUCT_ROOT/scripts/assert-release-preflight.sh"
 MODE="check"
 MODE_WAS_EXPLICIT=false
 RELEASE_DIRECTORY=""
@@ -303,6 +305,8 @@ IPA_PATH="$(/usr/bin/jq -r '.exportedIPA' "$METADATA_PATH")"
 ARCHIVE_PATH="$(/usr/bin/jq -r '.archivePath' "$METADATA_PATH")"
 SIGNING_IDENTITY="$(/usr/bin/jq -r '.signingIdentity' "$METADATA_PATH")"
 SIGNING_CERTIFICATE_SHA1="$(/usr/bin/jq -r '.signingCertificateSHA1' "$METADATA_PATH")"
+CANDIDATE_RELEASE_IDENTITY_LOCK_SHA256="$(/usr/bin/jq -r \
+  '.releaseIdentityLockSHA256 // ""' "$METADATA_PATH")"
 EXPECTED_APP_PROFILE_EXPIRATION="$(/usr/bin/jq -r \
   '.exportedProvisioningProfileExpiration.app' "$METADATA_PATH")"
 EXPECTED_WIDGET_PROFILE_EXPIRATION="$(/usr/bin/jq -r \
@@ -641,6 +645,63 @@ XCODE_MAJOR="${XCODE_VERSION%%.*}"
 [[ "$XCODE_MAJOR" == <-> ]] || fail "could not determine the selected Xcode version"
 (( XCODE_MAJOR >= 26 )) || fail "Xcode 26 or newer is required"
 
+assert_upload_identity_lock_unchanged() {
+  [[ "$MODE" == "upload" ]] || return 0
+  /bin/zsh "$PREFLIGHT_ASSERTION" ios-upload "$UPLOAD_PREFLIGHT_REPORT" \
+    || fail "TestFlight upload identity lock no longer matches the preflight snapshot"
+}
+
+if [[ "$MODE" == "upload" ]]; then
+  # The local checks above validate this exact IPA, embedded profiles,
+  # signatures, entitlements, privacy manifests, metadata, and checksums. Bind
+  # that sealed candidate to the current immutable identity/config readiness
+  # before making even the validation request that precedes an upload.
+  [[ -f "$PREFLIGHT_ASSERTION" && ! -L "$PREFLIGHT_ASSERTION" ]] \
+    || fail "release preflight assertion is missing or unsafe"
+  UPLOAD_READINESS_REPORT="$WORK_DIRECTORY/upload-release-readiness.json"
+  UPLOAD_PREFLIGHT_REPORT="$WORK_DIRECTORY/upload-preflight.json"
+  if ! DEVELOPER_DIR="$DEVELOPER_PATH" \
+      "$PRODUCT_ROOT/scripts/release-readiness.sh" --json \
+      >"$UPLOAD_READINESS_REPORT"; then
+    fail "could not generate the release-readiness report before upload"
+  fi
+  /usr/bin/jq \
+    --arg releaseDirectory "$RELEASE_DIRECTORY" \
+    --arg metadataPath "$METADATA_PATH" \
+    --arg metadataSHA256 "$EXPECTED_METADATA_SHA256" \
+    --arg ipaPath "$IPA_PATH" \
+    --arg ipaSHA256 "$EXPECTED_IPA_SHA256" \
+    --arg releaseIdentityLockSHA256 "$CANDIDATE_RELEASE_IDENTITY_LOCK_SHA256" \
+    --arg appBundleID "$APP_BUNDLE_ID" \
+    --arg widgetBundleID "$WIDGET_BUNDLE_ID" \
+    --arg teamID "$TEAM_ID" \
+    --arg cloudContainerID "$CLOUD_CONTAINER_ID" \
+    --arg displayName "$DISPLAY_NAME" \
+    --arg version "$VERSION" \
+    --arg build "$BUILD_NUMBER" '
+      . + {
+        iosUploadCandidateLocalPreflightPassed: true,
+        iosUploadCandidate: {
+          releaseDirectory: $releaseDirectory,
+          metadataPath: $metadataPath,
+          metadataSHA256: $metadataSHA256,
+          ipaPath: $ipaPath,
+          ipaSHA256: $ipaSHA256,
+          releaseIdentityLockSHA256: $releaseIdentityLockSHA256,
+          appBundleID: $appBundleID,
+          widgetBundleID: $widgetBundleID,
+          teamID: $teamID,
+          cloudContainerID: $cloudContainerID,
+          displayName: $displayName,
+          version: $version,
+          build: $build
+        }
+      }
+    ' "$UPLOAD_READINESS_REPORT" >"$UPLOAD_PREFLIGHT_REPORT"
+  assert_upload_identity_lock_unchanged
+  verify_core_candidate_unchanged
+fi
+
 API_KEY_ID="${AGENT_ISLAND_ASC_API_KEY_ID:-}"
 API_ISSUER_ID="${AGENT_ISLAND_ASC_API_ISSUER_ID:-}"
 print -r -- "$API_KEY_ID" | /usr/bin/grep -Eq '^[A-Z0-9]{10}$' \
@@ -696,6 +757,7 @@ verify_staged_candidate_unchanged
 verify_core_candidate_unchanged
 
 VALIDATION_RESULT_TEMP="$(mktemp "$RELEASE_DIRECTORY/.testflight-validation.XXXXXX")"
+assert_upload_identity_lock_unchanged
 DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcrun altool \
   --validate-app \
   --file "$STAGED_IPA_PATH" \
@@ -723,6 +785,7 @@ verify_staged_candidate_unchanged
   || fail "AGENT_ISLAND_CONFIRM_TESTFLIGHT_UPLOAD does not match this exact IPA"
 
 UPLOAD_RESULT_TEMP="$(mktemp "$RELEASE_DIRECTORY/.testflight-upload.XXXXXX")"
+assert_upload_identity_lock_unchanged
 DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcrun altool \
   --upload-app \
   --file "$STAGED_IPA_PATH" \

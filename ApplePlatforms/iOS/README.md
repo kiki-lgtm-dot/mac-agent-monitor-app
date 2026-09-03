@@ -35,7 +35,8 @@ names, and a field for privacy-safe conversation summaries. The current Mac
 producer leaves `safeSummary` empty. The schema has no fields for prompts,
 responses, API keys, process IDs, Mac file paths, or workspace paths. Full
 conversation titles are optional, are stripped by `redactedForSync()` unless
-the source user opts in, and are hidden every time the iPhone app starts.
+the source user opts in, and are hidden whenever the iPhone app leaves the
+foreground and on every fresh launch.
 
 The Mac producer implements this contract. Private sync is off by default and
 starts only after the user reviews the off-device field disclosure and
@@ -241,8 +242,9 @@ AGENT_ISLAND_IOS_TEST_DESTINATION='platform=iOS Simulator,name=iPhone 17 Pro' \
 ```
 
 The suite verifies that successful refreshes keep full conversation titles
-hidden until a fresh local reveal action, that iCloud sign-out/account changes
-remove the previous account's snapshot and title state, and that synchronized
+hidden until a fresh local reveal action, that leaving the foreground hides an
+explicitly revealed title without discarding the validated snapshot, that
+iCloud sign-out/account changes remove the previous account's snapshot and title state, and that synchronized
 snapshots reject invalid source devices, duplicate identifiers, future agent
 timestamps, control characters in visible text, or a title supplied without the
 corresponding title-sync consent flag. It also verifies that example mode does
@@ -373,6 +375,14 @@ local preflight and App Store Connect validation, then requires
 version/build, and full IPA SHA-256 printed by `--check`. Do not paste that
 value until the archive, privacy answers, screenshots, and production
 CloudKit schema for this same build have been reviewed.
+
+TestFlight delivery itself is not blocked by App Store screenshots. Before a
+final iOS App Store submission, require `iosStoreSubmissionAssetsReady: true`
+in `scripts/release-readiness.sh --json`; that platform gate includes the iOS
+Chinese/English metadata, iPhone screenshots, App Icon, and shared privacy and
+support materials, but does not depend on macOS-only metadata or screenshots.
+The aggregate `storeSubmissionAssetsReady` becomes true only when both platform
+gates are ready.
 
 ```bash
 AGENT_ISLAND_ASC_API_KEY_ID='XXXXXXXXXX' \

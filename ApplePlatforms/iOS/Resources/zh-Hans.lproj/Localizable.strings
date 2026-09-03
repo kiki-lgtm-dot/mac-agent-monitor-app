@@ -46,7 +46,7 @@
 
 "privacy.show_titles" = "显示完整标题";
 "privacy.hide_titles" = "隐藏完整标题";
-"privacy.title_toggle_hint" = "下次启动应用时会重新隐藏完整标题。";
+"privacy.title_toggle_hint" = "应用离开前台时会重新隐藏完整标题。";
 "privacy.titles_unavailable" = "Mac 未同步完整对话标题。";
 "privacy.sync_note" = "iPhone 只读取自身沙盒内的同步摘要，不会读取 Mac 文件、提示词、回复、API 密钥或工作区路径。";
 "privacy.policy_link" = "隐私政策";

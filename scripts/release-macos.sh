@@ -9,6 +9,8 @@ SOURCE_ARCHIVE="$DIST_DIR/$PUBLIC_APP_NAME-macOS-universal.zip"
 FINAL_ARCHIVE="$DIST_DIR/$PUBLIC_APP_NAME-macOS-notarized.zip"
 FINAL_CHECKSUM="$FINAL_ARCHIVE.sha256"
 METADATA_DIR="$DIST_DIR/release-metadata"
+DEVELOPER_ID_ENTITLEMENTS_CONTRACT="$PROJECT_DIR/scripts/developer-id-entitlements-contract.jq"
+PREFLIGHT_ASSERTION="$PROJECT_DIR/scripts/assert-release-preflight.sh"
 SIGN_IDENTITY="${AGENT_ISLAND_DEVELOPER_ID_APPLICATION:-}"
 NOTARY_PROFILE="${AGENT_ISLAND_NOTARY_KEYCHAIN_PROFILE:-}"
 BUNDLE_ID="${AGENT_ISLAND_BUNDLE_ID:-}"
@@ -28,6 +30,7 @@ FINAL_VERIFY_ROOT="$RELEASE_ROOT/final-verify"
 FINAL_VERIFY_APP="$FINAL_VERIFY_ROOT/$PUBLIC_APP_NAME.app"
 NOTARY_RESULT="$RELEASE_ROOT/notary-result.json"
 NOTARY_LOG="$RELEASE_ROOT/notary-log.json"
+READINESS_REPORT="$RELEASE_ROOT/release-readiness.json"
 PROFILE_CERTIFICATES_ROOT="$RELEASE_ROOT/profile-certificates"
 PUBLISH_ROOT=""
 BACKUP_ROOT=""
@@ -152,6 +155,16 @@ production_display_name() {
   [[ "$comparison" != "agentisland" && "$comparison" != "tasklume" ]]
 }
 
+[[ -f "$DEVELOPER_ID_ENTITLEMENTS_CONTRACT" && \
+  ! -L "$DEVELOPER_ID_ENTITLEMENTS_CONTRACT" ]] || {
+  echo "Developer ID entitlement contract is missing or unsafe" >&2
+  exit 2
+}
+[[ -f "$PREFLIGHT_ASSERTION" && ! -L "$PREFLIGHT_ASSERTION" ]] || {
+  echo "Release preflight assertion is missing or unsafe" >&2
+  exit 2
+}
+
 [[ -n "$SIGN_IDENTITY" ]] || { echo "Set AGENT_ISLAND_DEVELOPER_ID_APPLICATION" >&2; exit 2; }
 [[ -n "$NOTARY_PROFILE" ]] || { echo "Set AGENT_ISLAND_NOTARY_KEYCHAIN_PROFILE" >&2; exit 2; }
 [[ -n "$BUNDLE_ID" ]] || { echo "Set AGENT_ISLAND_BUNDLE_ID" >&2; exit 2; }
@@ -186,16 +199,20 @@ if /usr/bin/grep -Eqi 'yourname|yourdomain|example|placeholder' "$ENTITLEMENTS_P
   exit 2
 fi
 SOURCE_ENTITLEMENTS_JSON="$(/usr/bin/plutil -convert json -o - "$ENTITLEMENTS_PATH")"
+SOURCE_APP_IDENTIFIER="$(print -r -- "$SOURCE_ENTITLEMENTS_JSON" | \
+  /usr/bin/jq -r '."com.apple.application-identifier" // empty')"
+[[ "$SOURCE_APP_IDENTIFIER" == "$TEAM_ID.$BUNDLE_ID" ]] || {
+  echo "AGENT_ISLAND_ENTITLEMENTS application identifier must exactly match Team ID and AGENT_ISLAND_BUNDLE_ID" >&2
+  exit 2
+}
 print -r -- "$SOURCE_ENTITLEMENTS_JSON" | /usr/bin/jq -e \
-  --arg container "$CLOUDKIT_CONTAINER_ID" --arg bundle "$BUNDLE_ID" --arg team "$TEAM_ID" '
-  (."com.apple.application-identifier" | type == "string" and endswith("." + $bundle)) and
-  (."com.apple.developer.team-identifier" == $team) and
-  ((."com.apple.developer.icloud-services" // []) | index("CloudKit") != null) and
-  ((."com.apple.developer.icloud-container-identifiers" // []) == [$container]) and
-  (."com.apple.developer.icloud-container-environment" == "Production") and
-  ((."com.apple.security.get-task-allow" // false) == false)
-' >/dev/null || { echo "AGENT_ISLAND_ENTITLEMENTS must contain the release App ID/team and authorize exactly AGENT_ISLAND_ICLOUD_CONTAINER_ID for production CloudKit" >&2; exit 2; }
-SOURCE_APP_IDENTIFIER="$(print -r -- "$SOURCE_ENTITLEMENTS_JSON" | /usr/bin/jq -r '."com.apple.application-identifier"')"
+  --arg container "$CLOUDKIT_CONTAINER_ID" \
+  --arg applicationIdentifier "$SOURCE_APP_IDENTIFIER" \
+  --arg team "$TEAM_ID" \
+  -f "$DEVELOPER_ID_ENTITLEMENTS_CONTRACT" >/dev/null || {
+  echo "AGENT_ISLAND_ENTITLEMENTS must contain the release App ID/team and authorize exactly AGENT_ISLAND_ICLOUD_CONTAINER_ID for production CloudKit; extra entitlements are forbidden" >&2
+  exit 2
+}
 
 PROFILE_PLIST="$RELEASE_ROOT/provisioning-profile.plist"
 if ! /usr/bin/security cms -D -i "$PROVISIONING_PROFILE" -o "$PROFILE_PLIST" >/dev/null 2>&1; then
@@ -283,6 +300,16 @@ if (( ${#AMBIGUOUS_SOURCE_ARCHIVES[@]} > 0 )); then
   exit 2
 fi
 
+# Bind the executable release entrypoint to the immutable cross-platform
+# identity lock and the exact profile-derived Developer ID assets. This is an
+# archive-time gate only; it intentionally does not require notarization or
+# other evidence that can exist only after this script creates the candidate.
+if ! "$PROJECT_DIR/scripts/release-readiness.sh" --json >"$READINESS_REPORT"; then
+  echo "Could not generate the release-readiness report" >&2
+  exit 2
+fi
+/bin/zsh "$PREFLIGHT_ASSERTION" developer-id "$READINESS_REPORT"
+
 export AGENT_ISLAND_CODESIGN_IDENTITY="$SIGN_IDENTITY"
 export AGENT_ISLAND_BUNDLE_ID="$BUNDLE_ID"
 export AGENT_ISLAND_VERSION="$RELEASE_VERSION"
@@ -315,14 +342,13 @@ SIGNED_ENTITLEMENTS="$RELEASE_ROOT/signed-entitlements.plist"
 /usr/bin/plutil -lint "$SIGNED_ENTITLEMENTS" >/dev/null
 SIGNED_ENTITLEMENTS_JSON="$(/usr/bin/plutil -convert json -o - "$SIGNED_ENTITLEMENTS")"
 print -r -- "$SIGNED_ENTITLEMENTS_JSON" | /usr/bin/jq -e \
-  --arg container "$CLOUDKIT_CONTAINER_ID" --arg appIdentifier "$SOURCE_APP_IDENTIFIER" --arg team "$TEAM_ID" '
-  (."com.apple.application-identifier" == $appIdentifier) and
-  (."com.apple.developer.team-identifier" == $team) and
-  ((."com.apple.developer.icloud-services" // []) | index("CloudKit") != null) and
-  ((."com.apple.developer.icloud-container-identifiers" // []) == [$container]) and
-  (."com.apple.developer.icloud-container-environment" == "Production") and
-  ((."com.apple.security.get-task-allow" // false) == false)
-' >/dev/null || { echo "Signed app does not contain the expected release App ID/team and production CloudKit entitlement" >&2; exit 2; }
+  --arg container "$CLOUDKIT_CONTAINER_ID" \
+  --arg applicationIdentifier "$SOURCE_APP_IDENTIFIER" \
+  --arg team "$TEAM_ID" \
+  -f "$DEVELOPER_ID_ENTITLEMENTS_CONTRACT" >/dev/null || {
+  echo "Signed app does not contain the expected release App ID/team and production CloudKit entitlement set, or contains an extra entitlement" >&2
+  exit 2
+}
 
 ACTUAL_BUNDLE_ID="$(/usr/bin/plutil -extract CFBundleIdentifier raw "$CANONICAL_APP/Contents/Info.plist")"
 ACTUAL_VERSION="$(/usr/bin/plutil -extract CFBundleShortVersionString raw "$CANONICAL_APP/Contents/Info.plist")"
@@ -345,6 +371,9 @@ ACTUAL_DISPLAY_NAME="$(/usr/bin/plutil -extract CFBundleDisplayName raw "$CANONI
   echo "Release support URL mismatch" >&2; exit 2;
 }
 
+# The readiness report is a snapshot. Re-read and hash its canonical identity
+# lock immediately before contacting Apple's notary service.
+/bin/zsh "$PREFLIGHT_ASSERTION" developer-id "$READINESS_REPORT"
 /usr/bin/xcrun notarytool submit "$SOURCE_ARCHIVE" \
   --keychain-profile "$NOTARY_PROFILE" --wait --timeout 2h --output-format json >"$NOTARY_RESULT"
 [[ "$(/usr/bin/jq -r '.status // empty' "$NOTARY_RESULT")" == "Accepted" ]] || {
@@ -445,14 +474,13 @@ FINAL_SIGNED_ENTITLEMENTS="$RELEASE_ROOT/final-signed-entitlements.plist"
 /usr/bin/codesign -d --entitlements - "$FINAL_VERIFY_APP" >"$FINAL_SIGNED_ENTITLEMENTS" 2>/dev/null
 /usr/bin/plutil -lint "$FINAL_SIGNED_ENTITLEMENTS" >/dev/null
 /usr/bin/plutil -convert json -o - "$FINAL_SIGNED_ENTITLEMENTS" | /usr/bin/jq -e \
-  --arg container "$CLOUDKIT_CONTAINER_ID" --arg appIdentifier "$SOURCE_APP_IDENTIFIER" --arg team "$TEAM_ID" '
-  (."com.apple.application-identifier" == $appIdentifier) and
-  (."com.apple.developer.team-identifier" == $team) and
-  ((."com.apple.developer.icloud-services" // []) | index("CloudKit") != null) and
-  ((."com.apple.developer.icloud-container-identifiers" // []) == [$container]) and
-  (."com.apple.developer.icloud-container-environment" == "Production") and
-  ((."com.apple.security.get-task-allow" // false) == false)
-' >/dev/null || { echo "Final archive release entitlements mismatch" >&2; exit 2; }
+  --arg container "$CLOUDKIT_CONTAINER_ID" \
+  --arg applicationIdentifier "$SOURCE_APP_IDENTIFIER" \
+  --arg team "$TEAM_ID" \
+  -f "$DEVELOPER_ID_ENTITLEMENTS_CONTRACT" >/dev/null || {
+  echo "Final archive release entitlements mismatch or contain a non-allowlisted entitlement" >&2
+  exit 2
+}
 
 [[ "$(/usr/bin/plutil -extract CFBundleIdentifier raw "$FINAL_VERIFY_APP/Contents/Info.plist")" == "$ACTUAL_BUNDLE_ID" ]] || {
   echo "Final archive bundle identifier mismatch" >&2; exit 2;
@@ -595,6 +623,9 @@ for (( PUBLISH_INDEX = 1; PUBLISH_INDEX <= ${#PUBLISH_TARGETS[@]}; PUBLISH_INDEX
   fi
 done
 
+# Notarization can take a long time. Refuse to publish if the identity lock was
+# replaced, linked, or changed while the candidate was being processed.
+/bin/zsh "$PREFLIGHT_ASSERTION" developer-id "$READINESS_REPORT"
 COMMIT_STARTED=1
 for (( PUBLISH_INDEX = 1; PUBLISH_INDEX <= ${#PUBLISH_TARGETS[@]}; PUBLISH_INDEX++ )); do
   if [[ "${HAD_OLD_TARGETS[$PUBLISH_INDEX]}" == "1" ]]; then

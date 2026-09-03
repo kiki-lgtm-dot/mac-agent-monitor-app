@@ -62,8 +62,11 @@ if ARBITRARY_LOADS="$(plutil -extract NSAppTransportSecurity.NSAllowsArbitraryLo
   [[ "$ARBITRARY_LOADS" == "false" ]]
 fi
 /bin/zsh -n "$PROJECT_DIR/scripts/build-app.sh" "$PROJECT_DIR/scripts/release-macos.sh" \
-  "$PROJECT_DIR/scripts/release-readiness.sh" "$PROJECT_DIR/scripts/render-app-icons.sh" \
+  "$PROJECT_DIR/scripts/release-readiness.sh" \
+  "$PROJECT_DIR/scripts/assert-release-preflight.sh" \
+  "$PROJECT_DIR/scripts/render-app-icons.sh" \
   "$PROJECT_DIR/scripts/apply-release-identity.sh" "$PROJECT_DIR/Tests/test-release-identity.sh" \
+  "$PROJECT_DIR/Tests/test-release-entrypoint-hardening.sh" \
   "$PROJECT_DIR/ApplePlatforms/iOS/scripts/confirm-functional-qa-evidence.sh" \
   "$PROJECT_DIR/ApplePlatforms/iOS/scripts/validate-functional-qa-evidence.sh" \
   "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh" \
@@ -80,8 +83,10 @@ fi
 /bin/bash -n "$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-project.sh"
 [[ -x "$PROJECT_DIR/scripts/release-macos.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/release-readiness.sh" ]]
+[[ -x "$PROJECT_DIR/scripts/assert-release-preflight.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/apply-release-identity.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-release-identity.sh" ]]
+[[ -x "$PROJECT_DIR/Tests/test-release-entrypoint-hardening.sh" ]]
 [[ -x "$PROJECT_DIR/ApplePlatforms/iOS/scripts/confirm-functional-qa-evidence.sh" ]]
 [[ -x "$PROJECT_DIR/ApplePlatforms/iOS/scripts/validate-functional-qa-evidence.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh" ]]
@@ -141,6 +146,7 @@ for marker in '--check' '--apply' 'identity.lock.json' 'identity-backup' \
   rg -q --fixed-strings -- "$marker" "$PROJECT_DIR/scripts/apply-release-identity.sh"
 done
 "$PROJECT_DIR/Tests/test-release-identity.sh"
+"$PROJECT_DIR/Tests/test-release-entrypoint-hardening.sh"
 "$PROJECT_DIR/Tests/test-store-submission.sh"
 "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh"
 node "$PROJECT_DIR/Tests/test-ios-build-settings.mjs"
@@ -522,7 +528,11 @@ for READINESS_GATE in \
   'macPrivacyReleaseEvidenceReady' 'iosPrivacyReleaseEvidenceReady' \
   '.releaseEvidence.recordScope == $recordScope' \
   'storeSubmissionAssetsReady' 'storeSubmissionBlockers' \
-  'storeSubmissionStructuralErrors' 'iosProjectReleaseValidationMessages' \
+  'storeSubmissionStructuralErrors' \
+  'macStoreSubmissionAssetsReady' 'macStoreSubmissionBlockers' \
+  'macStoreSubmissionStructuralErrors' \
+  'iosStoreSubmissionAssetsReady' 'iosStoreSubmissionBlockers' \
+  'iosStoreSubmissionStructuralErrors' 'iosProjectReleaseValidationMessages' \
   'macAppStoreReleaseMetadataConfigured' 'macAppStoreExactCandidateEvidenceReady' \
   'releaseIdentityLockConfigured' 'releaseIdentityLockValid' \
   'releaseIdentityAppliedFilesMatch' 'releaseIdentityMatchesConfiguration' \
@@ -655,6 +665,7 @@ done
   ((.hostMacOSVersion == null) or (.hostMacOSVersion | type == "string" and test("^[0-9]+(\\.[0-9]+){1,2}$"))) and
   (.minimumHostMacOSForXcode26 == "15.6") and
   (.minimumRequiredXcodeMajor == 26) and
+  (.minimumRequiredMacAppStoreXcodeMajor == 14) and
   (.minimumRequiredIOSSDKMajor == 26) and
   (.xcode26HostCompatible | type == "boolean") and
   (.fullXcode | type == "boolean") and
@@ -793,10 +804,22 @@ done
   (.macPrivacyReleaseEvidenceReady | type == "boolean") and
   (.iosPrivacyReleaseEvidenceReady | type == "boolean") and
   (.storeSubmissionAssetsReady | type == "boolean") and
+  (.macStoreSubmissionAssetsReady | type == "boolean") and
+  (.iosStoreSubmissionAssetsReady | type == "boolean") and
   (.storeSubmissionBlockerCount | type == "number") and
   (.storeSubmissionBlockers | type == "array") and
   (.storeSubmissionStructuralErrors | type == "array") and
   (.storeSubmissionBlockerCount == (.storeSubmissionBlockers | length)) and
+  (.macStoreSubmissionBlockerCount | type == "number") and
+  (.macStoreSubmissionBlockers | type == "array") and
+  (.macStoreSubmissionStructuralErrors | type == "array") and
+  (.macStoreSubmissionBlockerCount == (.macStoreSubmissionBlockers | length)) and
+  (.iosStoreSubmissionBlockerCount | type == "number") and
+  (.iosStoreSubmissionBlockers | type == "array") and
+  (.iosStoreSubmissionStructuralErrors | type == "array") and
+  (.iosStoreSubmissionBlockerCount == (.iosStoreSubmissionBlockers | length)) and
+  (.storeSubmissionAssetsReady ==
+    (.macStoreSubmissionAssetsReady and .iosStoreSubmissionAssetsReady)) and
   (.macAppStoreReleaseMetadataConfigured | type == "boolean") and
   (.macAppStoreExactCandidateEvidenceReady | type == "boolean") and
   (.macAppStoreLocalPreflightPassed | type == "boolean") and
@@ -869,14 +892,14 @@ done
   (.readyForFunctionalMacAppStoreSubmission | type == "boolean") and
   (.readyForIOSArchive | type == "boolean") and
   (.readyForFunctionalIOSTestFlight | type == "boolean") and
-  ((.readyForMacAppStoreArchive | not) or .xcode26HostCompatible) and
+  ((.readyForMacAppStoreArchive | not) or .currentMacAppStoreToolchain) and
   ((.readyForMacAppStoreUpload | not) or (
     .releaseIdentityReady and
     .macAppStoreExactCandidateEvidenceReady and
     .macAppStoreLocalPreflightPassed and
     .macAppStoreFunctionalQAEvidenceReady and
     .macAppStoreFunctionalEvidenceBoundToCandidate and
-    .macPrivacyReleaseEvidenceReady and .storeSubmissionAssetsReady
+    .macPrivacyReleaseEvidenceReady and .macStoreSubmissionAssetsReady
   )) and
   ((.readyForMacAppStoreReviewSelection | not) or (
     .readyForMacAppStoreUpload and .macAppStoreDeliveryEvidenceReady and
@@ -1210,6 +1233,8 @@ MAC_EVIDENCE_CREATED_AT="$(/bin/date -u -v-20M '+%Y-%m-%dT%H:%M:%SZ')"
     packageSHA256: $packageSHA,
     exportMethod: "app-store-connect",
     exportDestination: "export",
+    xcodeVersion: "26.0",
+    quarantineFree: true,
     signingCertificateSHA1: ("A" * 40),
     provisioningProfile: {certificateMatches: true},
     installerSigningIdentity: "Mac Installer Distribution: Fixture (ABCDE12345)",

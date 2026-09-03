@@ -20,7 +20,7 @@ Apple 不应被要求自行安装 Codex/Claude、创建付费 AI API Key、运�
 
 The iPhone companion for MAC版灵动岛--Agent运行监测 displays a privacy-minimized snapshot produced by the Mac app: relevant agents, running-agent count, active-conversation count, state, active time, token usage, tool names, and privacy-preserving conversation placeholders. The current Mac producer leaves the schema's `safeSummary` field empty; it does not derive a task summary from prompts or responses.
 
-This iPhone app does not scan, mount, or browse the Mac filesystem. The sync schema has no fields for prompts, response bodies, API keys, process identifiers, Mac file paths, or workspace paths. Full conversation titles are optional, excluded by default at the Mac source, and hidden again every time the iPhone app starts. Live Activities never contain conversation titles.
+This iPhone app does not scan, mount, or browse the Mac filesystem. The sync schema has no fields for prompts, response bodies, API keys, process identifiers, Mac file paths, or workspace paths. Full conversation titles are optional, excluded by default at the Mac source, and hidden again whenever the iPhone app leaves the foreground and after every relaunch. Live Activities never contain conversation titles.
 
 There is no separate app account, purchase, subscription, advertising, analytics SDK, or tracking. The Mac and iPhone must use the same signed-in iCloud account because the summary is stored in that user's private CloudKit database. Private sync is off by default on the Mac and begins only after the user reviews the field scope and expressly opts in. Conversation-title sync is a separate opt-in and remains off by default.
 
@@ -50,7 +50,7 @@ To separately inspect the real same-iCloud production path after the production 
 
 1. On the dashboard, verify the summary cards for relevant agents, running agents, active conversations, and tokens. The iPhone preserves every tool deliberately included by the Mac producer, including a tool with no current conversation or measured usage; such a tool retains its true idle/completed state and is not counted as working.
 2. Scroll to an Agent card to see state, tool name, active time, token usage, and up to three privacy-preserving conversation entries.
-3. Full titles are absent from the built-in example. In the production CloudKit path they remain unavailable unless the source Mac explicitly opted in. If a production review dataset includes titles, select the eye button to reveal them, terminate and relaunch the app, and verify that they are hidden again.
+3. Full titles are absent from the built-in example. In the production CloudKit path they remain unavailable unless the source Mac explicitly opted in. If a production review dataset includes titles, select the eye button to reveal them, send the app to the background and return, and verify that they are hidden again. Terminating and relaunching also keeps them hidden.
 4. With at least one working agent in the synced snapshot, select “Start Live Activity.” The button is intentionally disabled when there is no active agent.
 5. View the Lock Screen Live Activity. On a supported device, also inspect compact, minimal, and expanded Dynamic Island presentations.
 6. In example mode, select **Exit & reset example mode** and verify that its Live Activity ends immediately. In the production path, refresh after the real source Agent stops; the activity updates from the new validated snapshot and ends when no active agent remains.
@@ -87,7 +87,7 @@ This is an independent product and is not affiliated with or endorsed by Apple o
 
 “MAC版灵动岛--Agent运行监测”的 iPhone 版是 Mac 应用的伴侣看板，展示由 Mac 生成的隐私化摘要：相关/运行中 Agent 数、活跃对话数、状态、工作时长、Token、工具名和隐私化对话占位。当前 Mac producer 会将 schema 的 `safeSummary` 留空，不会从 prompt 或回复推导任务摘要。
 
-iPhone 不扫描、挂载或浏览 Mac 文件系统。同步模型没有 prompt、回复正文、API Key、进程 ID、Mac 文件路径或工作区路径字段。完整对话标题默认在 Mac 端排除；即使用户明确选择同步，iPhone 每次启动也会重新隐藏。Live Activity 永不包含对话标题。
+iPhone 不扫描、挂载或浏览 Mac 文件系统。同步模型没有 prompt、回复正文、API Key、进程 ID、Mac 文件路径或工作区路径字段。完整对话标题默认在 Mac 端排除；即使用户明确选择同步，iPhone 也会在应用离开前台时重新隐藏，重新启动后同样保持隐藏。Live Activity 永不包含对话标题。
 
 应用没有独立应用账号、购买、订阅、广告、分析 SDK 或追踪。Mac 与 iPhone 必须登录同一 iCloud 账户，因为摘要存放在该用户的私有 CloudKit 数据库。Mac 私有同步默认关闭，只有用户阅读离机字段并明确开启后才上传；完整对话标题另需单独明确同意。
 
@@ -110,7 +110,7 @@ iPhone 不扫描、挂载或浏览 Mac 文件系统。同步模型没有 prompt�
 1. 在 Mac 的“设置 → iPhone · iCloud 私有同步”中开启私有同步，确认离机字段后点击“立即同步”；然后在 iPhone 下拉刷新，顶部状态应从“尚未配置 Mac 同步”变为最终连接/缓存状态。除非专门审核敏感字段同意，不开启标题同步。
 2. 检查相关 Agent、运行中、活跃对话和 Token 汇总卡片。iPhone 保留 Mac producer 主动筛选纳入的全部工具；当前无会话/无用量的工具保留真实空闲或完成状态，不会被计为运行中。
 3. 查看 Agent 卡片中的状态、工具、时长、Token 和最多三条隐私化对话条目。
-4. 内置示例不含完整标题。真实 CloudKit 数据只有在 Mac 用户单独明确允许时才可包含标题；此时点击眼睛按钮显示，杀掉并重启 App 后应再次隐藏。
+4. 内置示例不含完整标题。真实 CloudKit 数据只有在 Mac 用户单独明确允许时才可包含标题；此时点击眼睛按钮显示，将 App 切至后台再返回时应已隐藏，杀掉并重启后也应保持隐藏。
 5. 有工作中 Agent 时点击“开启实时活动”；没有活跃 Agent 时按钮按设计禁用。
 6. 查看锁屏 Live Activity；支持灵动岛的设备再检查紧凑、最小和展开形态。
 7. 在示例模式点击“退出并重置示例模式”后，示例实时活动应立即结束；真实同步路径中，停止来源 Agent 并刷新后，活动应随新快照更新，并在没有活跃 Agent 时结束。

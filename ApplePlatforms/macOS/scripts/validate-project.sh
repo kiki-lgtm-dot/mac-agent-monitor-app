@@ -38,6 +38,8 @@ done
 command -v plutil >/dev/null 2>&1 || fail "plutil is required"
 command -v jq >/dev/null 2>&1 || fail "jq is required"
 command -v xmllint >/dev/null 2>&1 || fail "xmllint is required"
+command -v iconutil >/dev/null 2>&1 || fail "iconutil is required"
+command -v sips >/dev/null 2>&1 || fail "sips is required"
 
 required_files=(
   "ApplePlatforms/macOS/AgentIslandMac.xcodeproj/project.pbxproj"
@@ -114,6 +116,39 @@ plutil -lint \
   "$repo_root/Resources/PrivacyInfo.xcprivacy" >/dev/null
 xmllint --noout "$scheme_file" "$workspace_file"
 
+iconset_dir="$work_dir/AgentIsland.iconset"
+/usr/bin/iconutil --convert iconset "$repo_root/Resources/AgentIsland.icns" \
+  --output "$iconset_dir" >/dev/null \
+  || fail "Resources/AgentIsland.icns is not a valid macOS icon set"
+expected_icon_count=0
+for icon_spec in \
+  icon_16x16.png:16 \
+  icon_16x16@2x.png:32 \
+  icon_32x32.png:32 \
+  icon_32x32@2x.png:64 \
+  icon_128x128.png:128 \
+  icon_128x128@2x.png:256 \
+  icon_256x256.png:256 \
+  icon_256x256@2x.png:512 \
+  icon_512x512.png:512 \
+  icon_512x512@2x.png:1024; do
+  icon_name="${icon_spec%%:*}"
+  icon_dimension="${icon_spec##*:}"
+  icon_path="$iconset_dir/$icon_name"
+  [ -f "$icon_path" ] || fail "macOS icon is missing $icon_name"
+  icon_width="$(/usr/bin/sips -g pixelWidth "$icon_path" 2>/dev/null \
+    | /usr/bin/awk '/pixelWidth:/ {print $2}')"
+  icon_height="$(/usr/bin/sips -g pixelHeight "$icon_path" 2>/dev/null \
+    | /usr/bin/awk '/pixelHeight:/ {print $2}')"
+  [ "$icon_width" = "$icon_dimension" ] && [ "$icon_height" = "$icon_dimension" ] \
+    || fail "macOS icon $icon_name must be ${icon_dimension}x${icon_dimension}"
+  expected_icon_count=$((expected_icon_count + 1))
+done
+actual_icon_count="$(/usr/bin/find "$iconset_dir" -type f -name '*.png' \
+  | /usr/bin/wc -l | /usr/bin/tr -d '[:space:]')"
+[ "$actual_icon_count" = "$expected_icon_count" ] \
+  || fail "macOS icon set contains unexpected or duplicate PNG representations"
+
 project_json="$work_dir/project.json"
 info_json="$work_dir/info.json"
 entitlements_json="$work_dir/entitlements.json"
@@ -121,6 +156,13 @@ plutil -convert json -o "$project_json" "$project_file"
 plutil -convert json -o "$info_json" "$project_root/Config/Mac-Info.plist"
 plutil -convert json -o "$entitlements_json" \
   "$project_root/Config/AgentIslandMac.entitlements"
+
+jq -e '
+  .archiveVersion == "1" and
+  .objectVersion == "56" and
+  .objects[.rootObject].compatibilityVersion == "Xcode 14.0"
+' "$project_json" >/dev/null \
+  || fail "project file format must remain readable by the supported Xcode 14 minimum"
 
 jq -e '
   .objects as $objects
@@ -189,9 +231,14 @@ jq -e '
   .objects as $objects
   | ($objects | to_entries[]
       | select(.value.isa == "PBXNativeTarget" and .value.name == "AgentIslandMac").value) as $app
+  | $objects[.rootObject] as $project
   | [$objects[$app.buildConfigurationList].buildConfigurations[]
       | $objects[.]] as $configs
   | ($configs | map(.name) | sort) == ["Debug", "Release"]
+    and ($project.attributes.TargetAttributes.C10500000000000000000001.SystemCapabilities
+      | keys | sort) == ["com.apple.AppSandbox", "com.apple.iCloud"]
+    and $project.attributes.TargetAttributes.C10500000000000000000001.SystemCapabilities."com.apple.AppSandbox".enabled == "1"
+    and $project.attributes.TargetAttributes.C10500000000000000000001.SystemCapabilities."com.apple.iCloud".enabled == "1"
     and all($configs[];
       .buildSettings.PRODUCT_BUNDLE_IDENTIFIER == "$(AGENT_ISLAND_MAC_APP_BUNDLE_ID)"
       and .buildSettings.DEVELOPMENT_TEAM == "$(AGENT_ISLAND_DEVELOPMENT_TEAM)"
@@ -293,6 +340,7 @@ legacy_build_number="$(plutil -extract CFBundleVersion raw -o - \
 
 jq -e '
   .CFBundleDisplayName == "$(AGENT_ISLAND_DISPLAY_NAME)"
+  and .CFBundleDevelopmentRegion == "$(DEVELOPMENT_LANGUAGE)"
   and .CFBundleExecutable == "$(EXECUTABLE_NAME)"
   and .CFBundleIdentifier == "$(PRODUCT_BUNDLE_IDENTIFIER)"
   and .CFBundleShortVersionString == "$(MARKETING_VERSION)"
@@ -309,7 +357,16 @@ jq -e '
   || fail "Mac-Info.plist release macros or Developer Tools category are incomplete"
 
 jq -e '
-  ."com.apple.security.app-sandbox" == true
+  (keys | sort) == [
+    "com.apple.developer.icloud-container-environment",
+    "com.apple.developer.icloud-container-identifiers",
+    "com.apple.developer.icloud-services",
+    "com.apple.security.app-sandbox",
+    "com.apple.security.files.bookmarks.app-scope",
+    "com.apple.security.files.user-selected.read-only",
+    "com.apple.security.network.client"
+  ]
+  and ."com.apple.security.app-sandbox" == true
   and ."com.apple.security.files.user-selected.read-only" == true
   and ."com.apple.security.files.bookmarks.app-scope" == true
   and ."com.apple.security.network.client" == true

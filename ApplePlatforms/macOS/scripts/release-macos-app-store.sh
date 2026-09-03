@@ -1,19 +1,30 @@
 #!/bin/zsh
 set -euo pipefail
 setopt EXTENDED_GLOB
+umask 077
 
 MAC_ROOT="${0:A:h:h}"
 PRODUCT_ROOT="${MAC_ROOT:h:h}"
 PROJECT_PATH="$MAC_ROOT/AgentIslandMac.xcodeproj"
+PREFLIGHT_ASSERTION="$PRODUCT_ROOT/scripts/assert-release-preflight.sh"
+READINESS_SCRIPT="$PRODUCT_ROOT/scripts/release-readiness.sh"
 SCHEME="AgentIslandMac"
 CONFIGURATION="Release"
 DIST_ROOT="$PRODUCT_ROOT/dist/macos-app-store"
 PUBLIC_APP_NAME="MAC版灵动岛--Agent运行监测"
 APP_CATEGORY="public.app-category.developer-tools"
+MINIMUM_XCODE_MAJOR=14
 EXPORT_PACKAGE=false
 ALLOW_PROVISIONING_UPDATES=false
 WORK_ROOT=""
 STAGING_ROOT=""
+STAGING_IDENTITY=""
+PUBLISH_LOCK=""
+PUBLISH_LOCK_IDENTITY=""
+PUBLISH_LOCK_HELD=false
+PUBLISHED_RELEASE_DIR=""
+FINAL_RELEASE_DIR=""
+COMMIT_DONE=false
 PUBLISHED=false
 
 usage() {
@@ -47,12 +58,37 @@ fail() {
 cleanup() {
   local exit_code=$?
   trap - EXIT HUP INT TERM
+  set +e
   if [[ -n "$WORK_ROOT" && "$WORK_ROOT" == /private/tmp/agentisland-mac-store.* ]]; then
     /bin/rm -rf "$WORK_ROOT"
   fi
   if [[ "$PUBLISHED" != true && -n "$STAGING_ROOT" && \
-      "$STAGING_ROOT" == "$DIST_ROOT"/.agentisland-mac-store.* ]]; then
+      "$STAGING_ROOT" == "$DIST_ROOT"/.agentisland-mac-store.* && \
+      -d "$STAGING_ROOT" && ! -L "$STAGING_ROOT" ]]; then
     /bin/rm -rf "$STAGING_ROOT"
+  fi
+  if [[ "$COMMIT_DONE" != true && -n "$PUBLISHED_RELEASE_DIR" && \
+      "$PUBLISHED_RELEASE_DIR" == "$FINAL_RELEASE_DIR" && \
+      -n "$STAGING_IDENTITY" ]]; then
+    if [[ -d "$PUBLISHED_RELEASE_DIR" && ! -L "$PUBLISHED_RELEASE_DIR" && \
+        "$(/usr/bin/stat -f '%d:%i' "$PUBLISHED_RELEASE_DIR" 2>/dev/null)" == \
+          "$STAGING_IDENTITY" ]]; then
+      /bin/rm -rf "$PUBLISHED_RELEASE_DIR"
+    elif [[ -n "$STAGING_ROOT" ]]; then
+      local misplaced_staging="$PUBLISHED_RELEASE_DIR/${STAGING_ROOT:t}"
+      if [[ -d "$misplaced_staging" && ! -L "$misplaced_staging" && \
+          "$(/usr/bin/stat -f '%d:%i' "$misplaced_staging" 2>/dev/null)" == \
+            "$STAGING_IDENTITY" ]]; then
+        /bin/rm -rf "$misplaced_staging"
+      fi
+    fi
+  fi
+  if [[ "$PUBLISH_LOCK_HELD" == true && -n "$PUBLISH_LOCK" && \
+      "$PUBLISH_LOCK" == "$DIST_ROOT"/.agentisland-mac-store-*.publish-lock && \
+      -d "$PUBLISH_LOCK" && ! -L "$PUBLISH_LOCK" && \
+      "$(/usr/bin/stat -f '%d:%i' "$PUBLISH_LOCK" 2>/dev/null)" == \
+        "$PUBLISH_LOCK_IDENTITY" ]]; then
+    /bin/rmdir "$PUBLISH_LOCK" 2>/dev/null
   fi
   exit "$exit_code"
 }
@@ -80,15 +116,16 @@ while (( $# > 0 )); do
   shift
 done
 
-for tool in /usr/bin/jq /usr/bin/plutil /usr/bin/security /usr/bin/codesign \
-  /usr/bin/lipo /usr/bin/ditto /usr/bin/unzip /usr/bin/zipinfo \
+for tool in /usr/bin/find /usr/bin/jq /usr/bin/plutil /usr/bin/security \
+  /usr/bin/codesign /usr/bin/lipo /usr/bin/ditto /usr/bin/unzip \
+  /usr/bin/zipinfo /usr/bin/xattr \
   /usr/bin/xcodebuild /usr/bin/xcrun /usr/sbin/pkgutil; do
   [[ -x "$tool" ]] || fail "required tool is unavailable: $tool"
 done
 
 DEVELOPER_PATH="${DEVELOPER_DIR:-$(/usr/bin/xcode-select -p 2>/dev/null || true)}"
 [[ "$DEVELOPER_PATH" == */Xcode*.app/Contents/Developer ]] \
-  || fail "select full Xcode 26 or newer with xcode-select before archiving"
+  || fail "select full Xcode 14 or newer with xcode-select before archiving"
 [[ -d "$DEVELOPER_PATH/Platforms/MacOSX.platform" ]] \
   || fail "the selected Xcode does not include the macOS platform"
 
@@ -96,14 +133,18 @@ XCODE_VERSION="$(DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild -version \
   | /usr/bin/awk '/^Xcode / {print $2; exit}')"
 XCODE_MAJOR="${XCODE_VERSION%%.*}"
 [[ "$XCODE_MAJOR" == <-> ]] || fail "could not determine the Xcode version"
-(( XCODE_MAJOR >= 26 )) || fail "Xcode 26 or newer is required for this App Store candidate"
+(( XCODE_MAJOR >= MINIMUM_XCODE_MAJOR )) \
+  || fail "Xcode 14 or newer is required for this Mac App Store candidate"
+if (( XCODE_MAJOR == 14 )); then
+  EXPORT_METHOD="app-store"
+else
+  EXPORT_METHOD="app-store-connect"
+fi
 
 MACOS_SDK="$(DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcrun \
   --sdk macosx --show-sdk-version 2>/dev/null || true)"
 MACOS_SDK_MAJOR="${MACOS_SDK%%.*}"
 [[ "$MACOS_SDK_MAJOR" == <-> ]] || fail "could not determine the macOS SDK version"
-(( MACOS_SDK_MAJOR >= 26 )) \
-  || fail "the macOS 26 SDK or newer is required for this App Store candidate"
 
 COPYRIGHT="${AGENT_ISLAND_MAC_APP_STORE_COPYRIGHT:-}"
 utf8_character_count() {
@@ -125,6 +166,21 @@ COPYRIGHT_CHARACTER_COUNT="$(utf8_character_count "$COPYRIGHT")"
 "$MAC_ROOT/scripts/validate-project.sh"
 
 WORK_ROOT="$(mktemp -d /private/tmp/agentisland-mac-store.XXXXXX)"
+READINESS_REPORT="$WORK_ROOT/release-readiness.json"
+[[ -x "$PREFLIGHT_ASSERTION" && -x "$READINESS_SCRIPT" ]] \
+  || fail "release readiness gate is missing or not executable"
+if ! DEVELOPER_DIR="$DEVELOPER_PATH" \
+    "$READINESS_SCRIPT" --json >"$READINESS_REPORT"; then
+  fail "could not generate the release-readiness report"
+fi
+if ! /bin/zsh "$PREFLIGHT_ASSERTION" mac-app-store "$READINESS_REPORT"; then
+  fail "Mac App Store archive prerequisites are not satisfied"
+fi
+assert_archive_identity_lock_unchanged() {
+  /bin/zsh "$PREFLIGHT_ASSERTION" mac-app-store "$READINESS_REPORT" \
+    || fail "Mac App Store identity lock no longer matches the readiness snapshot"
+}
+
 BUILD_SETTINGS_JSON="$WORK_ROOT/build-settings.json"
 DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild \
   -project "$PROJECT_PATH" \
@@ -158,6 +214,7 @@ BUILD_NUMBER="$(build_setting CURRENT_PROJECT_VERSION)"
 APP_BUNDLE_ID="$(build_setting PRODUCT_BUNDLE_IDENTIFIER)"
 CLOUD_CONTAINER_ID="$(build_setting AGENT_ISLAND_ICLOUD_CONTAINER_ID)"
 DISPLAY_NAME="$(build_setting AGENT_ISLAND_DISPLAY_NAME)"
+DEVELOPMENT_LANGUAGE="$(build_setting DEVELOPMENT_LANGUAGE)"
 PRIVACY_POLICY_URL="$(build_setting AGENT_ISLAND_PRIVACY_POLICY_URL)"
 SUPPORT_URL="$(build_setting AGENT_ISLAND_SUPPORT_URL)"
 DEPLOYMENT_TARGET="$(build_setting MACOSX_DEPLOYMENT_TARGET)"
@@ -208,6 +265,8 @@ production_container_id "$CLOUD_CONTAINER_ID" \
   || fail "Release build must resolve a production iCloud container identifier"
 [[ "$DISPLAY_NAME" == "$PUBLIC_APP_NAME" ]] \
   || fail "Release display name must equal $PUBLIC_APP_NAME"
+[[ "$DEVELOPMENT_LANGUAGE" == "en" ]] \
+  || fail "Release development language must remain en"
 print -r -- "$VERSION" | /usr/bin/grep -Eq '^[0-9]+(\.[0-9]+){1,2}$' \
   || fail "MARKETING_VERSION must contain two or three numeric components"
 print -r -- "$BUILD_NUMBER" | /usr/bin/grep -Eq '^[1-9][0-9]*$' \
@@ -234,6 +293,18 @@ valid_app_distribution_identity_name() {
   [[ "$value" == "Apple Distribution: "* || \
     "$value" == "3rd Party Mac Developer Application: "* || \
     "$value" == "Mac App Distribution: "* ]]
+}
+
+assert_no_quarantine_attributes() {
+  local candidate_path="$1"
+  local label="$2"
+  local attribute_listing
+  attribute_listing="$(LC_ALL=C /usr/bin/xattr -r "$candidate_path" 2>/dev/null)" \
+    || fail "$label extended attributes could not be inspected"
+  if print -r -- "$attribute_listing" \
+      | /usr/bin/grep -Eq '(^|: )com\.apple\.quarantine$'; then
+    fail "$label contains com.apple.quarantine; clean the source/build inputs and rebuild"
+  fi
 }
 
 if [[ -n "$REQUESTED_IDENTITY" ]]; then
@@ -318,6 +389,7 @@ validate_app_info_and_contents() {
   local info="$app_path/Contents/Info.plist"
   local executable_name executable_path normalized_arches
   [[ -d "$app_path" && ! -L "$app_path" ]] || fail "$label is not a regular App bundle"
+  assert_no_quarantine_attributes "$app_path" "$label"
   [[ -f "$info" && ! -L "$info" ]] || fail "$label is missing Contents/Info.plist"
   /usr/bin/plutil -lint "$info" >/dev/null || fail "$label has an invalid Info.plist"
   [[ "$(/usr/bin/plutil -extract CFBundleIdentifier raw "$info" 2>/dev/null)" == "$APP_BUNDLE_ID" ]] \
@@ -328,6 +400,8 @@ validate_app_info_and_contents() {
     || fail "$label build number does not match the resolved Release setting"
   [[ "$(/usr/bin/plutil -extract CFBundleDisplayName raw "$info" 2>/dev/null)" == "$DISPLAY_NAME" ]] \
     || fail "$label display name does not match the resolved Release setting"
+  [[ "$(/usr/bin/plutil -extract CFBundleDevelopmentRegion raw "$info" 2>/dev/null)" == "$DEVELOPMENT_LANGUAGE" ]] \
+    || fail "$label development region does not match the resolved Release setting"
   [[ "$(/usr/bin/plutil -extract NSHumanReadableCopyright raw "$info" 2>/dev/null)" == "$COPYRIGHT" ]] \
     || fail "$label copyright is missing or changed"
   [[ "$(/usr/bin/plutil -extract AgentIslandPrivacyPolicyURL raw "$info" 2>/dev/null)" == "$PRIVACY_POLICY_URL" ]] \
@@ -493,15 +567,36 @@ validate_signature_and_profile() {
     --arg container "$CLOUD_CONTAINER_ID" '
       def app_identifier:
         .["com.apple.application-identifier"] // .["application-identifier"];
+      def approved_signed_entitlement_key:
+        . == "application-identifier" or
+        . == "beta-reports-active" or
+        . == "com.apple.application-identifier" or
+        . == "com.apple.developer.icloud-container-environment" or
+        . == "com.apple.developer.icloud-container-identifiers" or
+        . == "com.apple.developer.icloud-services" or
+        . == "com.apple.developer.team-identifier" or
+        . == "com.apple.security.app-sandbox" or
+        . == "com.apple.security.files.bookmarks.app-scope" or
+        . == "com.apple.security.files.user-selected.read-only" or
+        . == "com.apple.security.get-task-allow" or
+        . == "com.apple.security.network.client" or
+        . == "get-task-allow";
       .[0] as $signed
       | .[1] as $profile
-      | ($signed | app_identifier) == $applicationIdentifier
+      | ([$signed | keys[] | select(approved_signed_entitlement_key | not)]
+          | length) == 0
+        and ($signed | app_identifier) == $applicationIdentifier
+        and (($signed."com.apple.application-identifier" //
+          $applicationIdentifier) == $applicationIdentifier)
+        and (($signed."application-identifier" //
+          $applicationIdentifier) == $applicationIdentifier)
         and ($profile | app_identifier) == $applicationIdentifier
         and ($signed | app_identifier) == ($profile | app_identifier)
         and $signed."com.apple.developer.team-identifier" == $team
         and $profile."com.apple.developer.team-identifier" == $team
-        and (($signed."com.apple.security.get-task-allow" //
-          $signed."get-task-allow" // false) == false)
+        and (($signed."com.apple.security.get-task-allow" // false) == false)
+        and (($signed."get-task-allow" // false) == false)
+        and (($signed."beta-reports-active" // true) == true)
         and (($profile."com.apple.security.get-task-allow" //
           $profile."get-task-allow" // false) == false)
         and $signed."com.apple.security.app-sandbox" == true
@@ -539,12 +634,30 @@ validate_signature_and_profile() {
     }' >"$result_path"
 }
 
+if [[ -L "$DIST_ROOT" || ( -e "$DIST_ROOT" && ! -d "$DIST_ROOT" ) ]]; then
+  fail "$DIST_ROOT must be a regular directory, not a symlink or file"
+fi
 /bin/mkdir -p "$DIST_ROOT"
-STAGING_ROOT="$(mktemp -d "$DIST_ROOT/.agentisland-mac-store.XXXXXX")"
 STAMP="$(/bin/date -u '+%Y%m%dT%H%M%SZ')"
-FINAL_RELEASE_DIR="$DIST_ROOT/$VERSION-$BUILD_NUMBER-$STAMP"
+RELEASE_BASENAME="$VERSION-$BUILD_NUMBER-$STAMP"
+FINAL_RELEASE_DIR="$DIST_ROOT/$RELEASE_BASENAME"
+PUBLISH_LOCK="$DIST_ROOT/.agentisland-mac-store-$RELEASE_BASENAME.publish-lock"
+if ! /bin/mkdir "$PUBLISH_LOCK" 2>/dev/null; then
+  fail "another Mac App Store release is publishing $RELEASE_BASENAME, or its stale publish lock must be inspected"
+fi
+PUBLISH_LOCK_HELD=true
+/bin/chmod 0700 "$PUBLISH_LOCK" \
+  || fail "could not secure the Mac App Store publish lock"
+PUBLISH_LOCK_IDENTITY="$(/usr/bin/stat -f '%d:%i' "$PUBLISH_LOCK")"
+[[ "$PUBLISH_LOCK_IDENTITY" == <->:<-> ]] \
+  || fail "could not identify the Mac App Store publish lock"
 [[ ! -e "$FINAL_RELEASE_DIR" && ! -L "$FINAL_RELEASE_DIR" ]] \
   || fail "release output already exists: $FINAL_RELEASE_DIR"
+STAGING_ROOT="$(mktemp -d "$DIST_ROOT/.agentisland-mac-store.XXXXXX")" \
+  || fail "could not create same-filesystem Mac App Store staging directory"
+STAGING_IDENTITY="$(/usr/bin/stat -f '%d:%i' "$STAGING_ROOT")"
+[[ "$STAGING_IDENTITY" == <->:<-> ]] \
+  || fail "could not identify the Mac App Store staging directory"
 
 ARCHIVE_PATH="$STAGING_ROOT/AgentIslandMac.xcarchive"
 ARCHIVE_ZIP="$STAGING_ROOT/AgentIslandMac.xcarchive.zip"
@@ -570,6 +683,7 @@ ARCHIVE_ARGS=(
 [[ "$ALLOW_PROVISIONING_UPDATES" == true ]] \
   && ARCHIVE_ARGS+=(-allowProvisioningUpdates)
 
+assert_archive_identity_lock_unchanged
 DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild "${ARCHIVE_ARGS[@]}" \
   DEVELOPMENT_TEAM="$TEAM_ID" \
   CODE_SIGN_IDENTITY="$SELECTED_IDENTITY" \
@@ -608,6 +722,7 @@ ARCHIVED_PRIVACY_SHA256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
 
 COPYFILE_DISABLE=1 /usr/bin/ditto -c -k --keepParent \
   "$ARCHIVE_PATH" "$ARCHIVE_ZIP"
+assert_no_quarantine_attributes "$ARCHIVE_ZIP" "xcarchive ZIP"
 /usr/bin/unzip -tq "$ARCHIVE_ZIP" >/dev/null \
   || fail "generated xcarchive ZIP failed integrity validation"
 ZIP_LISTING="$WORK_ROOT/archive-zip-listing.txt"
@@ -639,7 +754,7 @@ if [[ "$EXPORT_PACKAGE" == true ]]; then
   EXPORT_DIR_FINAL="$FINAL_RELEASE_DIR/export"
   EXPORT_OPTIONS="$WORK_ROOT/ExportOptions.plist"
   /usr/bin/plutil -create xml1 "$EXPORT_OPTIONS"
-  /usr/bin/plutil -insert method -string app-store-connect "$EXPORT_OPTIONS"
+  /usr/bin/plutil -insert method -string "$EXPORT_METHOD" "$EXPORT_OPTIONS"
   /usr/bin/plutil -insert destination -string export "$EXPORT_OPTIONS"
   /usr/bin/plutil -insert signingStyle -string automatic "$EXPORT_OPTIONS"
   /usr/bin/plutil -insert teamID -string "$TEAM_ID" "$EXPORT_OPTIONS"
@@ -660,12 +775,14 @@ if [[ "$EXPORT_PACKAGE" == true ]]; then
   )
   [[ "$ALLOW_PROVISIONING_UPDATES" == true ]] \
     && EXPORT_ARGS+=(-allowProvisioningUpdates)
+  assert_archive_identity_lock_unchanged
   DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild "${EXPORT_ARGS[@]}"
 
   exported_packages=("$EXPORT_DIR"/*.pkg(.N))
   (( ${#exported_packages} == 1 )) \
     || fail "App Store export must produce exactly one flat .pkg"
   EXPORTED_PACKAGE="${exported_packages[1]}"
+  assert_no_quarantine_attributes "$EXPORTED_PACKAGE" "exported App Store package"
   EXPORTED_PACKAGE_FINAL="$EXPORT_DIR_FINAL/${EXPORTED_PACKAGE:t}"
   PACKAGE_SIGNATURE_INFO="$WORK_ROOT/package-signature.txt"
   /usr/sbin/pkgutil --check-signature "$EXPORTED_PACKAGE" \
@@ -729,6 +846,7 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
   --arg resultBundle "$RESULT_BUNDLE_FINAL" \
   --arg exportedPackage "$EXPORTED_PACKAGE_FINAL" \
   --arg packageSHA256 "$PACKAGE_SHA256" \
+  --arg exportMethod "$EXPORT_METHOD" \
   --arg xcodeVersion "$XCODE_VERSION" \
   --arg macosSDK "$MACOS_SDK" \
   --arg teamID "$TEAM_ID" \
@@ -763,7 +881,7 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
     resultBundle: $resultBundle,
     exportedPackage: (if $exportedPackage == "" then null else $exportedPackage end),
     packageSHA256: (if $packageSHA256 == "" then null else $packageSHA256 end),
-    exportMethod: (if $exportedPackage == "" then null else "app-store-connect" end),
+    exportMethod: (if $exportedPackage == "" then null else $exportMethod end),
     exportDestination: (if $exportedPackage == "" then null else "export" end),
     xcodeVersion: $xcodeVersion,
     macosSDK: $macosSDK,
@@ -778,6 +896,7 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
     privacyPolicyURL: $privacyPolicyURL,
     supportURL: $supportURL,
     privacyManifestSHA256: $privacyManifestSHA256,
+    quarantineFree: true,
     signingIdentity: $signingIdentity,
     signingCertificateSHA1: $signingCertificateSHA1,
     provisioningProfile: {
@@ -797,25 +916,64 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
     createdAt: $createdAt
   }' >"$METADATA_PATH"
 
-/usr/bin/jq -e '
+/usr/bin/jq -e --arg expectedExportMethod "$EXPORT_METHOD" '
   .schemaVersion == 1 and
   .platform == "macOS" and
   .distribution == "mac-app-store" and
   .applicationCategory == "public.app-category.developer-tools" and
   .uploaded == false and
+  .quarantineFree == true and
   .archiveZipSHA256 != "" and
   .provisioningProfile.certificateMatches == true and
   (if .exportedPackage == null then
      .packageSHA256 == null and .exportMethod == null and .exportDestination == null
    else
-     .packageSHA256 != "" and .exportMethod == "app-store-connect" and
+     .packageSHA256 != "" and .exportMethod == $expectedExportMethod and
      .exportDestination == "export" and .installerSigningIdentity != null
    end)
 ' "$METADATA_PATH" >/dev/null \
   || fail "generated release metadata failed its non-uploading contract"
 
-/bin/mv "$STAGING_ROOT" "$FINAL_RELEASE_DIR"
+assert_archive_identity_lock_unchanged
+[[ -d "$ARCHIVE_PATH" && -f "$ARCHIVE_ZIP" && ! -L "$ARCHIVE_ZIP" && \
+  -f "$METADATA_PATH" && ! -L "$METADATA_PATH" ]] \
+  || fail "staged Mac App Store release directory is incomplete"
+[[ ! -e "$FINAL_RELEASE_DIR" && ! -L "$FINAL_RELEASE_DIR" ]] \
+  || fail "refusing to overwrite existing Mac App Store release directory: $FINAL_RELEASE_DIR"
+PUBLISHED_RELEASE_DIR="$FINAL_RELEASE_DIR"
+/bin/mv "$STAGING_ROOT" "$FINAL_RELEASE_DIR" \
+  || fail "could not atomically publish the staged Mac App Store release"
+[[ -d "$ARCHIVE_FINAL" && -f "$ARCHIVE_ZIP_FINAL" && \
+    ! -L "$ARCHIVE_ZIP_FINAL" && -f "$METADATA_FINAL" && \
+    ! -L "$METADATA_FINAL" && \
+    "$(/usr/bin/stat -f '%d:%i' "$FINAL_RELEASE_DIR")" == \
+      "$STAGING_IDENTITY" ]] \
+  || fail "published Mac App Store release failed its post-rename integrity check"
+/usr/bin/jq -e \
+  --arg archivePath "$ARCHIVE_FINAL" \
+  --arg archiveZip "$ARCHIVE_ZIP_FINAL" \
+  --arg resultBundle "$RESULT_BUNDLE_FINAL" \
+  --arg exportedPackage "$EXPORTED_PACKAGE_FINAL" '
+    .archivePath == $archivePath and
+    .archiveZip == $archiveZip and
+    .resultBundle == $resultBundle and
+    .exportedPackage == (
+      if $exportedPackage == "" then null else $exportedPackage end
+    ) and
+    .uploaded == false
+  ' "$METADATA_FINAL" >/dev/null \
+  || fail "published Mac App Store metadata changed during commit"
+STAGING_ROOT=""
 PUBLISHED=true
+COMMIT_DONE=true
+[[ -d "$PUBLISH_LOCK" && ! -L "$PUBLISH_LOCK" && \
+    "$(/usr/bin/stat -f '%d:%i' "$PUBLISH_LOCK")" == \
+      "$PUBLISH_LOCK_IDENTITY" ]] \
+  || fail "Mac App Store publish lock changed during release"
+/bin/rmdir "$PUBLISH_LOCK" \
+  || fail "could not release the Mac App Store publish lock"
+PUBLISH_LOCK_HELD=false
+PUBLISH_LOCK=""
 
 print -r -- "Archive: $ARCHIVE_FINAL"
 print -r -- "Archive ZIP: $ARCHIVE_ZIP_FINAL"

@@ -15,7 +15,7 @@
 
 开始前必须满足：
 
-1. 先确认主机至少为 macOS Sequoia 15.6，再安装并选中完整 Xcode 26 或更新版（仅 Command Line Tools 不足够）。
+1. 安装并选中完整 Xcode 14 或更新版（仅 Command Line Tools 不足够）。Apple 的 2026 通用上传门槛是 Xcode 14+；Xcode 26 + 26 SDK 的 Upcoming Requirements 条款列出了 iOS/iPadOS/tvOS/visionOS/watchOS，未列 macOS，因此本渠道不再误设 macOS 26 SDK 或 macOS Sequoia 15.6 门槛。若同时构建 iOS 伴侣，仍须按 iOS 渠道使用 Xcode 26 + iOS 26 SDK，并满足 Xcode 26 的主机要求。
 2. 在 Apple Developer 后台注册最终 Mac App ID，为它开启 CloudKit，并仅绑定本项目的 Production Container。
 3. 用 schemaVersion 2 `Config/ReleaseIdentity.json` 声明并用 `scripts/apply-release-identity.sh` 应用已确认的身份。`appStoreRecordMode=universal-purchase` 时 macOS/iOS 主 App Bundle ID 必须相同；`separate-records` 时必须不同。旧 schemaVersion 1 只能规范化为 Universal Purchase，不能表示分开记录。
 4. 确认 `.release/identity.lock.json` 已锁定同一模式和标识；`AGENT_ISLAND_APP_STORE_RECORD_MODE`、`AGENT_ISLAND_BUNDLE_ID` 和 `AGENT_ISLAND_IOS_BUNDLE_ID` 必须分别等于锁中的模式、macOS App ID 和 iOS App ID。Mac Target 使用独立的 `AGENT_ISLAND_MAC_APP_BUNDLE_ID`，分开记录时不得误用 iOS App ID。
@@ -23,6 +23,8 @@
 6. 准备未过期、非设备限定、非 `ProvisionsAllDevices` 的 Mac App Store provisioning profile。它必须包含本次使用的分发证书。
 7. 如果要导出 `.pkg`，还要安装同 Team 的 `Mac Installer Distribution` 或旧版 `3rd Party Mac Developer Installer` 证书。
 8. 确定 App Store 中使用的最终版权文字。Apple 要求 macOS 应用在 `Info.plist` 包含 `NSHumanReadableCopyright`，所以脚本不会为你编造法定姓名或版权主体。
+
+实际 Archive 入口会重新生成 `release-readiness.sh --json` 报告，并以 `mac-app-store` 档案门禁校验 identity lock、已应用配置、Xcode 工程/资源/权限和当前 Mac 工具链。只有在文档中勾选、但报告未通过时，脚本不会开始 Archive。
 
 ## 本地生成 Archive
 
@@ -61,7 +63,7 @@ export AGENT_ISLAND_MAC_APP_STORE_COPYRIGHT="© <年份> <Apple Developer 账号
   --allow-provisioning-updates
 ```
 
-`--export` 只使用 `app-store-connect` + `destination=export` 生成本地 `.pkg`。脚本不接受 App Store Connect 私钥、Apple ID 或 App 专用密码，也没有 upload 动作。
+`--export` 使用 Xcode 14 对应的 `app-store`，或 Xcode 15 及以上对应的 `app-store-connect`，并固定 `destination=export` 生成本地 `.pkg`。脚本会在 metadata 中记录实际方法，后续复验会按记录的 Xcode 大版本拒绝不匹配的方法。脚本不接受 App Store Connect 私钥、Apple ID 或 App 专用密码，也没有 upload 动作。
 
 如果同一 Team 在 Keychain 中有多张同类证书，脚本会停止，而不是随机选择。只能把 `security find-identity` 中的完整证书名称原样传入：
 
@@ -82,7 +84,7 @@ export AGENT_ISLAND_MAC_APP_STORE_INSTALLER_IDENTITY="<Keychain 中的完整 Ins
 - 代码签名属于指定 Team，启用 Hardened Runtime，且签名证书确实在嵌入 profile 的 `DeveloperCertificates` 中；
 - profile 不是 Development/Developer ID 类型，未过期，App ID Prefix、Team、Bundle ID 与 Production CloudKit 权限和签名一致；
 - App Sandbox、用户选择目录只读、App Scope Bookmark、Network Client 与 CloudKit 权限完整，`get-task-allow` 未开启；
-- Privacy Manifest、图标、开源声明和 Web UI 已入包，不含源码、测试 fixture、Apple 私钥/证书文件或 Finder 垃圾数据；
+- Privacy Manifest、图标、开源声明和 Web UI 已入包，不含源码、测试 fixture、Apple 私钥/证书文件或 Finder 垃圾数据；Archive、导出 PKG 及其中 App 还会只读检查并拒绝任何 `com.apple.quarantine`，不会在签名后静默清除；
 - `.xcarchive.zip` 结构与 ZIP 完整性正确，并生成 SHA-256；
 - 导出 `.pkg` 时，Installer 签名受信任，解出的 App 再次通过相同内容、权限和 profile 检查，并产生独立 SHA-256。
 
@@ -108,7 +110,7 @@ export/                         # 仅 --export 时存在
   dist/macos-app-store/<版本-构建-时间>
 ```
 
-它不会信任 `release-metadata.json` 中的结论：会重新计算 Archive ZIP 与 PKG 哈希、检查 checksum sidecar、确认当前 Archive 与该 ZIP 完全一致、展开 PKG，并分别复验 Archive/PKG 内 App 的 Bundle ID、版本、分类、资源、双架构、签名证书、Installer 证书、profile、Sandbox/CloudKit 权限和 Privacy Manifest。两份 App 的非签名内容与去签名后的可执行代码也必须一致。通过后会打印：
+它不会信任 `release-metadata.json` 中的结论：会重新计算 Archive ZIP 与 PKG 哈希、检查 checksum sidecar、确认当前 Archive 与该 ZIP 完全一致、展开 PKG，并分别复验 Archive/PKG 内 App 的 Bundle ID、版本、分类、资源、双架构、签名证书、Installer 证书、profile、Sandbox/CloudKit 权限、Privacy Manifest 和递归 quarantine 属性。上传前的私有 PKG 快照还会再次检查 `com.apple.quarantine`；发现后停止并要求从干净输入重建，不会改写已签名候选。两份 App 的非签名内容与去签名后的可执行代码也必须一致。通过后会打印：
 
 ```text
 <Bundle ID>:<Version>:<Build>:<PKG SHA-256>
@@ -239,7 +241,7 @@ export AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE="$PWD/dist/macos-app-store
 1. 将 `AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA` 指向该目录的 `release-metadata.json`，先运行 `submit-macos-app-store.sh --check`，再运行 `scripts/release-readiness.sh --json`。readiness 会要求 metadata 中的 `version`/`build` 与当前 macOS Target 的 `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` 一致，并重新计算 Archive ZIP 与 PKG 哈希。
 2. 在 Xcode Organizer 生成并审查 Privacy Report，处理全部 validation 警告；将 App Privacy 证据按平台、记录模式、Bundle ID、版本、Build 和候选包 SHA-256 绑定。
 3. 用真实签名包完成五项 QA，并将 `confirm-functional-qa-evidence.sh` 生成的 `macos-functional-verification-*.json` 填入 `AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE`。每次重新构建都必须重做 QA 和五份附件，不得手抄哈希或自由布尔值代替。
-4. 完成 Production CloudKit schema 部署和同 iCloud 账号的 Mac→iPhone 真机检查。只有 `readyForMacAppStoreUpload: true` 才表示该本地候选通过上传前门禁；它不表示已经上传。
+4. 完成 Production CloudKit schema 部署和同 iCloud 账号的 Mac→iPhone 真机检查。确认 `macStoreSubmissionAssetsReady: true`；它只要求 Mac 中英文元数据、Mac 截图和两端共用的隐私/支持材料，不会因 iOS 独有素材未完成而失败。只有 `readyForMacAppStoreUpload: true` 才表示该本地候选通过上传前门禁；它不表示已经上传。
 5. 需要时先执行 `--validate`，仅在核对精确四段式确认值后显式执行 `--upload`。复验 delivery record 后将它填入 `AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE`；`uploadAccepted: true` 不等于 Apple 处理完成。
 6. 上传后在 App Store Connect 人工确认该 Build 为 `Complete`，检查全部 errors/warnings/information，用 `confirm-macos-app-store-evidence.sh` 生成并复验 processing evidence，再填入 `AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE`。这是人工观察的本地证据，不是 Apple 状态的自动回查。
 7. `readyForMacAppStoreReviewSelection: true` 只表示证据链已支持在对应 macOS 版本中人工选择该 Build；它不表示构建已被选中或已提交 App Review。
@@ -253,4 +255,4 @@ export AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE="$PWD/dist/macos-app-store
 ./Tests/test-macos-app-store-delivery.sh
 ```
 
-Apple 的 Xcode 与提交要求会更新。每次候选版构建前，重新核对 [Preparing your app for distribution](https://developer.apple.com/documentation/xcode/preparing-your-app-for-distribution)、[Creating distribution-signed code for macOS](https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac/) 和 [Packaging Mac software for distribution](https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution)。
+Apple 的 Xcode 与提交要求会更新。每次候选版构建前，重新核对 [Upload builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)、[Upcoming Requirements](https://developer.apple.com/news/upcoming-requirements/)、[Preparing your app for distribution](https://developer.apple.com/documentation/xcode/preparing-your-app-for-distribution)、[Creating distribution-signed code for macOS](https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac/) 和 [Packaging Mac software for distribution](https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution)。Developer ID 直接分发只按 `release-macos.sh` 实际需要检查 `clang`、`notarytool`、`stapler` 等工具，不继承 iOS 的 Xcode 26 门槛。

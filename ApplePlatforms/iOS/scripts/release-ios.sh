@@ -5,6 +5,7 @@ IOS_ROOT="${0:A:h:h}"
 PRODUCT_ROOT="${IOS_ROOT:h:h}"
 DIST_ROOT="$PRODUCT_ROOT/dist/ios"
 PRIVACY_CONTRACT="$IOS_ROOT/scripts/privacy-manifest-contract.jq"
+PREFLIGHT_ASSERTION="$PRODUCT_ROOT/scripts/assert-release-preflight.sh"
 PROJECT_PATH="$IOS_ROOT/AgentIsland.xcodeproj"
 SCHEME="AgentIslandMobile"
 CONFIGURATION="Release"
@@ -51,6 +52,8 @@ command -v jq >/dev/null 2>&1 || fail "jq is required"
 command -v plutil >/dev/null 2>&1 || fail "plutil is required"
 [[ -f "$PRIVACY_CONTRACT" ]] \
   || fail "privacy-manifest-contract.jq is required"
+[[ -f "$PREFLIGHT_ASSERTION" && ! -L "$PREFLIGHT_ASSERTION" ]] \
+  || fail "release preflight assertion is missing or unsafe"
 
 DEVELOPER_PATH="${DEVELOPER_DIR:-$(/usr/bin/xcode-select -p 2>/dev/null || true)}"
 [[ "$DEVELOPER_PATH" == */Xcode*.app/Contents/Developer ]] \
@@ -309,17 +312,36 @@ SELECTED_IDENTITY_SHA1="$(print -r -- "$SELECTED_IDENTITY_SHA1S" | /usr/bin/head
 print -r -- "$SELECTED_IDENTITY_SHA1" | /usr/bin/grep -Eq '^[0-9A-F]{40}$' \
   || fail "selected Apple Distribution identity has an invalid certificate SHA-1"
 
-STAMP="$(/bin/date -u '+%Y%m%dT%H%M%SZ')"
-RELEASE_DIR="$DIST_ROOT/$VERSION-$BUILD_NUMBER-$STAMP"
-ARCHIVE_PATH="$RELEASE_DIR/AgentIslandMobile.xcarchive"
-RESULT_BUNDLE="$RELEASE_DIR/AgentIslandMobile-archive.xcresult"
-EXPORT_DIR="$RELEASE_DIR/export"
-METADATA_PATH="$RELEASE_DIR/release-metadata.json"
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/agentisland-ios-release.XXXXXX")"
+READINESS_REPORT="$WORK_DIR/release-readiness.json"
+STAGING_ROOT=""
+PUBLISH_LOCK=""
+PUBLISHED_RELEASE_DIR=""
+FINAL_RELEASE_DIR=""
+STAGING_INODE=""
+COMMIT_DONE=false
 
 cleanup() {
   local exit_code=$?
   trap - EXIT HUP INT TERM
+  set +e
+  if [[ -n "$STAGING_ROOT" && \
+      "$STAGING_ROOT" == "$DIST_ROOT"/.agentisland-ios-release-staging.* && \
+      -d "$STAGING_ROOT" && ! -L "$STAGING_ROOT" ]]; then
+    /bin/rm -rf "$STAGING_ROOT"
+  fi
+  if [[ "$COMMIT_DONE" != true && -n "$PUBLISHED_RELEASE_DIR" && \
+      "$PUBLISHED_RELEASE_DIR" == "$FINAL_RELEASE_DIR" && \
+      -d "$PUBLISHED_RELEASE_DIR" && ! -L "$PUBLISHED_RELEASE_DIR" && \
+      "$(/usr/bin/stat -f '%i' "$PUBLISHED_RELEASE_DIR" 2>/dev/null)" == \
+        "$STAGING_INODE" ]]; then
+    /bin/rm -rf "$PUBLISHED_RELEASE_DIR"
+  fi
+  if [[ -n "$PUBLISH_LOCK" && \
+      "$PUBLISH_LOCK" == "$DIST_ROOT"/.agentisland-ios-release-*.publish-lock && \
+      -d "$PUBLISH_LOCK" && ! -L "$PUBLISH_LOCK" ]]; then
+    /bin/rmdir "$PUBLISH_LOCK" 2>/dev/null
+  fi
   if [[ "$WORK_DIR" == "${TMPDIR:-/tmp}"/agentisland-ios-release.* ]]; then
     /bin/rm -rf "$WORK_DIR"
   fi
@@ -330,7 +352,44 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-/bin/mkdir -p "$RELEASE_DIR"
+# Reuse the repository's canonical readiness calculation, but consume only its
+# archive-time iOS gate. Upload/processing/install/review evidence is neither
+# expected nor accepted as a substitute for the locked identity and config.
+if ! DEVELOPER_DIR="$DEVELOPER_PATH" \
+    "$PRODUCT_ROOT/scripts/release-readiness.sh" --json >"$READINESS_REPORT"; then
+  fail "could not generate the release-readiness report"
+fi
+/bin/zsh "$PREFLIGHT_ASSERTION" ios "$READINESS_REPORT"
+RELEASE_IDENTITY_LOCK_SHA256="$(/usr/bin/jq -r \
+  '.releaseIdentityLockSHA256' "$READINESS_REPORT")"
+
+STAMP="$(/bin/date -u '+%Y%m%dT%H%M%SZ')"
+RELEASE_BASENAME="$VERSION-$BUILD_NUMBER-$STAMP"
+FINAL_RELEASE_DIR="$DIST_ROOT/$RELEASE_BASENAME"
+FINAL_ARCHIVE_PATH="$FINAL_RELEASE_DIR/AgentIslandMobile.xcarchive"
+FINAL_EXPORT_DIR="$FINAL_RELEASE_DIR/export"
+FINAL_METADATA_PATH="$FINAL_RELEASE_DIR/release-metadata.json"
+
+if [[ -L "$DIST_ROOT" || ( -e "$DIST_ROOT" && ! -d "$DIST_ROOT" ) ]]; then
+  fail "$DIST_ROOT must be a regular directory, not a symlink or file"
+fi
+/bin/mkdir -p "$DIST_ROOT"
+PUBLISH_LOCK="$DIST_ROOT/.agentisland-ios-release-$RELEASE_BASENAME.publish-lock"
+if ! /bin/mkdir "$PUBLISH_LOCK" 2>/dev/null; then
+  fail "another release is publishing $RELEASE_BASENAME, or its stale publish lock must be inspected"
+fi
+[[ ! -e "$FINAL_RELEASE_DIR" && ! -L "$FINAL_RELEASE_DIR" ]] \
+  || fail "refusing to overwrite existing iOS release directory: $FINAL_RELEASE_DIR"
+STAGING_ROOT="$(mktemp -d "$DIST_ROOT/.agentisland-ios-release-staging.XXXXXX")" \
+  || fail "could not create same-filesystem iOS release staging directory"
+STAGING_INODE="$(/usr/bin/stat -f '%i' "$STAGING_ROOT")"
+[[ "$STAGING_INODE" == <-> ]] || fail "could not identify the iOS release staging directory"
+
+RELEASE_DIR="$STAGING_ROOT"
+ARCHIVE_PATH="$RELEASE_DIR/AgentIslandMobile.xcarchive"
+RESULT_BUNDLE="$RELEASE_DIR/AgentIslandMobile-archive.xcresult"
+EXPORT_DIR="$RELEASE_DIR/export"
+METADATA_PATH="$RELEASE_DIR/release-metadata.json"
 
 typeset -a ARCHIVE_ARGS
 ARCHIVE_ARGS=(
@@ -345,6 +404,9 @@ ARCHIVE_ARGS=(
 )
 [[ "$ALLOW_PROVISIONING_UPDATES" == true ]] \
   && ARCHIVE_ARGS+=(-allowProvisioningUpdates)
+# Revalidate the lock at the archive action boundary, rather than relying only
+# on the readiness snapshot generated before staging was prepared.
+/bin/zsh "$PREFLIGHT_ASSERTION" ios "$READINESS_REPORT"
 DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild "${ARCHIVE_ARGS[@]}" \
   DEVELOPMENT_TEAM="$TEAM_ID" \
   CODE_SIGN_IDENTITY="$SELECTED_IDENTITY"
@@ -560,6 +622,7 @@ if [[ "$EXPORT_IPA" == true ]]; then
   )
   [[ "$ALLOW_PROVISIONING_UPDATES" == true ]] \
     && EXPORT_ARGS+=(-allowProvisioningUpdates)
+  /bin/zsh "$PREFLIGHT_ASSERTION" ios "$READINESS_REPORT"
   DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild "${EXPORT_ARGS[@]}"
 
   ipa_files=("$EXPORT_DIR"/*.ipa(N))
@@ -728,13 +791,18 @@ if [[ "$EXPORT_IPA" == true ]]; then
   print -r -- "$IPA_SHA256  ${EXPORTED_IPA:t}" >"$EXPORTED_IPA.sha256"
 fi
 
+PUBLISHED_IPA=""
+if [[ -n "$EXPORTED_IPA" ]]; then
+  PUBLISHED_IPA="$FINAL_EXPORT_DIR/${EXPORTED_IPA:t}"
+fi
+
 CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
 /usr/bin/jq -n \
   --arg product "MAC版灵动岛--Agent运行监测 iPhone companion" \
   --arg version "$VERSION" \
   --arg build "$BUILD_NUMBER" \
-  --arg archivePath "$ARCHIVE_PATH" \
-  --arg exportedIPA "$EXPORTED_IPA" \
+  --arg archivePath "$FINAL_ARCHIVE_PATH" \
+  --arg exportedIPA "$PUBLISHED_IPA" \
   --arg ipaSHA256 "$IPA_SHA256" \
   --arg xcodeVersion "$XCODE_VERSION" \
   --arg iphoneSDK "$IPHONE_SDK" \
@@ -752,6 +820,7 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
   --arg widgetPrivacyManifestSHA256 "$ARCHIVED_WIDGET_PRIVACY_SHA256" \
   --arg signingIdentity "$APP_SIGNING_AUTHORITY" \
   --arg signingCertificateSHA1 "$SELECTED_IDENTITY_SHA1" \
+  --arg releaseIdentityLockSHA256 "$RELEASE_IDENTITY_LOCK_SHA256" \
   --arg appProfileExpiration "$APP_PROFILE_EXPIRATION" \
   --arg widgetProfileExpiration "$WIDGET_PROFILE_EXPIRATION" \
   --arg exportedAppProfileExpiration "$EXPORTED_APP_EXPIRATION" \
@@ -790,6 +859,7 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
     cloudKitEnvironment: "Production",
     signingIdentity: $signingIdentity,
     signingCertificateSHA1: $signingCertificateSHA1,
+    releaseIdentityLockSHA256: $releaseIdentityLockSHA256,
     provisioningProfileExpiration: {
       app: $appProfileExpiration,
       widget: $widgetProfileExpiration
@@ -807,7 +877,62 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
     createdAt: $createdAt
   }' >"$METADATA_PATH"
 
-print -r -- "Archive: $ARCHIVE_PATH"
-[[ -n "$EXPORTED_IPA" ]] && print -r -- "IPA: $EXPORTED_IPA"
-print -r -- "Metadata: $METADATA_PATH"
+# Validate the complete staged directory before its one-step same-filesystem
+# rename. The per-candidate publish lock serializes same-second runs, and the
+# destination is checked again immediately before commit so an existing release
+# is never reused or overwritten.
+/usr/bin/jq -e \
+  --arg archivePath "$FINAL_ARCHIVE_PATH" \
+  --arg exportedIPA "$PUBLISHED_IPA" \
+  --arg ipaSHA256 "$IPA_SHA256" \
+  --arg releaseIdentityLockSHA256 "$RELEASE_IDENTITY_LOCK_SHA256" '
+    .archivePath == $archivePath and
+    .exportedIPA == (if $exportedIPA == "" then null else $exportedIPA end) and
+    .ipaSHA256 == (if $ipaSHA256 == "" then null else $ipaSHA256 end) and
+    .releaseIdentityLockSHA256 == $releaseIdentityLockSHA256 and
+    .uploaded == false
+  ' "$METADATA_PATH" >/dev/null \
+  || fail "staged release metadata does not describe the final publication paths"
+[[ -d "$ARCHIVE_PATH" && -f "$METADATA_PATH" && ! -L "$METADATA_PATH" ]] \
+  || fail "staged release directory is incomplete"
+if [[ -n "$EXPORTED_IPA" ]]; then
+  [[ -f "$EXPORTED_IPA" && ! -L "$EXPORTED_IPA" && \
+      -f "$EXPORTED_IPA.sha256" && ! -L "$EXPORTED_IPA.sha256" ]] \
+    || fail "staged IPA or checksum is missing or unsafe"
+  [[ "$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$EXPORTED_IPA" | \
+      /usr/bin/awk '{print $1}')" == "$IPA_SHA256" ]] \
+    || fail "staged IPA checksum changed before publication"
+fi
+[[ ! -e "$FINAL_RELEASE_DIR" && ! -L "$FINAL_RELEASE_DIR" ]] \
+  || fail "refusing to overwrite existing iOS release directory: $FINAL_RELEASE_DIR"
+
+# Archive/export validation may be lengthy. Do not publish a candidate whose
+# identity lock no longer matches the readiness snapshot it records.
+/bin/zsh "$PREFLIGHT_ASSERTION" ios "$READINESS_REPORT"
+PUBLISHED_RELEASE_DIR="$FINAL_RELEASE_DIR"
+/bin/mv "$STAGING_ROOT" "$FINAL_RELEASE_DIR" \
+  || fail "could not atomically publish the staged iOS release"
+STAGING_ROOT=""
+[[ -d "$FINAL_ARCHIVE_PATH" && -f "$FINAL_METADATA_PATH" && \
+    ! -L "$FINAL_METADATA_PATH" && \
+    "$(/usr/bin/stat -f '%i' "$FINAL_RELEASE_DIR")" == "$STAGING_INODE" ]] \
+  || fail "published iOS release failed its post-rename integrity check"
+/usr/bin/jq -e \
+  --arg archivePath "$FINAL_ARCHIVE_PATH" \
+  --arg exportedIPA "$PUBLISHED_IPA" \
+  --arg releaseIdentityLockSHA256 "$RELEASE_IDENTITY_LOCK_SHA256" '
+    .archivePath == $archivePath and
+    .exportedIPA == (if $exportedIPA == "" then null else $exportedIPA end) and
+    .releaseIdentityLockSHA256 == $releaseIdentityLockSHA256 and
+    .uploaded == false
+  ' "$FINAL_METADATA_PATH" >/dev/null \
+  || fail "published iOS release metadata changed during commit"
+
+COMMIT_DONE=true
+/bin/rmdir "$PUBLISH_LOCK"
+PUBLISH_LOCK=""
+
+print -r -- "Archive: $FINAL_ARCHIVE_PATH"
+[[ -n "$PUBLISHED_IPA" ]] && print -r -- "IPA: $PUBLISHED_IPA"
+print -r -- "Metadata: $FINAL_METADATA_PATH"
 print -r -- "No build was uploaded. Inspect the archive before using Xcode Organizer."

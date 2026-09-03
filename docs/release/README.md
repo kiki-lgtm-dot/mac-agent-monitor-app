@@ -19,7 +19,7 @@
 - `RELEASE_IDENTITY.md`：正式 Bundle/Team/Container 的只读检查、首次可恢复应用、身份锁和 profile 派生 entitlement 流程。
 - `RELEASE_CHECKLIST.md`：从当前开发构建到公开上线的检查清单。
 
-源码阶段可分别运行 `node scripts/validate-app-privacy.mjs` 和 `node scripts/validate-store-submission.mjs`；候选发布时两者都必须带 `--release` 通过。这两项只是发布门禁的一部分，不代替最终 Archive、签名/profile、Xcode Privacy Report 和真机验证。
+源码阶段可分别运行 `node scripts/validate-app-privacy.mjs` 和 `node scripts/validate-store-submission.mjs`。商店素材校验器的 `releaseReady` / `storeSubmissionAssetsReady` 是 macOS 与 iOS 都完成后的汇总；单独发布某个平台时，以 readiness 报告中的 `macStoreSubmissionAssetsReady` 或 `iosStoreSubmissionAssetsReady` 为准。Mac 上传不会被未完成的 iOS 元数据或截图阻断，iOS 最终提审也只读取 iOS 对应材料；双语隐私政策、App Privacy worksheet 和公开支持联系方式仍是两端共用门禁。这些检查不代替最终 Archive、签名/profile、Xcode Privacy Report 和真机验证。
 
 ## 身份锁与 Mac App Store 证据层级
 
@@ -29,7 +29,7 @@ Mac App Store 发布状态必须按以下证据层级逐步判定，不得用单
 
 1. `release-macos-app-store.sh --export` 生成 `release-metadata.json`、Archive ZIP 和 PKG；`submit-macos-app-store.sh --check` 在本地重算哈希并重验精确候选，不上传。
 2. `confirm-functional-qa-evidence.sh` 将沙盒授权/拒绝/撤销/恢复、Archive/PKG 安装启退、profile+证书、Xcode Privacy Report 和审核路径的五份不同附件绑定到同一 Archive ZIP + PKG。将生成的只读、不覆盖记录填入 `AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE`。
-3. `readyForMacAppStoreUpload: true` 只表示本地候选、候选级 App Privacy 和功能 QA 已通过上传前门禁，不表示已上传、Apple 已处理或已提审。
+3. `readyForMacAppStoreUpload: true` 只表示本地候选、候选级 App Privacy、功能 QA 和 `macStoreSubmissionAssetsReady` 已通过上传前门禁；它不依赖 iOS 独有素材，也不表示已上传、Apple 已处理或已提审。
 4. 显式执行 `submit-macos-app-store.sh --upload` 后，将交付记录填入 `AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE`。上传命令被接受不等于 App Store Connect 处理完成。
 5. 人工在 App Store Connect 确认该精确构建为 `Complete` 并检查全部警告后，用 `confirm-macos-app-store-evidence.sh` 生成处理记录，再填入 `AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE`。这是操作人员的本地证据，验证脚本不会回查 Apple 状态。
 6. `readyForMacAppStoreReviewSelection: true` 只表示证据链已支持在对应 macOS 版本中人工选择该 Build；它不表示 Build 已被选中，更不表示已执行 App Review 提交。选择构建和最终提审仍由账号授权人在 App Store Connect 中完成。
@@ -51,9 +51,9 @@ Mac App Store 发布状态必须按以下证据层级逐步判定，不得用单
 
 ## 当前上线阻断项
 
-1. Apple 自 2026-04-28 起要求 iOS/iPadOS 上传使用 iOS/iPadOS 26 SDK 或更新版；Xcode 26 至少需要 macOS Sequoia 15.6。`release-readiness.sh` 现在会分开报告主机系统兼容性、Xcode 与 SDK 版本。
+1. Apple 自 2026-04-28 起要求 iOS/iPadOS 上传使用 iOS/iPadOS 26 SDK 或更新版；Xcode 26 至少需要 macOS Sequoia 15.6。Mac App Store 不在这条 26 SDK 清单中，其 2026 通用上传门槛为完整 Xcode 14+；`release-readiness.sh` 会分别报告 iOS 与 Mac App Store 门槛。Developer ID 流程只检查实际所需的 `clang`/`notarytool`/`stapler`，不继承 Xcode 26 门槛。
 2. 当前 Bundle ID 为开发占位值 `local.agentisland.desktop`，构建采用 ad-hoc 签名。
-3. Mac App Store Xcode Target、App Sandbox、主目录只读安全书签及撤销/重新授权源码已完成静态验证；仍需在完整 Xcode、正式签名的商店构建中实测授权、拒绝、书签失效、监测停止与恢复流程。
+3. Mac App Store Xcode Target、App Sandbox、主目录只读安全书签及撤销/重新授权源码已完成静态验证；Archive、PKG 与上传快照现会递归拒绝 `com.apple.quarantine`。仍需在完整 Xcode、正式签名的商店构建中实测授权、拒绝、书签失效、监测停止与恢复流程。
 4. 隐私政策与支持页面已部署到稳定的公开 GitHub Pages URL，并于 2026-09-04 从未登录请求复核 HTTPS 200。每个候选提交前仍须重新验证并将结果绑定到候选包，同时补齐 App Store Connect 所需的法定姓名、支持邮箱等账号材料。
 5. 翻译器默认地址当前指向 DeepSeek API。官方公开资料基线审计已归档，应用内分层告知、首次离机传输确认和官方政策链接已实施，公开隐私页也已同步。但公开材料未给出本下游应用 API 请求的固定保留期或不训练承诺；仍需决定是否保留默认第三方端点，并据此最终确认 App Privacy 标签。
 6. iOS 与 macOS 都已有明确标识、可退出并重置的内置离线示例模式。macOS 示例仅替代 Agent 监测数据，不读本机 Agent 日志/自定义源，不访问网络或 CloudKit，且退出后不自动恢复真实监测；iOS 示例不访问 CloudKit。两者都不能替代候选签名构建的动态验收、真实生产同步或真机验证。
@@ -64,6 +64,8 @@ Mac App Store 发布状态必须按以下证据层级逐步判定，不得用单
 
 - [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
 - [App Store 当前上传 SDK 要求](https://developer.apple.com/app-store/submitting/)
+- [App Store Connect Upload builds（含支持的 Xcode 版本）](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
+- [Upcoming Requirements（含 macOS quarantine 门槛）](https://developer.apple.com/news/upcoming-requirements/)
 - [Xcode 系统要求](https://developer.apple.com/xcode/system-requirements/)
 - [App Store Connect 元数据字段](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information)
 - [App Privacy 填写说明](https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy/)

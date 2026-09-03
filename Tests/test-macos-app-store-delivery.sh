@@ -7,6 +7,7 @@ SUBMIT_SCRIPT="$PROJECT_ROOT/ApplePlatforms/macOS/scripts/submit-macos-app-store
 CONFIRM_SCRIPT="$PROJECT_ROOT/ApplePlatforms/macOS/scripts/confirm-macos-app-store-evidence.sh"
 DELIVERY_VERIFY_SCRIPT="$PROJECT_ROOT/ApplePlatforms/macOS/scripts/verify-macos-app-store-delivery.sh"
 VERIFY_SCRIPT="$PROJECT_ROOT/ApplePlatforms/macOS/scripts/verify-macos-app-store-evidence.sh"
+PREFLIGHT_SOURCE="$PROJECT_ROOT/scripts/assert-release-preflight.sh"
 TEST_ROOT="$(mktemp -d /private/tmp/agentisland-mac-delivery-test.XXXXXX)"
 trap '/bin/rm -rf "$TEST_ROOT"' EXIT HUP INT TERM
 
@@ -35,6 +36,16 @@ contains() {
 /bin/zsh -n "$VERIFY_SCRIPT"
 
 for marker in '--check' '--validate' '--upload' '--type macos' \
+  'MINIMUM_XCODE_MAJOR=14' \
+  'export_method_matches_xcode' \
+  'approved_signed_entitlement_key' \
+  '"$PREFLIGHT_ASSERTION" mac-app-store-upload' \
+  'assert_upload_identity_lock_unchanged' \
+  'AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$METADATA_PATH"' \
+  '.mac-app-store-submit.lock' \
+  'CFBundleDevelopmentRegion raw "$info"' \
+  'assert_no_quarantine_attributes "$app_path" "$label"' \
+  'private App Store package snapshot' \
   'AGENT_ISLAND_CONFIRM_MAC_APP_STORE_UPLOAD' \
   'Upload acceptance is not processing completion' \
   'processingState: null' 'warningsReviewed: false' \
@@ -74,10 +85,13 @@ INSTRUMENTED_SUBMIT="$INSTRUMENTED_MAC_ROOT/scripts/submit-macos-app-store.sh"
 INSTRUMENTED_CONFIRM="$INSTRUMENTED_MAC_ROOT/scripts/confirm-macos-app-store-evidence.sh"
 INSTRUMENTED_DELIVERY_VERIFY="$INSTRUMENTED_MAC_ROOT/scripts/verify-macos-app-store-delivery.sh"
 INSTRUMENTED_VERIFY="$INSTRUMENTED_MAC_ROOT/scripts/verify-macos-app-store-evidence.sh"
+INSTRUMENTED_PREFLIGHT="$INSTRUMENTED_PRODUCT_ROOT/scripts/assert-release-preflight.sh"
+INSTRUMENTED_READINESS="$INSTRUMENTED_PRODUCT_ROOT/scripts/release-readiness.sh"
 TEST_USER_ROOT="$TEST_ROOT/test-user"
 /bin/mkdir -p "$STUB_DIRECTORY" "$INSTRUMENTED_MAC_ROOT/scripts" \
   "$INSTRUMENTED_MAC_ROOT/Config" "$INSTRUMENTED_IOS_ROOT/Config" \
-  "$INSTRUMENTED_PRODUCT_ROOT/Resources" "$TEST_USER_ROOT"
+  "$INSTRUMENTED_PRODUCT_ROOT/Resources" "$INSTRUMENTED_PRODUCT_ROOT/scripts" \
+  "$TEST_USER_ROOT"
 
 /bin/cat >"$STUB_DIRECTORY/codesign" <<'EOF'
 #!/bin/zsh
@@ -134,7 +148,7 @@ EOF
 #!/bin/zsh
 set -euo pipefail
 [[ "$1" == "-version" ]] || exit 64
-print -r -- "Xcode 26.0"
+print -r -- "Xcode ${AGENT_ISLAND_TEST_XCODE_VERSION:-26.0}"
 print -r -- "Build version 17A000"
 EOF
 
@@ -201,6 +215,10 @@ if [[ " $* " == *" --validate-app "* ]]; then
       print -r -- '{"success-message":"No errors validating the synthetic archive."}'
       ;;
   esac
+  if [[ "${AGENT_ISLAND_TEST_MUTATE_IDENTITY_LOCK_AFTER_VALIDATE:-}" == true ]]; then
+    print -n -r -- 'tampered after validation' \
+      >>"$AGENT_ISLAND_TEST_IDENTITY_LOCK_PATH"
+  fi
 elif [[ " $* " == *" --upload-app "* ]]; then
   [[ "${AGENT_ISLAND_TEST_ALTOOL_FAIL_MODE:-}" != "upload" ]] || exit 69
   print -r -- '{"success-message":"Successfully uploaded the synthetic package."}'
@@ -224,8 +242,48 @@ EOF
 /bin/cp "$CONFIRM_SCRIPT" "$INSTRUMENTED_CONFIRM"
 /bin/cp "$DELIVERY_VERIFY_SCRIPT" "$INSTRUMENTED_DELIVERY_VERIFY"
 /bin/cp "$VERIFY_SCRIPT" "$INSTRUMENTED_VERIFY"
+/bin/cp "$PREFLIGHT_SOURCE" "$INSTRUMENTED_PREFLIGHT"
+/bin/cat >"$INSTRUMENTED_READINESS" <<'EOF'
+#!/bin/zsh
+set -euo pipefail
+[[ "$#" == 1 && "$1" == "--json" ]] || exit 64
+[[ "${AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA:-}" == \
+  "${AGENT_ISLAND_TEST_EXPECTED_RELEASE_METADATA:-}" ]] || exit 65
+upload_ready=true
+[[ "${AGENT_ISLAND_TEST_UPLOAD_READINESS_FAIL:-}" != true ]] \
+  || upload_ready=false
+/usr/bin/jq -n \
+  --argjson uploadReady "$upload_ready" \
+  --arg lockPath "$AGENT_ISLAND_TEST_IDENTITY_LOCK_PATH" \
+  --arg lockSHA "$AGENT_ISLAND_TEST_IDENTITY_LOCK_SHA256" '{
+  releaseIdentityLockConfigured: true,
+  releaseIdentityLockValid: true,
+  releaseIdentityAppliedFilesMatch: true,
+  releaseIdentityMatchesConfiguration: true,
+  releaseIdentityLockPath: $lockPath,
+  releaseIdentityLockSHA256: $lockSHA,
+  releaseIdentityReady: true,
+  readyForMacAppStoreArchive: true,
+  macAppStoreExactCandidateEvidenceReady: true,
+  macAppStoreLocalPreflightPassed: true,
+  macAppStoreFunctionalQAEvidenceReady: true,
+  macAppStoreFunctionalEvidenceBoundToCandidate: true,
+  macAppStoreSandboxFlowVerified: true,
+  macAppStoreArchiveVerified: true,
+  macAppStoreProfileCertificateVerified: true,
+  macAppStorePrivacyReportVerified: true,
+  macAppStoreReviewPathVerified: true,
+  cloudKitProductionSchemaVerified: true,
+  macPrivacyReleaseEvidenceReady: true,
+  macStoreSubmissionAssetsReady: true,
+  iosStoreSubmissionAssetsReady: false,
+  storeSubmissionAssetsReady: false,
+  readyForMacAppStoreUpload: $uploadReady
+}'
+EOF
 /bin/chmod 0755 "$INSTRUMENTED_SUBMIT" "$INSTRUMENTED_CONFIRM" \
-  "$INSTRUMENTED_DELIVERY_VERIFY" "$INSTRUMENTED_VERIFY"
+  "$INSTRUMENTED_DELIVERY_VERIFY" "$INSTRUMENTED_VERIFY" \
+  "$INSTRUMENTED_PREFLIGHT" "$INSTRUMENTED_READINESS"
 
 TEAM_ID="ABCDE12345"
 APP_BUNDLE_ID="com.agentisland.release"
@@ -296,6 +354,7 @@ SIGNING_CERTIFICATE_SHA1="$(LC_ALL=C LANG=C /usr/bin/shasum -a 1 \
     "com.apple.developer.icloud-services": ["CloudKit"],
     "com.apple.developer.icloud-container-environment": "Production"
   }' >"$APP_ENTITLEMENTS"
+/bin/cp "$APP_ENTITLEMENTS" "$TEST_ROOT/valid-app-entitlements.json"
 /usr/bin/jq -n \
   --arg prefix "$TEAM_ID" \
   --arg team "$TEAM_ID" \
@@ -322,6 +381,7 @@ SIGNING_CERTIFICATE_SHA1="$(LC_ALL=C LANG=C /usr/bin/shasum -a 1 \
   --arg support "$SUPPORT_URL" '{
     CFBundleIdentifier: $bundle,
     CFBundleDisplayName: $display,
+    CFBundleDevelopmentRegion: "en",
     CFBundleShortVersionString: "1.2.3",
     CFBundleVersion: "42",
     CFBundleExecutable: "AgentIsland",
@@ -420,6 +480,7 @@ print -r -- "$PACKAGE_SHA256  ${PACKAGE_PATH:t}" >"$PACKAGE_PATH.sha256"
     privacyPolicyURL: $privacyURL,
     supportURL: $supportURL,
     privacyManifestSHA256: $privacySHA,
+    quarantineFree: true,
     signingIdentity: $identity,
     signingCertificateSHA1: $certificateSHA,
     provisioningProfile: {
@@ -438,6 +499,11 @@ VALID_METADATA="$TEST_ROOT/valid-release-metadata.json"
 /bin/cp "$METADATA_PATH" "$VALID_METADATA"
 VALID_PACKAGE="$TEST_ROOT/valid-package.pkg"
 /bin/cp "$PACKAGE_PATH" "$VALID_PACKAGE"
+IDENTITY_LOCK_PATH="$TEST_ROOT/identity.lock.json"
+print -n -r -- '{"schemaVersion":2}' >"$IDENTITY_LOCK_PATH"
+/bin/chmod 0600 "$IDENTITY_LOCK_PATH"
+IDENTITY_LOCK_SHA256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 \
+  "$IDENTITY_LOCK_PATH" | /usr/bin/awk '{print $1}')"
 
 export AGENT_ISLAND_TEST_LEAF_CERTIFICATE="$LEAF_CERTIFICATE"
 export AGENT_ISLAND_TEST_APP_ENTITLEMENTS="$APP_ENTITLEMENTS"
@@ -448,6 +514,9 @@ export AGENT_ISLAND_TEST_PACKAGE_PATH="$PACKAGE_PATH"
 export AGENT_ISLAND_TEST_PACKAGE_SHA256="$PACKAGE_SHA256"
 export AGENT_ISLAND_TEST_EXPANDED_PACKAGE="$EXPANDED_PACKAGE"
 export AGENT_ISLAND_TEST_ALTOOL_LOG="$TEST_ROOT/altool.log"
+export AGENT_ISLAND_TEST_EXPECTED_RELEASE_METADATA="$METADATA_PATH"
+export AGENT_ISLAND_TEST_IDENTITY_LOCK_PATH="$IDENTITY_LOCK_PATH"
+export AGENT_ISLAND_TEST_IDENTITY_LOCK_SHA256="$IDENTITY_LOCK_SHA256"
 
 expect_check_rejected() {
   local marker="$1"
@@ -465,6 +534,20 @@ contains 'Local Mac App Store package preflight passed.' "$VALID_OUTPUT"
 contains "Upload confirmation: $APP_BUNDLE_ID:$VERSION:$BUILD_NUMBER:$PACKAGE_SHA256" \
   "$VALID_OUTPUT"
 
+/usr/bin/jq '.xcodeVersion = "14.3.1" | .exportMethod = "app-store"' \
+  "$VALID_METADATA" >"$METADATA_PATH"
+XCODE14_OUTPUT="$TEST_ROOT/check-xcode14.txt"
+"$INSTRUMENTED_SUBMIT" --check "$RELEASE_DIRECTORY" >"$XCODE14_OUTPUT" 2>&1 \
+  || fail "valid Xcode 14/app-store metadata did not pass: $(/bin/cat "$XCODE14_OUTPUT")"
+contains 'Local Mac App Store package preflight passed.' "$XCODE14_OUTPUT"
+
+/usr/bin/jq '.xcodeVersion = "14.3.1"' "$VALID_METADATA" >"$METADATA_PATH"
+expect_check_rejected 'release metadata is incomplete, unverified, or from an unsupported schema'
+/usr/bin/jq '.xcodeVersion = "15.0" | .exportMethod = "app-store"' \
+  "$VALID_METADATA" >"$METADATA_PATH"
+expect_check_rejected 'release metadata is incomplete, unverified, or from an unsupported schema'
+/bin/cp "$VALID_METADATA" "$METADATA_PATH"
+
 ARCHIVE_WEB_INDEX="$ARCHIVE_PATH/Products/Applications/AgentIslandMac.app/Contents/Resources/Web/index.html"
 /bin/cp "$ARCHIVE_WEB_INDEX" "$TEST_ROOT/valid-archive-index.html"
 print -n -r -- 'tamper' >>"$ARCHIVE_WEB_INDEX"
@@ -479,6 +562,24 @@ expect_check_rejected 'App Store package SHA-256 differs from release metadata'
 expect_check_rejected 'release metadata is incomplete, unverified, or from an unsupported schema'
 /bin/cp "$VALID_METADATA" "$METADATA_PATH"
 
+/usr/bin/xattr -w com.apple.quarantine \
+  '0081;fixture;AgentIsland;' "$ARCHIVE_WEB_INDEX"
+expect_check_rejected 'archived App contains com.apple.quarantine'
+/usr/bin/xattr -d com.apple.quarantine "$ARCHIVE_WEB_INDEX"
+
+PACKAGE_WEB_INDEX="$APP_PATH/Contents/Resources/Web/index.html"
+/usr/bin/xattr -w com.apple.quarantine \
+  '0081;fixture;AgentIsland;' "$PACKAGE_WEB_INDEX"
+refresh_payload
+expect_check_rejected 'packaged App contains com.apple.quarantine'
+/usr/bin/xattr -d com.apple.quarantine "$PACKAGE_WEB_INDEX"
+refresh_payload
+
+/usr/bin/xattr -w com.apple.quarantine \
+  '0081;fixture;AgentIsland;' "$PACKAGE_PATH"
+expect_check_rejected 'App Store package contains com.apple.quarantine'
+/usr/bin/xattr -d com.apple.quarantine "$PACKAGE_PATH"
+
 /usr/bin/plutil -replace LSApplicationCategoryType -string \
   'public.app-category.utilities' "$APP_PATH/Contents/Info.plist"
 refresh_payload
@@ -486,6 +587,19 @@ expect_check_rejected 'packaged App application category must remain public.app-
 /usr/bin/plutil -replace LSApplicationCategoryType -string \
   'public.app-category.developer-tools' "$APP_PATH/Contents/Info.plist"
 refresh_payload
+
+/usr/bin/plutil -replace CFBundleDevelopmentRegion -string 'zh-Hans' \
+  "$APP_PATH/Contents/Info.plist"
+refresh_payload
+expect_check_rejected 'packaged App development region must remain en'
+/usr/bin/plutil -replace CFBundleDevelopmentRegion -string 'en' \
+  "$APP_PATH/Contents/Info.plist"
+refresh_payload
+
+/usr/bin/jq '. + {"com.apple.security.network.server": true}' \
+  "$TEST_ROOT/valid-app-entitlements.json" >"$APP_ENTITLEMENTS"
+expect_check_rejected 'signature/profile failed exact sandbox, identity, Team, or Production CloudKit validation'
+/bin/cp "$TEST_ROOT/valid-app-entitlements.json" "$APP_ENTITLEMENTS"
 
 FAKE_DEVELOPER="$TEST_ROOT/XcodeFixture.app/Contents/Developer"
 /bin/mkdir -p "$FAKE_DEVELOPER/Platforms/MacOSX.platform" \
@@ -496,6 +610,18 @@ PRIVATE_KEY="$TEST_USER_ROOT/.appstoreconnect/private_keys/AuthKey_$API_KEY_ID.p
 print -n -r -- 'fixture private key' >"$PRIVATE_KEY"
 /bin/chmod 0600 "$PRIVATE_KEY"
 UPLOAD_CONFIRMATION="$APP_BUNDLE_ID:$VERSION:$BUILD_NUMBER:$PACKAGE_SHA256"
+
+OLD_XCODE_OUTPUT="$TEST_ROOT/old-xcode.txt"
+if DEVELOPER_DIR="$FAKE_DEVELOPER" \
+    AGENT_ISLAND_ASC_API_KEY_ID="$API_KEY_ID" \
+    AGENT_ISLAND_ASC_API_ISSUER_ID="$API_ISSUER_ID" \
+    AGENT_ISLAND_TEST_XCODE_VERSION='13.4.1' \
+    "$INSTRUMENTED_SUBMIT" --validate "$RELEASE_DIRECTORY" \
+      >"$OLD_XCODE_OUTPUT" 2>&1; then
+  fail "Xcode 13 was accepted for a 2026 Mac App Store delivery"
+fi
+contains 'Xcode 14 or newer is required for Mac App Store delivery' \
+  "$OLD_XCODE_OUTPUT"
 
 FAILED_VALIDATION_OUTPUT="$TEST_ROOT/failed-validation.txt"
 if DEVELOPER_DIR="$FAKE_DEVELOPER" \
@@ -564,6 +690,24 @@ race_temporary_results=("$RELEASE_DIRECTORY"/.mac-app-store-*(.N))
 /bin/mv "$RACE_DIRECTORY" "$TEST_ROOT/raced-validation-target"
 /bin/rm -f "$AGENT_ISLAND_TEST_ALTOOL_LOG"
 
+STANDALONE_VALIDATE_OUTPUT="$TEST_ROOT/standalone-validate.txt"
+DEVELOPER_DIR="$FAKE_DEVELOPER" \
+  AGENT_ISLAND_ASC_API_KEY_ID="$API_KEY_ID" \
+  AGENT_ISLAND_ASC_API_ISSUER_ID="$API_ISSUER_ID" \
+  AGENT_ISLAND_TEST_UPLOAD_READINESS_FAIL=true \
+  "$INSTRUMENTED_SUBMIT" --validate "$RELEASE_DIRECTORY" \
+    >"$STANDALONE_VALIDATE_OUTPUT" 2>&1 \
+  || fail "standalone validation incorrectly depended on upload readiness"
+contains 'App Store Connect validation passed:' "$STANDALONE_VALIDATE_OUTPUT"
+standalone_validation_results=(
+  "$RELEASE_DIRECTORY"/mac-app-store-validation-*.json(.N)
+)
+(( ${#standalone_validation_results} == 1 )) \
+  || fail "standalone validation did not publish exactly one validation result"
+/bin/mv "${standalone_validation_results[1]}" \
+  "$TEST_ROOT/standalone-validation-result.json"
+/bin/rm -f "$AGENT_ISLAND_TEST_ALTOOL_LOG"
+
 WRONG_CONFIRM_OUTPUT="$TEST_ROOT/wrong-upload-confirmation.txt"
 if DEVELOPER_DIR="$FAKE_DEVELOPER" \
     AGENT_ISLAND_ASC_API_KEY_ID="$API_KEY_ID" \
@@ -576,6 +720,73 @@ fi
 contains 'does not match this exact package' "$WRONG_CONFIRM_OUTPUT"
 [[ ! -e "$AGENT_ISLAND_TEST_ALTOOL_LOG" ]] \
   || fail "wrong upload confirmation still contacted altool"
+
+UPLOAD_GATE_OUTPUT="$TEST_ROOT/upload-readiness-rejected.txt"
+if DEVELOPER_DIR="$FAKE_DEVELOPER" \
+    AGENT_ISLAND_ASC_API_KEY_ID="$API_KEY_ID" \
+    AGENT_ISLAND_ASC_API_ISSUER_ID="$API_ISSUER_ID" \
+    AGENT_ISLAND_CONFIRM_MAC_APP_STORE_UPLOAD="$UPLOAD_CONFIRMATION" \
+    AGENT_ISLAND_TEST_UPLOAD_READINESS_FAIL=true \
+    "$INSTRUMENTED_SUBMIT" --upload "$RELEASE_DIRECTORY" \
+      >"$UPLOAD_GATE_OUTPUT" 2>&1; then
+  fail "upload bypassed the fail-closed exact-candidate readiness gate"
+fi
+if ! /usr/bin/grep -Fq -- 'Release preflight failed: mac-app-store-upload' \
+    "$UPLOAD_GATE_OUTPUT"; then
+  fail "upload readiness failed for the wrong reason: $(/bin/cat "$UPLOAD_GATE_OUTPUT")"
+fi
+[[ ! -e "$AGENT_ISLAND_TEST_ALTOOL_LOG" ]] \
+  || fail "rejected upload readiness still contacted altool"
+
+REMOTE_LOCK="$RELEASE_DIRECTORY/.mac-app-store-submit.lock"
+/bin/mkdir "$REMOTE_LOCK"
+LOCKED_UPLOAD_OUTPUT="$TEST_ROOT/upload-lock-rejected.txt"
+if DEVELOPER_DIR="$FAKE_DEVELOPER" \
+    AGENT_ISLAND_ASC_API_KEY_ID="$API_KEY_ID" \
+    AGENT_ISLAND_ASC_API_ISSUER_ID="$API_ISSUER_ID" \
+    AGENT_ISLAND_CONFIRM_MAC_APP_STORE_UPLOAD="$UPLOAD_CONFIRMATION" \
+    "$INSTRUMENTED_SUBMIT" --upload "$RELEASE_DIRECTORY" \
+      >"$LOCKED_UPLOAD_OUTPUT" 2>&1; then
+  fail "concurrent upload bypassed the release-directory collaboration lock"
+fi
+contains 'another Mac App Store validation or upload is already active' \
+  "$LOCKED_UPLOAD_OUTPUT"
+[[ -d "$REMOTE_LOCK" && ! -L "$REMOTE_LOCK" ]] \
+  || fail "rejected upload removed a collaboration lock it did not own"
+[[ ! -e "$AGENT_ISLAND_TEST_ALTOOL_LOG" ]] \
+  || fail "locked upload still contacted altool"
+/bin/rmdir "$REMOTE_LOCK"
+
+TOCTOU_OUTPUT="$TEST_ROOT/upload-identity-lock-drift.txt"
+if DEVELOPER_DIR="$FAKE_DEVELOPER" \
+    AGENT_ISLAND_ASC_API_KEY_ID="$API_KEY_ID" \
+    AGENT_ISLAND_ASC_API_ISSUER_ID="$API_ISSUER_ID" \
+    AGENT_ISLAND_CONFIRM_MAC_APP_STORE_UPLOAD="$UPLOAD_CONFIRMATION" \
+    AGENT_ISLAND_TEST_MUTATE_IDENTITY_LOCK_AFTER_VALIDATE=true \
+    "$INSTRUMENTED_SUBMIT" --upload "$RELEASE_DIRECTORY" \
+      >"$TOCTOU_OUTPUT" 2>&1; then
+  fail "upload continued after the release identity lock changed during validation"
+fi
+contains 'release identity lock changed after the readiness report was generated' \
+  "$TOCTOU_OUTPUT"
+contains '--validate-app' "$AGENT_ISLAND_TEST_ALTOOL_LOG"
+if /usr/bin/grep -Fq -- '--upload-app' "$AGENT_ISLAND_TEST_ALTOOL_LOG"; then
+  fail "identity-lock drift still reached the remote upload operation"
+fi
+toctou_validation_results=(
+  "$RELEASE_DIRECTORY"/mac-app-store-validation-*.json(.N)
+)
+(( ${#toctou_validation_results} == 1 )) \
+  || fail "identity-lock drift did not leave exactly one validation result"
+/bin/mv "${toctou_validation_results[1]}" \
+  "$TEST_ROOT/toctou-validation-result.json"
+print -n -r -- '{"schemaVersion":2}' >"$IDENTITY_LOCK_PATH"
+[[ "$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$IDENTITY_LOCK_PATH" \
+  | /usr/bin/awk '{print $1}')" == "$IDENTITY_LOCK_SHA256" ]] \
+  || fail "identity-lock fixture could not be restored after the drift test"
+[[ ! -e "$REMOTE_LOCK" && ! -L "$REMOTE_LOCK" ]] \
+  || fail "failed upload left its owned release-directory lock behind"
+/bin/rm -f "$AGENT_ISLAND_TEST_ALTOOL_LOG"
 
 UPLOAD_OUTPUT="$TEST_ROOT/upload-valid.txt"
 DEVELOPER_DIR="$FAKE_DEVELOPER" \

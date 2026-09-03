@@ -46,7 +46,7 @@
 
 "privacy.show_titles" = "Show full titles";
 "privacy.hide_titles" = "Hide full titles";
-"privacy.title_toggle_hint" = "Full titles are hidden again the next time the app starts.";
+"privacy.title_toggle_hint" = "Full titles are hidden again when the app leaves the foreground.";
 "privacy.titles_unavailable" = "The Mac did not include full conversation titles.";
 "privacy.sync_note" = "The iPhone reads only synced summaries in its own sandbox. It never reads Mac files, prompts, responses, API keys, or workspace paths.";
 "privacy.policy_link" = "Privacy Policy";

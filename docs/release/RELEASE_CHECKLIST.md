@@ -26,7 +26,7 @@
 - [ ] 为已安装开发版设计一次性本地数据/Keychain 迁移；更换 Bundle ID 后旧偏好和密钥不会自然属于新应用。
 - [ ] 创建正式 App Icon（完整尺寸、无敏感或侵权素材），在浅色/深色桌面检查。
 - [ ] 确认 `CFBundleShortVersionString`、`CFBundleVersion`、最低 macOS 版本和版权信息。
-- [ ] 先将构建主机升级到 macOS Sequoia 15.6 或更新版（Xcode 26 的最低主机要求），再安装完整 Xcode 26+，并在 Accounts 中登录正确开发者账号。
+- [ ] 分渠道准备工具链：Mac App Store 使用完整 Xcode 14+；iOS 使用完整 Xcode 26 + iOS 26 SDK，并让主机满足 Xcode 26 的系统要求（当前最低 macOS Sequoia 15.6）。Developer ID 直接分发只要求所选工具链实际提供 `clang`、`notarytool` 和 `stapler`，不得把 iOS 的 Xcode 26 门槛套到两个 Mac 渠道。
 
 ## 2. 法务、隐私与支持页面
 
@@ -67,6 +67,7 @@
 
 ## 3B. Mac App Store 专项
 
+- [ ] 使用完整 Xcode 14 或更新版 Archive/导出/上传。Apple 的 2026 通用上传门槛是 Xcode 14+；当前 Xcode 26 + 26 SDK 的 Upcoming Requirements 未列 macOS，不得据此错误要求 macOS 26 SDK。
 - [ ] 为商店版建立可归档的 Xcode macOS Target；不提交当前 ad-hoc 构建。
 - [ ] 将该 Target 的工程与 Scheme 填入 `AGENT_ISLAND_MAC_APP_STORE_PROJECT` / `AGENT_ISLAND_MAC_APP_STORE_SCHEME`；确认 readiness 从同一 App Target 读到 `AgentIsland.m`、`PrivacyInfo.xcprivacy`、`Web/index.html`、`AgentIsland.icns`、`THIRD_PARTY_NOTICES.md`、Release Bundle ID/Team/显示名、有效 Info.plist URL 键和 `CODE_SIGN_ENTITLEMENTS`。
 - [ ] 开启 App Sandbox。
@@ -87,9 +88,9 @@
 - [ ] 上传中英文元数据、最终截图、隐私政策 URL、支持 URL 和 Review Notes。
 - [ ] 先通过 macOS TestFlight/内部测试验证，再提交 App Review。
 - [ ] 用 `release-macos-app-store.sh --export` 生成精确候选的 `release-metadata.json`、Archive ZIP 和 PKG，将 `AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA` 指向该 metadata；不得将只读权限描述成文件不可变。
-- [ ] 在任何联网操作前对该发布目录运行 `submit-macos-app-store.sh --check`；确认它重算 metadata、Archive ZIP 和 PKG 哈希，重验签名/profile/资源与包一致性，并且全程不上传。
+- [ ] 在任何联网操作前对该发布目录运行 `submit-macos-app-store.sh --check`；确认它重算 metadata、Archive ZIP 和 PKG 哈希，重验签名/profile/资源与包一致性，并递归拒绝 Archive App、PKG App 及上传快照上的 `com.apple.quarantine`。不得在签名后静默清除属性来伪装通过；应清理输入并重新构建。
 - [ ] 对同一候选完成沙盒授权/拒绝/撤销/恢复、Archive/PKG 安装启退、profile+证书、Xcode Privacy Report 和审核示例/生产路径五项 QA；用 `confirm-functional-qa-evidence.sh` 将五个 literal `passed`、Mac 型号、macOS 版本、UTC 测试时间和五份不同附件绑定到该 Archive ZIP + PKG，将生成的只读、不覆盖记录填入 `AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE`。不得复用附件路径、硬链接或相同内容，重新构建后必须重做 QA。
-- [ ] 设置候选级 App Privacy 证据后运行 `scripts/release-readiness.sh --json`；只有 `readyForMacAppStoreUpload: true` 才表示本地精确候选已通过上传前门禁，不表示已上传、已处理或已提审。
+- [ ] 设置候选级 App Privacy 证据后运行 `scripts/release-readiness.sh --json`；确认 `macStoreSubmissionAssetsReady: true`。Mac 门禁只依赖 Mac 中英文元数据/截图和两端共用隐私、支持材料，不得因 iOS 独有素材未完成而失败。只有 `readyForMacAppStoreUpload: true` 才表示本地精确候选已通过上传前门禁，不表示已上传、已处理或已提审。
 - [ ] 完整核对四段式确认值后显式执行 `submit-macos-app-store.sh --upload`，再用 `verify-macos-app-store-delivery.sh` 复验它生成的只读、不覆盖 delivery record，并将路径填入 `AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE`。`uploadAccepted: true` 只表示上传命令被接受，不表示 Apple 已处理或已提审。
 - [ ] 在 App Store Connect 人工确认该精确 Build 为 `Complete`、复核全部 errors/warnings/information 并记录 Build ID/UTC 时间后，用 `confirm-macos-app-store-evidence.sh` 生成 processing record，以 `verify-macos-app-store-evidence.sh` 复验，并将路径填入 `AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE`。这份处理完成记录只是人工观察的本地证据：脚本不会回查 Apple，也不能证明已选择构建或已提交审核。
 - [ ] 只在 `readyForMacAppStoreReviewSelection: true` 时进入人工选择步骤；该字段只表示证据链支持为 macOS 版本选择正确 Build，不表示 Build 已被选中或 App Review 已提交。账号授权人仍需在 App Store Connect 中选择该 Build、复核元数据/App Privacy，并显式提交 App Review；已废弃的 `readyForFunctionalMacAppStoreSubmission` 保持 `false`。
@@ -120,7 +121,10 @@
 - [ ] 对 `release-ios.sh --export` 生成的候选目录运行 `submit-testflight.sh --check`；仅在核对完整 `Bundle ID:Version:Build:IPA SHA-256` 确认值后执行独立上传。`release-readiness.sh` 必须重跑该无凭据预检并输出 `iosLocalIPAPreflightPassed=true`，纯文本伪 IPA 或手写 JSON 不得进入 exact-build 状态。
 - [ ] App Store Connect 显示该精确构建已 `VALID`/`Complete` 后，记录 Build ID 和 UTC 时间；分发给测试者、从 TestFlight 真机安装后，用 `confirm-testflight-evidence.sh` 生成不覆盖的 `testflight-verification-*.json`。
 - [ ] 外部 TestFlight 前填写中英文 Beta Description、What to Test、反馈邮箱、审核联系人和可复现的配对/演示步骤。
+- [ ] 由有权提交者完成 App Store Connect 的年龄分级、Content Rights、EULA、DSA trader status、价格、可用地区与版本发布方式决策；这些账号级事项不能由 IPA 本地预检代替。
+- [ ] 如发布 iPhone 无障碍营养标签，先用 VoiceOver、Voice Control、较大文字、深色模式、仅靠颜色区分等对应能力走完所有常用任务并保存证据；当前标签可自愿填写，不能仅凭采用 SwiftUI 控件推断支持。
 - [ ] App Store 提交前使用 `IOS_APP_REVIEW_NOTES.md` 提供无需审核员自行搭建开发环境的可审核路径。
+- [ ] iOS 最终 App Store 提审前确认 readiness 中 `iosStoreSubmissionAssetsReady: true`；它只依赖 iOS 中英文元数据/iPhone 截图/App Icon 和两端共用隐私、支持材料。TestFlight 上传本身不要求商店截图，macOS 独有素材也不得阻断 iOS 门禁。
 - [ ] 仅在 Production CloudKit schema、同账号 Mac→iPhone 真机同步、Live Activity 真机表现和审核演示路径都针对同一个 TestFlight 安装包验收后，使用 `confirm-functional-qa-evidence.sh` 将设备型号、iOS 版本、测试时间和四份不同附件写入不可覆盖的只读记录，并把 `AGENT_ISLAND_IOS_FUNCTIONAL_QA_EVIDENCE` 指向该文件。`readyForFunctionalIOSTestFlight` 必须重新校验整条 delivery/metadata/IPA/TestFlight/QA 证据链，并要求 `iosPrivacyReleaseEvidenceReady=true`；不接受其他平台证据、复制的 IPA 哈希或独立布尔值冒充验收状态。
 
 ## 4. 功能与隐私 QA
@@ -172,7 +176,7 @@
 - [ ] `relevantAgents` 保留 Mac producer 已主动筛选纳入的所有工具，包括当前无会话/无 Token 的条目；状态仍如实显示为 idle/completed，不得计入 `activeAgents`。
 - [ ] 2 MB、100 Agent、500 对话、文本长度、未来时间戳和 cached-input 校验边界均有测试。
 - [ ] 缓存写入具备原子性和文件保护；损坏缓存不会覆盖最后可恢复状态或导致崩溃。
-- [ ] 完整标题默认不传输；收到可选标题时每次冷启动仍默认隐藏。
+- [ ] 完整标题默认不传输；收到可选标题并手动显示后，离开前台即再次隐藏，冷启动也保持默认隐藏。
 - [ ] 刷新、后台/前台切换、离线缓存、陈旧数据标记和账号切换行为可理解。
 - [ ] 在 Mac 上关闭同步并删除 `latest` 后，iPhone 刷新会清空当前账号快照；退出/切换 iCloud 账号时不显示上一账号数据。
 - [ ] 实时活动不会出现标题、prompt、回复、Mac 路径、API Key 或个人设备名。
@@ -184,7 +188,7 @@
 ## 5. 构建与安全检查
 
 - [ ] 运行 `./scripts/test.sh` 全部通过。
-- [ ] 运行 `node scripts/validate-store-submission.mjs --release` 和 `node scripts/validate-app-privacy.mjs --release`，确认元数据、截图、双语政策、App Privacy 与源码清单均无占位符或发布阻断项。
+- [ ] 运行 `node scripts/validate-store-submission.mjs --release` 和 `node scripts/validate-app-privacy.mjs --release`。双平台一起提交时要求汇总 `storeSubmissionAssetsReady: true`；单平台发布时分别核对 `macStoreSubmissionAssetsReady` / `iosStoreSubmissionAssetsReady`，确认该平台元数据、截图和共用双语政策、App Privacy、支持材料无占位符或发布阻断项。
 - [ ] 运行 `./scripts/release-readiness.sh --json`，将输出与候选构建证据一起留档；不得把源码字符串命中当成功能已验收。
 - [ ] 运行 iOS `validate-project.sh` 静态检查；在完整 Xcode 环境运行 `validate-project.sh --build` 并 Archive。
 - [ ] 运行 iOS `scripts/release-ios.sh`，确认它验证 App/Widget 嵌入、Bundle ID、签名、provisioning profile、App CloudKit entitlement 和 Widget 无 iCloud entitlement；如使用 `--export`，确认只本地导出 IPA 和 SHA-256，metadata 中 `uploaded` 仍为 false。

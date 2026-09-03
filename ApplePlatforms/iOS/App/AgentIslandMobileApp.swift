@@ -11,7 +11,13 @@ struct AgentIslandMobileApp: App {
         .task { await store.refresh() }
     }
     .onChange(of: scenePhase) { _, newPhase in
-      guard newPhase == .active else { return }
+      guard newPhase == .active else {
+        // Never leave an explicitly revealed conversation title in the app
+        // switcher snapshot. Returning to the foreground requires another
+        // deliberate local reveal action, even if the refresh is offline.
+        store.hideFullConversationTitles()
+        return
+      }
       Task { await store.refresh() }
     }
   }

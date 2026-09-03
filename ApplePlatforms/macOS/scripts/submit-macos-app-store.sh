@@ -1,14 +1,18 @@
 #!/bin/zsh
 set -euo pipefail
 setopt EXTENDED_GLOB NULL_GLOB
+umask 077
 
 MAC_ROOT="${0:A:h:h}"
 PRODUCT_ROOT="${MAC_ROOT:h:h}"
 MAC_CONFIG_FILE="$MAC_ROOT/Config/Project.xcconfig"
 SHARED_CONFIG_FILE="$PRODUCT_ROOT/ApplePlatforms/iOS/Config/Project.xcconfig"
 SOURCE_PRIVACY_MANIFEST="$PRODUCT_ROOT/Resources/PrivacyInfo.xcprivacy"
+PREFLIGHT_ASSERTION="$PRODUCT_ROOT/scripts/assert-release-preflight.sh"
+READINESS_SCRIPT="$PRODUCT_ROOT/scripts/release-readiness.sh"
 PUBLIC_APP_NAME="MAC版灵动岛--Agent运行监测"
 APP_CATEGORY="public.app-category.developer-tools"
+MINIMUM_XCODE_MAJOR=14
 MODE="check"
 MODE_WAS_EXPLICIT=false
 RELEASE_DIRECTORY=""
@@ -16,6 +20,10 @@ WORK_DIRECTORY=""
 VALIDATION_TEMP=""
 UPLOAD_TEMP=""
 DELIVERY_TEMP=""
+UPLOAD_READINESS_REPORT=""
+REMOTE_LOCK_DIRECTORY=""
+REMOTE_LOCK_IDENTITY=""
+REMOTE_LOCK_HELD=false
 
 usage() {
   /bin/cat <<'EOF'
@@ -53,6 +61,7 @@ fail() {
 cleanup() {
   local exit_code=$?
   trap - EXIT HUP INT TERM
+  set +e
   if [[ -n "$WORK_DIRECTORY" && \
       "$WORK_DIRECTORY" == /private/tmp/agentisland-mac-delivery.* ]]; then
     /bin/rm -rf "$WORK_DIRECTORY"
@@ -64,6 +73,14 @@ cleanup() {
       /bin/rm -f "$temporary_path"
     fi
   done
+  if [[ "$REMOTE_LOCK_HELD" == true && -n "$RELEASE_DIRECTORY" && \
+      "$REMOTE_LOCK_DIRECTORY" == \
+        "$RELEASE_DIRECTORY/.mac-app-store-submit.lock" && \
+      -d "$REMOTE_LOCK_DIRECTORY" && ! -L "$REMOTE_LOCK_DIRECTORY" && \
+      "$(/usr/bin/stat -f '%d:%i' "$REMOTE_LOCK_DIRECTORY" 2>/dev/null)" == \
+        "$REMOTE_LOCK_IDENTITY" ]]; then
+    /bin/rmdir "$REMOTE_LOCK_DIRECTORY" 2>/dev/null
+  fi
   exit "$exit_code"
 }
 trap cleanup EXIT
@@ -116,7 +133,7 @@ RELEASE_DIRECTORY="${RELEASE_DIRECTORY:A}"
   || fail "release directory path must not traverse symlink parents"
 
 for tool in /usr/bin/codesign /usr/bin/cmp /usr/bin/diff /usr/bin/ditto /usr/bin/find \
-  /usr/bin/jq /usr/bin/lipo /usr/bin/plutil /usr/bin/security \
+  /usr/bin/jq /usr/bin/lipo /usr/bin/plutil /usr/bin/security /usr/bin/xattr \
   /usr/bin/shasum /usr/bin/stat /usr/bin/unzip /usr/bin/zipinfo \
   /usr/sbin/pkgutil; do
   [[ -x "$tool" ]] || fail "required tool is unavailable: $tool"
@@ -133,6 +150,16 @@ METADATA_PATH="$RELEASE_DIRECTORY/release-metadata.json"
   || fail "release-metadata.json is missing or is a symlink"
 
 /usr/bin/jq -e '
+  def export_method_matches_xcode:
+    (.xcodeVersion | type == "string" and
+      test("^[0-9]+(\\.[0-9]+){1,2}$")) and
+    ((.xcodeVersion | split(".")[0] | tonumber) as $xcodeMajor |
+      $xcodeMajor >= 14 and
+      .exportMethod == (if $xcodeMajor == 14 then
+        "app-store"
+      else
+        "app-store-connect"
+      end));
   . as $root |
   type == "object" and
   .schemaVersion == 1 and
@@ -146,9 +173,8 @@ METADATA_PATH="$RELEASE_DIRECTORY/release-metadata.json"
   (.archiveZipSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
   (.exportedPackage | type == "string" and endswith(".pkg")) and
   (.packageSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
-  .exportMethod == "app-store-connect" and
+  export_method_matches_xcode and
   .exportDestination == "export" and
-  (.xcodeVersion | type == "string" and length > 0) and
   (.macosSDK | type == "string" and length > 0) and
   (.teamID | type == "string" and test("^[A-Z0-9]{10}$")) and
   (.appBundleID | type == "string" and test("^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$")) and
@@ -161,6 +187,7 @@ METADATA_PATH="$RELEASE_DIRECTORY/release-metadata.json"
   (.privacyPolicyURL | type == "string" and startswith("https://") and length > 8) and
   (.supportURL | type == "string" and startswith("https://") and length > 8) and
   (.privacyManifestSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
+  .quarantineFree == true and
   (.signingIdentity | type == "string" and length > 0) and
   (.signingCertificateSHA1 | type == "string" and test("^[0-9A-F]{40}$")) and
   (.provisioningProfile.uuid | type == "string" and length > 0) and
@@ -237,6 +264,21 @@ file_sha256() {
   LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$1" | /usr/bin/awk '{print $1}'
 }
 
+assert_no_quarantine_attributes() {
+  local candidate_path="$1"
+  local label="$2"
+  local attribute_listing
+  attribute_listing="$(LC_ALL=C /usr/bin/xattr -r "$candidate_path" 2>/dev/null)" \
+    || fail "$label extended attributes could not be inspected"
+  if print -r -- "$attribute_listing" \
+      | /usr/bin/grep -Eq '(^|: )com\.apple\.quarantine$'; then
+    fail "$label contains com.apple.quarantine; clean the candidate and rebuild"
+  fi
+}
+
+assert_no_quarantine_attributes "$ARCHIVE_ZIP_PATH" "Archive ZIP"
+assert_no_quarantine_attributes "$PACKAGE_PATH" "App Store package"
+
 EXPECTED_METADATA_SHA256="$(file_sha256 "$METADATA_PATH")"
 verify_core_candidate_unchanged() {
   [[ "$(file_sha256 "$METADATA_PATH")" == "$EXPECTED_METADATA_SHA256" ]] \
@@ -245,6 +287,8 @@ verify_core_candidate_unchanged() {
     || fail "Archive ZIP changed during delivery"
   [[ "$(file_sha256 "$PACKAGE_PATH")" == "$EXPECTED_PACKAGE_SHA256" ]] \
     || fail "App Store package changed during delivery"
+  assert_no_quarantine_attributes "$ARCHIVE_ZIP_PATH" "Archive ZIP"
+  assert_no_quarantine_attributes "$PACKAGE_PATH" "App Store package"
 }
 
 verify_altool_success_json() {
@@ -394,6 +438,7 @@ validate_app_info_and_contents() {
   local info="$app_path/Contents/Info.plist"
   local executable_name executable_path normalized_arches privacy_sha
   [[ -d "$app_path" && ! -L "$app_path" ]] || fail "$label is not a regular App bundle"
+  assert_no_quarantine_attributes "$app_path" "$label"
   [[ -f "$info" && ! -L "$info" ]] || fail "$label is missing Contents/Info.plist"
   /usr/bin/plutil -lint "$info" >/dev/null || fail "$label has an invalid Info.plist"
   [[ "$(/usr/bin/plutil -extract CFBundleIdentifier raw "$info" 2>/dev/null)" == "$APP_BUNDLE_ID" ]] \
@@ -404,6 +449,8 @@ validate_app_info_and_contents() {
     || fail "$label build number differs from release metadata"
   [[ "$(/usr/bin/plutil -extract CFBundleDisplayName raw "$info" 2>/dev/null)" == "$DISPLAY_NAME" ]] \
     || fail "$label display name differs from release metadata"
+  [[ "$(/usr/bin/plutil -extract CFBundleDevelopmentRegion raw "$info" 2>/dev/null)" == "en" ]] \
+    || fail "$label development region must remain en"
   [[ "$(/usr/bin/plutil -extract NSHumanReadableCopyright raw "$info" 2>/dev/null)" == "$COPYRIGHT" ]] \
     || fail "$label copyright differs from release metadata"
   [[ "$(/usr/bin/plutil -extract AgentIslandPrivacyPolicyURL raw "$info" 2>/dev/null)" == "$PRIVACY_POLICY_URL" ]] \
@@ -582,14 +629,35 @@ validate_signature_and_profile() {
     --arg container "$CLOUD_CONTAINER_ID" '
       def app_identifier:
         .["com.apple.application-identifier"] // .["application-identifier"];
+      def approved_signed_entitlement_key:
+        . == "application-identifier" or
+        . == "beta-reports-active" or
+        . == "com.apple.application-identifier" or
+        . == "com.apple.developer.icloud-container-environment" or
+        . == "com.apple.developer.icloud-container-identifiers" or
+        . == "com.apple.developer.icloud-services" or
+        . == "com.apple.developer.team-identifier" or
+        . == "com.apple.security.app-sandbox" or
+        . == "com.apple.security.files.bookmarks.app-scope" or
+        . == "com.apple.security.files.user-selected.read-only" or
+        . == "com.apple.security.get-task-allow" or
+        . == "com.apple.security.network.client" or
+        . == "get-task-allow";
       .[0] as $signed | .[1] as $profile |
+      ([$signed | keys[] | select(approved_signed_entitlement_key | not)]
+        | length) == 0 and
       $applicationIdentifier == $expectedIdentifier and
       ($signed | app_identifier) == $applicationIdentifier and
+      (($signed."com.apple.application-identifier" //
+        $applicationIdentifier) == $applicationIdentifier) and
+      (($signed."application-identifier" //
+        $applicationIdentifier) == $applicationIdentifier) and
       ($profile | app_identifier) == $applicationIdentifier and
       $signed."com.apple.developer.team-identifier" == $team and
       $profile."com.apple.developer.team-identifier" == $team and
-      (($signed."com.apple.security.get-task-allow" //
-        $signed."get-task-allow" // false) == false) and
+      (($signed."com.apple.security.get-task-allow" // false) == false) and
+      (($signed."get-task-allow" // false) == false) and
+      (($signed."beta-reports-active" // true) == true) and
       (($profile."com.apple.security.get-task-allow" //
         $profile."get-task-allow" // false) == false) and
       $signed."com.apple.security.app-sandbox" == true and
@@ -699,16 +767,39 @@ fi
 
 DEVELOPER_PATH="${DEVELOPER_DIR:-$(/usr/bin/xcode-select -p 2>/dev/null || true)}"
 [[ "$DEVELOPER_PATH" == */Xcode*.app/Contents/Developer ]] \
-  || fail "select full Xcode 26 or newer before contacting App Store Connect"
+  || fail "select full Xcode 14 or newer before contacting App Store Connect"
 [[ -d "$DEVELOPER_PATH/Platforms/MacOSX.platform" ]] \
   || fail "the selected Xcode does not include the macOS platform"
 XCODE_VERSION="$(DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcodebuild -version \
   | /usr/bin/awk '/^Xcode / {print $2; exit}')"
 XCODE_MAJOR="${XCODE_VERSION%%.*}"
 [[ "$XCODE_MAJOR" == <-> ]] || fail "could not determine the selected Xcode version"
-(( XCODE_MAJOR >= 26 )) || fail "Xcode 26 or newer is required"
+(( XCODE_MAJOR >= MINIMUM_XCODE_MAJOR )) \
+  || fail "Xcode 14 or newer is required for Mac App Store delivery"
 [[ -n "$(DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcrun --find altool \
   2>/dev/null || true)" ]] || fail "the selected Xcode does not provide altool"
+
+if [[ "$MODE" == "upload" ]]; then
+  UPLOAD_READINESS_REPORT="$WORK_DIRECTORY/upload-release-readiness.json"
+  [[ -x "$PREFLIGHT_ASSERTION" && -x "$READINESS_SCRIPT" ]] \
+    || fail "release upload readiness gate is missing or not executable"
+  if ! AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA="$METADATA_PATH" \
+      DEVELOPER_DIR="$DEVELOPER_PATH" \
+      "$READINESS_SCRIPT" --json >"$UPLOAD_READINESS_REPORT"; then
+    fail "could not generate the Mac App Store upload-readiness report"
+  fi
+  if ! /bin/zsh "$PREFLIGHT_ASSERTION" mac-app-store-upload \
+      "$UPLOAD_READINESS_REPORT"; then
+    fail "Mac App Store upload prerequisites are not satisfied"
+  fi
+fi
+
+assert_upload_identity_lock_unchanged() {
+  [[ "$MODE" == "upload" ]] || return 0
+  /bin/zsh "$PREFLIGHT_ASSERTION" mac-app-store-upload \
+    "$UPLOAD_READINESS_REPORT" \
+    || fail "Mac App Store upload identity lock no longer matches the readiness snapshot"
+}
 
 API_KEY_ID="${AGENT_ISLAND_ASC_API_KEY_ID:-}"
 API_ISSUER_ID="${AGENT_ISLAND_ASC_API_ISSUER_ID:-}"
@@ -727,6 +818,16 @@ PRIVATE_KEY_MODE="$(/usr/bin/stat -f '%Lp' "$PRIVATE_KEY_PATH")"
   || fail "App Store Connect private key must not be readable by group or other users"
 [[ -w "$RELEASE_DIRECTORY" ]] \
   || fail "release directory must be writable before recording App Store Connect results"
+REMOTE_LOCK_DIRECTORY="$RELEASE_DIRECTORY/.mac-app-store-submit.lock"
+if ! /bin/mkdir "$REMOTE_LOCK_DIRECTORY" 2>/dev/null; then
+  fail "another Mac App Store validation or upload is already active for this release directory"
+fi
+REMOTE_LOCK_HELD=true
+REMOTE_LOCK_IDENTITY="$(/usr/bin/stat -f '%d:%i' "$REMOTE_LOCK_DIRECTORY")"
+[[ "$REMOTE_LOCK_IDENTITY" == <->:<-> ]] \
+  || fail "could not identify the Mac App Store release-directory lock"
+/bin/chmod 0700 "$REMOTE_LOCK_DIRECTORY" \
+  || fail "could not secure the Mac App Store release-directory lock"
 
 # Validate and upload a private byte-for-byte snapshot rather than reopening the
 # mutable release path during either remote operation. Both altool calls consume
@@ -744,7 +845,10 @@ REMOTE_PACKAGE_PATH="$WORK_DIRECTORY/AgentIslandMac-upload.pkg"
 verify_remote_package_unchanged() {
   [[ "$(file_sha256 "$REMOTE_PACKAGE_PATH")" == "$EXPECTED_PACKAGE_SHA256" ]] \
     || fail "private App Store package snapshot changed during delivery"
+  assert_no_quarantine_attributes "$REMOTE_PACKAGE_PATH" \
+    "private App Store package snapshot"
 }
+verify_remote_package_unchanged
 
 publish_read_only() {
   local temporary_path="$1"
@@ -788,6 +892,7 @@ if [[ "$MODE" == "upload" ]]; then
     || fail "refusing to overwrite an existing upload result or delivery record"
 fi
 VALIDATION_TEMP="$(mktemp "$RELEASE_DIRECTORY/.mac-app-store-validation.XXXXXX")"
+assert_upload_identity_lock_unchanged
 DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcrun altool \
   --validate-app \
   --file "$REMOTE_PACKAGE_PATH" \
@@ -807,6 +912,7 @@ print -r -- "App Store Connect validation passed: $VALIDATION_RESULT"
 [[ "$MODE" == "upload" ]] || exit 0
 verify_core_candidate_unchanged
 UPLOAD_TEMP="$(mktemp "$RELEASE_DIRECTORY/.mac-app-store-upload.XXXXXX")"
+assert_upload_identity_lock_unchanged
 DEVELOPER_DIR="$DEVELOPER_PATH" /usr/bin/xcrun altool \
   --upload-app \
   --file "$REMOTE_PACKAGE_PATH" \

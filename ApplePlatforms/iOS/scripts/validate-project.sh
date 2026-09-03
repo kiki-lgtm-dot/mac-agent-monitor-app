@@ -558,6 +558,11 @@ grep -Fq '<string>$(AGENT_ISLAND_DISPLAY_NAME)</string>' \
 grep -Fq '<string>$(AGENT_ISLAND_WIDGET_DISPLAY_NAME)</string>' \
   "$project_root/Config/Widget-Info.plist" \
   || fail "Widget CFBundleDisplayName must use AGENT_ISLAND_WIDGET_DISPLAY_NAME"
+for info_plist in Config/App-Info.plist Config/Widget-Info.plist; do
+  [ "$(plutil -extract CFBundleDevelopmentRegion raw \
+      "$project_root/$info_plist" 2>/dev/null)" = '$(DEVELOPMENT_LANGUAGE)' ] \
+    || fail "$info_plist must use the Xcode development language"
+done
 grep -Fq 'CODE_SIGN_ENTITLEMENTS = Config/AgentIslandMobile.entitlements' "$project_file" \
   || fail "App target does not use the CloudKit entitlements file"
 grep -Fq 'AGENT_ISLAND_ICLOUD_CONTAINER_ID = iCloud.' "$project_root/Config/Project.xcconfig" \
@@ -707,6 +712,9 @@ fi
 grep -Fq 'includesFullConversationTitles: false' \
   "$project_root/Shared/AgentSnapshot.swift" \
   || fail "the bundled example must not expose full conversation titles"
+grep -Fq 'store.hideFullConversationTitles()' \
+  "$project_root/App/AgentIslandMobileApp.swift" \
+  || fail "leaving the foreground must hide explicitly revealed conversation titles"
 
 dashboard_store="$project_root/App/DashboardStore.swift"
 [ "$(grep -Fc 'await clearAccountScopedState()' "$dashboard_store")" -eq 2 ] \

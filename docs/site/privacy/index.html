@@ -42,7 +42,7 @@
       <p>如正式版保留该默认值，请注意：DeepSeek 当前公布的<a href="https://cdn.deepseek.com/policies/zh-CN/deepseek-privacy-policy.html">隐私政策</a>说明，其所覆盖的境内运营中收集和产生的个人信息存储于中华人民共和国境内，输入和对应输出可能在其所述条件下用于模型训练和服务优化。该政策同时明确，下游应用终端用户的具体处理规则不在其说明范围内；DeepSeek <a href="https://cdn.deepseek.com/policies/zh-CN/deepseek-open-platform-terms-of-service.html">开放平台服务协议</a>要求下游应用运营者向终端用户披露处理规则。截至 2026 年 9 月 4 日，上述公开材料未公布适用于本下游应用 API 请求的固定保留期或 API 专用“不用于训练”承诺，因此本应用不作出这两项承诺。请勿提交敏感或无权披露的内容。</p>
 
       <h2>7. 可选 iCloud 私有同步</h2>
-      <p>iCloud 同步默认关闭。用户明确开启后，Mac 才会向其 Apple ID 的 CloudKit 私有数据库写入一份精简快照，包含 Agent/工具类别、安全显示名、状态、时长、Token 统计、时间戳和计数。快照不包含 prompt、响应正文、任务摘要、项目/文件路径、模型名、API Key、备忘录或翻译内容。对话标题默认不同步，只在用户单独确认后才可包含；Live Activity 始终不包含标题。</p>
+      <p>iCloud 同步默认关闭。用户明确开启后，Mac 才会向其 Apple ID 的 CloudKit 私有数据库写入一份精简快照，包含 Agent/工具类别、安全显示名、状态、时长、Token 统计、时间戳和计数。快照不包含 prompt、响应正文、任务摘要、项目/文件路径、模型名、API Key、备忘录或翻译内容。对话标题默认不同步，只在用户单独确认后才可包含；iPhone 会在应用离开前台时重新隐藏标题，Live Activity 始终不包含标题。</p>
       <p>CloudKit 由 Apple 提供，数据位于用户的私有数据库，不经过开发者运营的同步服务器。本应用不使用该数据进行广告、跟踪或分析。</p>
 
       <h2>8. 分享、跟踪与敏感系统权限</h2>
@@ -90,7 +90,7 @@
       <p>If the release build retains that default, users should note the following. DeepSeek's current published <a href="https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html">Privacy Policy</a> says that the Personal Data it covers is processed and stored in the People's Republic of China and that User Input may be used to develop, improve, and train its services and technology. The policy also expressly says it does not cover the specific processing rules for end users of downstream applications. DeepSeek's <a href="https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html">Open Platform Terms of Service</a> require the downstream-app operator to disclose those processing rules. As of September 4, 2026, those public materials do not publish a fixed retention period for this downstream App's API requests or an API-specific no-training commitment, so the App makes neither promise. Do not submit sensitive or unauthorized content.</p>
 
       <h2>7. Optional private iCloud sync</h2>
-      <p>Private iCloud sync is off by default. After express opt-in, the Mac writes a reduced snapshot to the user's Apple ID private CloudKit database. It contains agent/tool categories and safe display names, state, elapsed time, token statistics, timestamps, and counts. It excludes prompts, response bodies, task summaries, project/file paths, model names, API keys, notes, and translation content. Conversation titles are excluded by default and require a separate opt-in. Live Activities never contain titles.</p>
+      <p>Private iCloud sync is off by default. After express opt-in, the Mac writes a reduced snapshot to the user's Apple ID private CloudKit database. It contains agent/tool categories and safe display names, state, elapsed time, token statistics, timestamps, and counts. It excludes prompts, response bodies, task summaries, project/file paths, model names, API keys, notes, and translation content. Conversation titles are excluded by default and require a separate opt-in. The iPhone hides titles again whenever the app leaves the foreground, and Live Activities never contain titles.</p>
       <p>Apple provides CloudKit. The data is held in the user's private database and does not pass through a developer-operated sync server. The App does not use it for advertising, tracking, or analytics.</p>
 
       <h2>8. Sharing, tracking, and sensitive permissions</h2>

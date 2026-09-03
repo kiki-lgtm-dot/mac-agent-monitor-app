@@ -40,7 +40,8 @@ DEVELOPER_PATH="${DEVELOPER_DIR:-$(/usr/bin/xcode-select -p 2>/dev/null || true)
 FULL_XCODE=false
 [[ "$DEVELOPER_PATH" == */Xcode*.app/Contents/Developer ]] && FULL_XCODE=true
 HOST_MACOS_VERSION="$(/usr/bin/sw_vers -productVersion 2>/dev/null || true)"
-MINIMUM_XCODE_MAJOR=26
+MINIMUM_IOS_XCODE_MAJOR=26
+MINIMUM_MAC_APP_STORE_XCODE_MAJOR=14
 MINIMUM_IOS_SDK_MAJOR=26
 MINIMUM_XCODE_26_HOST_MACOS="15.6"
 HOST_MACOS_MAJOR="${HOST_MACOS_VERSION%%.*}"
@@ -1215,20 +1216,47 @@ if [[ "$IOS_TESTFLIGHT_EXACT_BUILD_EVIDENCE_READY" == true ]] && \
   IOS_PRIVACY_RELEASE_EVIDENCE_READY=true
 fi
 STORE_SUBMISSION_ASSETS_READY=false
+MAC_STORE_SUBMISSION_ASSETS_READY=false
+IOS_STORE_SUBMISSION_ASSETS_READY=false
 STORE_SUBMISSION_VALIDATION_RESULT="$READINESS_ROOT/store-submission-validation.json"
 STORE_SUBMISSION_VALIDATION_LOG="$READINESS_ROOT/store-submission-validation.log"
 STORE_SUBMISSION_BLOCKERS_JSON="[]"
 STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON="[]"
-if node "$PROJECT_DIR/scripts/validate-store-submission.mjs" --release \
-    >"$STORE_SUBMISSION_VALIDATION_RESULT" 2>"$STORE_SUBMISSION_VALIDATION_LOG"; then
-  STORE_SUBMISSION_ASSETS_READY=true
-fi
+MAC_STORE_SUBMISSION_BLOCKERS_JSON="[]"
+IOS_STORE_SUBMISSION_BLOCKERS_JSON="[]"
+MAC_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON="[]"
+IOS_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON="[]"
+# A release-mode validation may legitimately fail for just one platform. Keep
+# its structured result and consume the platform-specific gates below instead
+# of treating the validator's aggregate exit status as both platforms' state.
+node "$PROJECT_DIR/scripts/validate-store-submission.mjs" --release \
+  >"$STORE_SUBMISSION_VALIDATION_RESULT" 2>"$STORE_SUBMISSION_VALIDATION_LOG" || true
 if /usr/bin/jq -e 'type == "object"' "$STORE_SUBMISSION_VALIDATION_RESULT" \
     >/dev/null 2>&1; then
+  /usr/bin/jq -e '.releaseReady == true' "$STORE_SUBMISSION_VALIDATION_RESULT" \
+    >/dev/null 2>&1 && STORE_SUBMISSION_ASSETS_READY=true
+  /usr/bin/jq -e '.macStoreSubmissionAssetsReady == true' \
+    "$STORE_SUBMISSION_VALIDATION_RESULT" >/dev/null 2>&1 && \
+    MAC_STORE_SUBMISSION_ASSETS_READY=true
+  /usr/bin/jq -e '.iosStoreSubmissionAssetsReady == true' \
+    "$STORE_SUBMISSION_VALIDATION_RESULT" >/dev/null 2>&1 && \
+    IOS_STORE_SUBMISSION_ASSETS_READY=true
   STORE_SUBMISSION_BLOCKERS_JSON="$(/usr/bin/jq -c \
     '(.releaseBlockers // []) | unique' "$STORE_SUBMISSION_VALIDATION_RESULT")"
   STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON="$(/usr/bin/jq -c \
     '(.structuralErrors // []) | unique' "$STORE_SUBMISSION_VALIDATION_RESULT")"
+  MAC_STORE_SUBMISSION_BLOCKERS_JSON="$(/usr/bin/jq -c \
+    '(.macStoreSubmissionBlockers // []) | unique' \
+    "$STORE_SUBMISSION_VALIDATION_RESULT")"
+  IOS_STORE_SUBMISSION_BLOCKERS_JSON="$(/usr/bin/jq -c \
+    '(.iosStoreSubmissionBlockers // []) | unique' \
+    "$STORE_SUBMISSION_VALIDATION_RESULT")"
+  MAC_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON="$(/usr/bin/jq -c \
+    '(.macStoreSubmissionStructuralErrors // []) | unique' \
+    "$STORE_SUBMISSION_VALIDATION_RESULT")"
+  IOS_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON="$(/usr/bin/jq -c \
+    '(.iosStoreSubmissionStructuralErrors // []) | unique' \
+    "$STORE_SUBMISSION_VALIDATION_RESULT")"
 fi
 
 # Bind every macOS release state to one exact locally exported candidate. A
@@ -1326,8 +1354,19 @@ if [[ -n "$MAC_APP_STORE_RELEASE_METADATA" ]]; then
             --arg archiveSHA "$MAC_CANDIDATE_ARCHIVE_SHA" \
             --arg package "$MAC_CANDIDATE_PACKAGE" \
             --arg packageSHA "$MAC_CANDIDATE_PACKAGE_SHA" '
+              def export_method_matches_xcode:
+                (.xcodeVersion | type == "string" and
+                  test("^[0-9]+(\\.[0-9]+){1,2}$")) and
+                ((.xcodeVersion | split(".")[0] | tonumber) as $xcodeMajor |
+                  $xcodeMajor >= 14 and
+                  .exportMethod == (if $xcodeMajor == 14 then
+                    "app-store"
+                  else
+                    "app-store-connect"
+                  end));
               .schemaVersion == 1 and .platform == "macOS" and
               .distribution == "mac-app-store" and .uploaded == false and
+              .quarantineFree == true and
               .appBundleID == $bundle and .teamID == $team and
               .displayName == $displayName and .cloudContainerID == $container and
               .applicationCategory == "public.app-category.developer-tools" and
@@ -1335,7 +1374,7 @@ if [[ -n "$MAC_APP_STORE_RELEASE_METADATA" ]]; then
               .privacyPolicyURL == $privacyURL and .supportURL == $supportURL and
               .archiveZip == $archiveZip and .archiveZipSHA256 == $archiveSHA and
               .exportedPackage == $package and .packageSHA256 == $packageSHA and
-              .exportMethod == "app-store-connect" and .exportDestination == "export" and
+              export_method_matches_xcode and .exportDestination == "export" and
               .provisioningProfile.certificateMatches == true
             ' "$MAC_CANDIDATE_METADATA_PATH" >/dev/null 2>&1; then
         MAC_APP_STORE_EXACT_CANDIDATE_EVIDENCE_READY=true
@@ -1547,10 +1586,11 @@ if [[ -n "$MACOS_SDK_PATH" && -d "$MACOS_SDK_PATH" && "$MAC_RELEASE_TOOLS_PRESEN
   MAC_DEVELOPER_ID_TOOLCHAIN=true
 fi
 CURRENT_UPLOAD_TOOLCHAIN=false
-(( XCODE_MAJOR >= MINIMUM_XCODE_MAJOR && IPHONE_SDK_MAJOR >= MINIMUM_IOS_SDK_MAJOR )) \
+(( XCODE_MAJOR >= MINIMUM_IOS_XCODE_MAJOR && IPHONE_SDK_MAJOR >= MINIMUM_IOS_SDK_MAJOR )) \
   && CURRENT_UPLOAD_TOOLCHAIN=true
 CURRENT_MAC_APP_STORE_TOOLCHAIN=false
-(( XCODE_MAJOR >= MINIMUM_XCODE_MAJOR )) && CURRENT_MAC_APP_STORE_TOOLCHAIN=true
+(( XCODE_MAJOR >= MINIMUM_MAC_APP_STORE_XCODE_MAJOR )) \
+  && CURRENT_MAC_APP_STORE_TOOLCHAIN=true
 ENOUGH_DISK_FOR_XCODE=false
 (( AVAILABLE_GIB >= 30 )) && ENOUGH_DISK_FOR_XCODE=true
 
@@ -1581,7 +1621,7 @@ if [[ "$FULL_XCODE" == true && "$XCODE_26_HOST_COMPATIBLE" == true && \
 fi
 
 READY_MAC_APP_STORE_ARCHIVE=false
-if [[ "$FULL_XCODE" == true && "$XCODE_26_HOST_COMPATIBLE" == true && \
+if [[ "$FULL_XCODE" == true && \
     "$CURRENT_MAC_APP_STORE_TOOLCHAIN" == true && \
     "$APPLE_DISTRIBUTION_TEAM_IDENTITY_READY" == true && \
     "$RELEASE_IDENTITY_LOCK_READY" == true && \
@@ -1610,7 +1650,7 @@ if [[ "$READY_MAC_APP_STORE_ARCHIVE" == true && \
     "$MAC_APP_STORE_REVIEW_PATH_VERIFIED" == true && \
     "$IOS_CLOUDKIT_PRODUCTION_SCHEMA_VERIFIED" == true && \
     "$MAC_PRIVACY_RELEASE_EVIDENCE_READY" == true && \
-    "$STORE_SUBMISSION_ASSETS_READY" == true ]]; then
+    "$MAC_STORE_SUBMISSION_ASSETS_READY" == true ]]; then
   READY_MAC_APP_STORE_UPLOAD=true
 fi
 
@@ -1697,7 +1737,8 @@ READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false
   --arg macAppStoreConnectBuildID "$MAC_APP_STORE_CONNECT_BUILD_ID" \
   --arg appStoreRecordMode "$MAC_APP_STORE_RECORD_MODE" \
   --argjson fullXcode "$FULL_XCODE" \
-  --argjson minimumRequiredXcodeMajor "$MINIMUM_XCODE_MAJOR" \
+  --argjson minimumRequiredXcodeMajor "$MINIMUM_IOS_XCODE_MAJOR" \
+  --argjson minimumRequiredMacAppStoreXcodeMajor "$MINIMUM_MAC_APP_STORE_XCODE_MAJOR" \
   --argjson minimumRequiredIOSSDKMajor "$MINIMUM_IOS_SDK_MAJOR" \
   --argjson xcode26HostCompatible "$XCODE_26_HOST_COMPATIBLE" \
   --argjson macDeveloperIDToolchain "$MAC_DEVELOPER_ID_TOOLCHAIN" \
@@ -1781,8 +1822,14 @@ READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false
   --argjson macPrivacyReleaseEvidenceReady "$MAC_PRIVACY_RELEASE_EVIDENCE_READY" \
   --argjson iosPrivacyReleaseEvidenceReady "$IOS_PRIVACY_RELEASE_EVIDENCE_READY" \
   --argjson storeSubmissionAssetsReady "$STORE_SUBMISSION_ASSETS_READY" \
+  --argjson macStoreSubmissionAssetsReady "$MAC_STORE_SUBMISSION_ASSETS_READY" \
+  --argjson iosStoreSubmissionAssetsReady "$IOS_STORE_SUBMISSION_ASSETS_READY" \
   --argjson storeSubmissionBlockers "$STORE_SUBMISSION_BLOCKERS_JSON" \
   --argjson storeSubmissionStructuralErrors "$STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON" \
+  --argjson macStoreSubmissionBlockers "$MAC_STORE_SUBMISSION_BLOCKERS_JSON" \
+  --argjson iosStoreSubmissionBlockers "$IOS_STORE_SUBMISSION_BLOCKERS_JSON" \
+  --argjson macStoreSubmissionStructuralErrors "$MAC_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON" \
+  --argjson iosStoreSubmissionStructuralErrors "$IOS_STORE_SUBMISSION_STRUCTURAL_ERRORS_JSON" \
   --argjson macAppStoreReleaseMetadataConfigured "$MAC_APP_STORE_RELEASE_METADATA_CONFIGURED" \
   --argjson macAppStoreExactCandidateEvidenceReady "$MAC_APP_STORE_EXACT_CANDIDATE_EVIDENCE_READY" \
   --argjson macAppStoreLocalPreflightPassed "$MAC_APP_STORE_LOCAL_PREFLIGHT_PASSED" \
@@ -1817,6 +1864,7 @@ READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false
     hostMacOSVersion: (if $hostMacOSVersion == "" then null else $hostMacOSVersion end),
     minimumHostMacOSForXcode26: $minimumXcode26HostMacOS,
     minimumRequiredXcodeMajor: $minimumRequiredXcodeMajor,
+    minimumRequiredMacAppStoreXcodeMajor: $minimumRequiredMacAppStoreXcodeMajor,
     minimumRequiredIOSSDKMajor: $minimumRequiredIOSSDKMajor,
     xcode26HostCompatible: $xcode26HostCompatible,
     fullXcode: $fullXcode,
@@ -1977,6 +2025,14 @@ READY_FUNCTIONAL_MAC_APP_STORE_SUBMISSION=false
     storeSubmissionBlockerCount: ($storeSubmissionBlockers | length),
     storeSubmissionBlockers: $storeSubmissionBlockers,
     storeSubmissionStructuralErrors: $storeSubmissionStructuralErrors,
+    macStoreSubmissionAssetsReady: $macStoreSubmissionAssetsReady,
+    macStoreSubmissionBlockerCount: ($macStoreSubmissionBlockers | length),
+    macStoreSubmissionBlockers: $macStoreSubmissionBlockers,
+    macStoreSubmissionStructuralErrors: $macStoreSubmissionStructuralErrors,
+    iosStoreSubmissionAssetsReady: $iosStoreSubmissionAssetsReady,
+    iosStoreSubmissionBlockerCount: ($iosStoreSubmissionBlockers | length),
+    iosStoreSubmissionBlockers: $iosStoreSubmissionBlockers,
+    iosStoreSubmissionStructuralErrors: $iosStoreSubmissionStructuralErrors,
     appStoreRecordModeConfigured: $appStoreRecordModeConfigured,
     appStoreRecordMode: (if $appStoreRecordMode == "" then null else $appStoreRecordMode end),
     universalPurchaseBundleIDsMatch: $universalPurchaseBundleIDsMatch,

@@ -116,6 +116,16 @@ inspect_release_metadata() {
     || fail "release metadata parent must be a non-symlink release directory"
 
   /usr/bin/jq -e '
+    def export_method_matches_xcode:
+      (.xcodeVersion | type == "string" and
+        test("^[0-9]+(\\.[0-9]+){1,2}$")) and
+      ((.xcodeVersion | split(".")[0] | tonumber) as $xcodeMajor |
+        $xcodeMajor >= 14 and
+        .exportMethod == (if $xcodeMajor == 14 then
+          "app-store"
+        else
+          "app-store-connect"
+        end));
     type == "object" and
     .schemaVersion == 1 and
     .platform == "macOS" and
@@ -127,7 +137,7 @@ inspect_release_metadata() {
     (.archiveZipSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
     (.exportedPackage | type == "string" and endswith(".pkg")) and
     (.packageSHA256 | type == "string" and test("^[0-9a-f]{64}$")) and
-    .exportMethod == "app-store-connect" and
+    export_method_matches_xcode and
     .exportDestination == "export" and
     (.appBundleID | type == "string" and test("^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$")) and
     .applicationCategory == "public.app-category.developer-tools" and

@@ -18,6 +18,30 @@ for (const argument of args) {
 const releaseMode = args.has("--release");
 const structuralErrors = [];
 const releaseBlockers = [];
+const storePlatforms = ["macOS", "iOS"];
+const platformStructuralErrors = {
+  macOS: [],
+  iOS: [],
+};
+const platformReleaseBlockers = {
+  macOS: [],
+  iOS: [],
+};
+
+function addIssue(allIssues, platformIssues, message, platforms = storePlatforms) {
+  allIssues.push(message);
+  for (const platform of platforms) {
+    platformIssues[platform].push(message);
+  }
+}
+
+function addStructuralError(message, platforms = storePlatforms) {
+  addIssue(structuralErrors, platformStructuralErrors, message, platforms);
+}
+
+function addReleaseBlocker(message, platforms = storePlatforms) {
+  addIssue(releaseBlockers, platformReleaseBlockers, message, platforms);
+}
 
 const metadataDocuments = [
   {
@@ -82,6 +106,10 @@ function characterCount(value) {
   return Array.from(value).length;
 }
 
+function containsUnsupportedStoreMarkup(value) {
+  return /`|\*\*|__|\[[^\]\n]+\]\([^)]+\)/.test(value);
+}
+
 function sectionLines(markdown, heading) {
   const lines = markdown.split(/\r?\n/);
   const start = lines.findIndex((line) => line.trim() === heading);
@@ -124,7 +152,7 @@ function validateMetadataLocale(document, localeConfig, markdown) {
   const lines = sectionLines(markdown, localeConfig.section);
   const key = `${document.platform}/${localeConfig.locale}`;
   if (!lines) {
-    structuralErrors.push(`${key}: missing locale section ${localeConfig.section}`);
+    addStructuralError(`${key}: missing locale section ${localeConfig.section}`, [document.platform]);
     return { platform: document.platform, locale: localeConfig.locale, fields: null };
   }
 
@@ -132,7 +160,7 @@ function validateMetadataLocale(document, localeConfig, markdown) {
   for (const [field, pattern] of Object.entries(localeConfig.headings)) {
     const value = fieldValue(lines, pattern, field === "description");
     if (value === null || value === "") {
-      structuralErrors.push(`${key}: missing ${field}`);
+      addStructuralError(`${key}: missing ${field}`, [document.platform]);
     }
     fields[field] = value ?? "";
   }
@@ -150,22 +178,42 @@ function validateMetadataLocale(document, localeConfig, markdown) {
     const measured = limit.unit === "bytes" ? Buffer.byteLength(value, "utf8") : characterCount(value);
     measurements[field] = { value, measured, ...limit };
     if (limit.minimum !== undefined && measured < limit.minimum) {
-      structuralErrors.push(`${key}: ${field} is shorter than ${limit.minimum} ${limit.unit}`);
+      addStructuralError(
+        `${key}: ${field} is shorter than ${limit.minimum} ${limit.unit}`,
+        [document.platform],
+      );
     }
     if (measured > limit.maximum) {
-      structuralErrors.push(`${key}: ${field} is ${measured} ${limit.unit}; maximum is ${limit.maximum}`);
+      addStructuralError(
+        `${key}: ${field} is ${measured} ${limit.unit}; maximum is ${limit.maximum}`,
+        [document.platform],
+      );
     }
   }
 
   const keywords = fields.keywords.split(",").map((item) => item.trim()).filter(Boolean);
   if (keywords.length === 0 || keywords.some((item) => characterCount(item) <= 2)) {
-    structuralErrors.push(`${key}: every comma-separated keyword must contain more than two characters`);
+    addStructuralError(
+      `${key}: every comma-separated keyword must contain more than two characters`,
+      [document.platform],
+    );
   }
   if (/\[[^\]]+\]/.test(Object.values(fields).join("\n"))) {
-    releaseBlockers.push(`${key}: extracted store metadata still contains a placeholder`);
+    addReleaseBlocker(`${key}: extracted store metadata still contains a placeholder`, [document.platform]);
+  }
+  for (const [field, value] of Object.entries(fields)) {
+    if (containsUnsupportedStoreMarkup(value)) {
+      addStructuralError(
+        `${key}: ${field} contains Markdown that App Store Connect renders as plain text`,
+        [document.platform],
+      );
+    }
   }
   if (/^(agent island|tasklume)$/i.test(fields.name.trim())) {
-    releaseBlockers.push(`${key}: ${JSON.stringify(fields.name)} is a known conflicted release name`);
+    addReleaseBlocker(
+      `${key}: ${JSON.stringify(fields.name)} is a known conflicted release name`,
+      [document.platform],
+    );
   }
 
   return {
@@ -178,7 +226,7 @@ function validateMetadataLocale(document, localeConfig, markdown) {
 const metadata = [];
 for (const document of metadataDocuments) {
   if (!existsSync(document.path)) {
-    structuralErrors.push(`missing metadata document: ${document.path}`);
+    addStructuralError(`missing metadata document: ${document.path}`, [document.platform]);
     continue;
   }
   const markdown = readFileSync(document.path, "utf8");
@@ -191,14 +239,14 @@ for (const document of metadataDocuments) {
 // App Store Connect and App Review need. Draft validation deliberately allows
 // placeholders so the repository stays reusable, but release validation must
 // never become green merely because screenshots and marketing copy are ready.
-const submissionDocumentPaths = [
-  "docs/release/APP_STORE_METADATA.md",
-  "docs/release/IOS_APP_STORE_AND_TESTFLIGHT_METADATA.md",
-  "docs/release/APP_REVIEW_NOTES.md",
-  "docs/release/IOS_APP_REVIEW_NOTES.md",
-  "docs/release/PRIVACY_POLICY_ZH.md",
-  "docs/release/PRIVACY_POLICY_EN.md",
-  "docs/release/APP_PRIVACY_SUBMISSION_WORKSHEET.md",
+const submissionDocumentConfigs = [
+  { relativePath: "docs/release/APP_STORE_METADATA.md", platforms: ["macOS"] },
+  { relativePath: "docs/release/IOS_APP_STORE_AND_TESTFLIGHT_METADATA.md", platforms: ["iOS"] },
+  { relativePath: "docs/release/APP_REVIEW_NOTES.md", platforms: ["macOS"] },
+  { relativePath: "docs/release/IOS_APP_REVIEW_NOTES.md", platforms: ["iOS"] },
+  { relativePath: "docs/release/PRIVACY_POLICY_ZH.md", platforms: storePlatforms },
+  { relativePath: "docs/release/PRIVACY_POLICY_EN.md", platforms: storePlatforms },
+  { relativePath: "docs/release/APP_PRIVACY_SUBMISSION_WORKSHEET.md", platforms: storePlatforms },
 ];
 
 function unresolvedBracketPlaceholders(markdown) {
@@ -238,7 +286,7 @@ const placeholderParserRegression = unresolvedBracketPlaceholders([
   '[支持邮箱]',
 ].join('\n'));
 if (JSON.stringify(placeholderParserRegression) !== JSON.stringify(['[支持邮箱]'])) {
-  structuralErrors.push('submission placeholder parser regression failed');
+  addStructuralError('submission placeholder parser regression failed');
 }
 const sentinelParserRegression = releaseDraftSentinels([
   '# Final document',
@@ -248,15 +296,25 @@ const sentinelParserRegression = releaseDraftSentinels([
 if (sentinelParserRegression.length !== 2
     || sentinelParserRegression[0].line !== 2
     || sentinelParserRegression[1].line !== 3) {
-  structuralErrors.push('submission draft-sentinel parser regression failed');
+  addStructuralError('submission draft-sentinel parser regression failed');
+}
+const storeMarkupParserRegression = [
+  containsUnsupportedStoreMarkup('cloud `latest` snapshot'),
+  containsUnsupportedStoreMarkup('**Local first**'),
+  containsUnsupportedStoreMarkup('[Privacy](https://example.invalid)'),
+  !containsUnsupportedStoreMarkup('cloud "latest" snapshot'),
+].every(Boolean);
+if (!storeMarkupParserRegression) {
+  addStructuralError('store plain-text markup parser regression failed');
 }
 
-const submissionDocuments = submissionDocumentPaths.map((relativePath) => {
+const submissionDocuments = submissionDocumentConfigs.map(({ relativePath, platforms }) => {
   const path = join(projectRoot, relativePath);
   if (!existsSync(path)) {
-    structuralErrors.push(`missing submission document: ${path}`);
+    addStructuralError(`missing submission document: ${path}`, platforms);
     return {
       path,
+      platforms,
       heading: "",
       unresolvedPlaceholders: [],
       draftHeading: false,
@@ -269,15 +327,17 @@ const submissionDocuments = submissionDocumentPaths.map((relativePath) => {
   const draftHeading = /(?:草案|\bdraft\b)/i.test(heading);
   const draftSentinels = releaseDraftSentinels(markdown);
   for (const placeholder of unresolvedPlaceholders) {
-    releaseBlockers.push(`${relativePath}: unresolved placeholder ${placeholder}`);
+    addReleaseBlocker(`${relativePath}: unresolved placeholder ${placeholder}`, platforms);
   }
   for (const sentinel of draftSentinels) {
-    releaseBlockers.push(
+    addReleaseBlocker(
       `${relativePath}:${sentinel.line}: release document still contains ${JSON.stringify(sentinel.value)}`,
+      platforms,
     );
   }
   return {
     path,
+    platforms,
     heading,
     unresolvedPlaceholders,
     draftHeading,
@@ -288,7 +348,7 @@ const submissionDocuments = submissionDocumentPaths.map((relativePath) => {
 function inspectAppPrivacyReleaseGate() {
   const validatorPath = join(projectRoot, "scripts/validate-app-privacy.mjs");
   if (!existsSync(validatorPath)) {
-    structuralErrors.push(`missing App Privacy validator: ${validatorPath}`);
+    addStructuralError(`missing App Privacy validator: ${validatorPath}`);
     return null;
   }
   const child = spawnSync(process.execPath, [validatorPath], {
@@ -301,22 +361,22 @@ function inspectAppPrivacyReleaseGate() {
   try {
     validation = JSON.parse(child.stdout);
   } catch (error) {
-    structuralErrors.push(`App Privacy validator did not return JSON: ${error.message}`);
+    addStructuralError(`App Privacy validator did not return JSON: ${error.message}`);
     return null;
   }
   if (child.status !== 0 || validation.draftValid !== true) {
-    structuralErrors.push("App Privacy source validation failed");
+    addStructuralError("App Privacy source validation failed");
     for (const error of validation.structuralErrors ?? []) {
-      structuralErrors.push(`App Privacy: ${error}`);
+      addStructuralError(`App Privacy: ${error}`);
     }
   }
   if (validation.releaseReady !== true) {
     const blockers = validation.releaseBlockers ?? [];
     if (blockers.length === 0) {
-      releaseBlockers.push("App Privacy release evidence is not ready");
+      addReleaseBlocker("App Privacy release evidence is not ready");
     } else {
       for (const blocker of blockers) {
-        releaseBlockers.push(`App Privacy: ${blocker}`);
+        addReleaseBlocker(`App Privacy: ${blocker}`);
       }
     }
   }
@@ -343,7 +403,7 @@ let supportContact = {
   configured: false,
 };
 if (!existsSync(supportSitePath)) {
-  structuralErrors.push(`missing public support page: ${supportSitePath}`);
+  addStructuralError(`missing public support page: ${supportSitePath}`);
 } else {
   const supportHTML = readFileSync(supportSitePath, "utf8");
   const emailLinks = [...supportHTML.matchAll(/href=["']mailto:([^"']+)["']/gi)]
@@ -363,7 +423,7 @@ if (!existsSync(supportSitePath)) {
     configured: emailLinks.length > 0 || telephoneLinks.length > 0 || addressBlocks.length > 0,
   };
   if (!supportContact.configured) {
-    releaseBlockers.push(
+    addReleaseBlocker(
       "public Support URL has no actual email, international telephone number, or legal contact address",
     );
   }
@@ -402,6 +462,7 @@ function imageFiles(directory) {
 }
 
 function inspectScreenshots(platform, locale, directory, required) {
+  const storePlatform = platform === "macos" ? "macOS" : "iOS";
   const files = imageFiles(directory);
   const images = files.map((path) => {
     const properties = imageProperties(path);
@@ -409,12 +470,18 @@ function inspectScreenshots(platform, locale, directory, required) {
     const acceptedDimensions = allowedScreenshotDimensions[platform].has(dimensions);
     const valid = properties.readable && acceptedDimensions && !properties.hasAlpha;
     if (required && !valid) {
-      releaseBlockers.push(`${platform}/${locale}: ${path} must use an accepted size and have no alpha channel`);
+      addReleaseBlocker(
+        `${platform}/${locale}: ${path} must use an accepted size and have no alpha channel`,
+        [storePlatform],
+      );
     }
     return { path, dimensions, hasAlpha: properties.hasAlpha, acceptedDimensions, valid };
   });
   if (required && (files.length < 1 || files.length > 10)) {
-    releaseBlockers.push(`${platform}/${locale}: expected 1-10 final screenshots, found ${files.length}`);
+    addReleaseBlocker(
+      `${platform}/${locale}: expected 1-10 final screenshots, found ${files.length}`,
+      [storePlatform],
+    );
   }
   return { platform, locale, directory, count: files.length, images };
 }
@@ -447,10 +514,14 @@ const iconManifestPath = join(
 );
 const iconChecks = [];
 if (!existsSync(iconManifestPath)) {
-  structuralErrors.push(`missing iOS AppIcon manifest: ${iconManifestPath}`);
+  addStructuralError(`missing iOS AppIcon manifest: ${iconManifestPath}`, ["iOS"]);
 } else {
   const manifest = JSON.parse(readFileSync(iconManifestPath, "utf8"));
-  for (const entry of manifest.images ?? []) {
+  const manifestImages = manifest.images ?? [];
+  if (manifestImages.length === 0) {
+    addStructuralError(`iOS AppIcon manifest has no image entries: ${iconManifestPath}`, ["iOS"]);
+  }
+  for (const entry of manifestImages) {
     const expectedPoints = Number.parseFloat(entry.size?.split("x")[0] ?? "0");
     const scale = Number.parseFloat(entry.scale?.replace("x", "") ?? "0");
     const expectedPixels = expectedPoints * scale;
@@ -462,17 +533,30 @@ if (!existsSync(iconManifestPath)) {
       && properties.height === expectedPixels
       && !properties.hasAlpha;
     if (!valid) {
-      structuralErrors.push(`invalid iOS AppIcon asset: ${path}`);
+      addStructuralError(`invalid iOS AppIcon asset: ${path}`, ["iOS"]);
     }
     iconChecks.push({ path, expectedPixels, ...properties, valid });
   }
 }
 
 const metadataStructurallyValid = structuralErrors.length === 0;
-const finalScreenshotSetsReady = finalScreenshots.every(
-  (set) => set.count >= 1 && set.count <= 10 && set.images.every((image) => image.valid),
-);
-const releaseReady = metadataStructurallyValid && releaseBlockers.length === 0 && finalScreenshotSetsReady;
+function screenshotSetsReady(platform) {
+  const sets = finalScreenshots.filter((set) => set.platform === platform);
+  return sets.length === 2 && sets.every(
+    (set) => set.count >= 1 && set.count <= 10 && set.images.every((image) => image.valid),
+  );
+}
+
+const iconsReady = iconChecks.length > 0 && iconChecks.every((item) => item.valid);
+const macStoreSubmissionAssetsReady = platformStructuralErrors.macOS.length === 0
+  && platformReleaseBlockers.macOS.length === 0
+  && screenshotSetsReady("macos");
+const iosStoreSubmissionAssetsReady = platformStructuralErrors.iOS.length === 0
+  && platformReleaseBlockers.iOS.length === 0
+  && screenshotSetsReady("ios")
+  && iconsReady;
+const storeSubmissionAssetsReady = macStoreSubmissionAssetsReady && iosStoreSubmissionAssetsReady;
+const releaseReady = storeSubmissionAssetsReady;
 
 const result = {
   schemaVersion: 1,
@@ -488,18 +572,26 @@ const result = {
   submissionDocuments,
   appPrivacy,
   supportContact,
-  icons: { ready: iconChecks.length > 0 && iconChecks.every((item) => item.valid), images: iconChecks },
+  icons: { ready: iconsReady, images: iconChecks },
   referenceScreenshots,
   finalScreenshots,
   structuralErrors,
   releaseBlockers,
+  macStoreSubmissionStructuralErrors: platformStructuralErrors.macOS,
+  iosStoreSubmissionStructuralErrors: platformStructuralErrors.iOS,
+  macStoreSubmissionBlockers: platformReleaseBlockers.macOS,
+  iosStoreSubmissionBlockers: platformReleaseBlockers.iOS,
   draftValid: metadataStructurallyValid,
+  macStoreSubmissionAssetsReady,
+  iosStoreSubmissionAssetsReady,
+  storeSubmissionAssetsReady,
   releaseReady,
   validatorSelfTests: {
     placeholderParser: JSON.stringify(placeholderParserRegression) === JSON.stringify(['[支持邮箱]']),
     releaseDraftSentinelParser: sentinelParserRegression.length === 2
       && sentinelParserRegression[0].line === 2
       && sentinelParserRegression[1].line === 3,
+    storeMarkupParser: storeMarkupParserRegression,
   },
 };
 

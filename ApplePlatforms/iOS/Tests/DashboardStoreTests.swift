@@ -97,6 +97,25 @@ final class DashboardStoreTests: XCTestCase {
   }
 
   @MainActor
+  func testLeavingForegroundHidesPreviouslyRevealedTitles() async {
+    let snapshot = SnapshotFixtures.titledSnapshot()
+    let store = DashboardStore(provider: MockSnapshotProvider([.snapshot(snapshot)]))
+
+    await store.refresh()
+    store.toggleTitlePrivacy()
+    XCTAssertTrue(store.revealFullConversationTitles)
+
+    store.hideFullConversationTitles()
+
+    XCTAssertFalse(store.revealFullConversationTitles)
+    XCTAssertEqual(
+      store.snapshot,
+      snapshot,
+      "Hiding titles must not discard the already validated snapshot."
+    )
+  }
+
+  @MainActor
   func testAccountUnavailableClearsPreviousSnapshotAndTitleState() async {
     await assertAccountScopedStateIsCleared(after: .accountUnavailable)
   }
