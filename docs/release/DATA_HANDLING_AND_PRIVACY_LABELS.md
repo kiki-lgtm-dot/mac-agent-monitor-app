@@ -107,16 +107,13 @@ App Privacy 标签和 `PrivacyInfo.xcprivacy` 是两套相关但不同的申报�
 - `NSUserDefaults` 保存语言、翻译配置、自定义源和翻译 usage；
 - 文件属性/修改时间用于日志签名、缓存、排序和增量扫描。
 
-正式提交构建应让每个相关 Target 包含与自身行为一致的 `PrivacyInfo.xcprivacy`。根据最终沙盒实现逐个可执行文件审计，并从 Apple 当时的批准理由清单选择真实用途。当前实现可能对应的候选项是：
+正式提交构建应让每个相关 Target 包含与自身行为一致的 `PrivacyInfo.xcprivacy`。Apple 当前的 Required Reason API 申报门禁适用于 iOS、iPadOS、tvOS、visionOS 与 watchOS，不应把这些理由码直接套到原生 macOS Target。当前 iOS 主 App 使用 `NSUserDefaults` 保存离线示例模式状态，因此声明 `NSPrivacyAccessedAPICategoryUserDefaults` 的 `CA92.1`；Widget 不使用相应 API，保持空清单。以后若移动平台 Target 新增受管 API，再按每个实际调用的数据位置和 Apple 当时的批准理由清单逐项审计。
 
-- `NSPrivacyAccessedAPICategoryUserDefaults`：应用自身可访问的偏好设置用途通常对应 `CA92.1`；提交前在 Apple 文档复核。
-- `NSPrivacyAccessedAPICategoryFileTimestamp`：Mac App Store 沙盒版若只读取用户通过选择器授权的外部日志，可能对应 `3B52.1`；应用容器内文件元数据可能对应 `C617.1`。必须按每个实际调用的数据位置区分。
-
-不要为了通过验证随意填理由码。Mac App Store 版若继续未经用户选择就扫描外部主目录，既无法由 `3B52.1` 合理解释，也会与 App Sandbox 要求冲突。
+Mac App Store 版的主目录读取属于独立的 App Sandbox 文件授权问题：外部日志必须由用户通过选择器明确授权，并使用 security-scoped bookmark 持久化和撤销访问。不要用 `3B52.1`、`C617.1` 或任何 Privacy Manifest 理由码冒充已经完成沙盒授权流程。
 
 当前应用没有第三方二进制 SDK，但仍需让 Xcode 生成 Privacy Report，并检查 WebKit、系统框架、SQLite 链接和最终归档中是否出现额外清单或警告。
 
-macOS 的 `Resources/PrivacyInfo.xcprivacy` 与 iOS App Target 的 `Config/PrivacyInfo.xcprivacy` 都已声明 `NSPrivacyCollectedDataTypeOtherUsageData` 和条件性的 `NSPrivacyCollectedDataTypeOtherUserContent`：与用户关联，用于 App Functionality，不用于追踪；`NSPrivacyTracking` 为 `false`，没有 tracking domains。后者覆盖用户单独同意后可能进入私有 CloudKit 的对话标题；即使默认关闭，也按 Apple 对持续性可选功能的口径申报。两个主 App 清单都声明 UserDefaults 的 `CA92.1` 理由；iOS 目前只用它保存是否开启明确标识的离线示例模式。iOS Widget Extension 使用独立的 `WidgetExtension/PrivacyInfo.xcprivacy`，其 collected data、accessed API、tracking domains 均为空，tracking 为 false；Widget 不拥有 CloudKit entitlement，只接收主 App 生成的不含标题 ActivityKit 状态。
+macOS 的 `Resources/PrivacyInfo.xcprivacy` 与 iOS App Target 的 `Config/PrivacyInfo.xcprivacy` 都已声明 `NSPrivacyCollectedDataTypeOtherUsageData` 和条件性的 `NSPrivacyCollectedDataTypeOtherUserContent`：与用户关联，用于 App Functionality，不用于追踪；`NSPrivacyTracking` 为 `false`，没有 tracking domains。后者覆盖用户单独同意后可能进入私有 CloudKit 的对话标题；即使默认关闭，也按 Apple 对持续性可选功能的口径申报。只有 iOS 主 App 清单声明 UserDefaults 的 `CA92.1` 理由；iOS 目前只用它保存是否开启明确标识的离线示例模式。原生 macOS 清单不声明移动平台 Required Reason API。iOS Widget Extension 使用独立的 `WidgetExtension/PrivacyInfo.xcprivacy`，其 collected data、accessed API、tracking domains 均为空，tracking 为 false；Widget 不拥有 CloudKit entitlement，只接收主 App 生成的不含标题 ActivityKit 状态。
 
 上述 App Target 披露与私有 CloudKit 中的 Agent/工具状态、时长、Token 摘要及条件性标题一致，但仍必须在正式 Container/schema、签名和真机链路确定后使用 Xcode Privacy Report 复核，并在 App Store Connect 中采用相同口径。加入 APNs、认证 HTTPS、崩溃报告或分析时同样重审。
 

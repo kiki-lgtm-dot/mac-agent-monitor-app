@@ -4,10 +4,11 @@ setopt EXTENDED_GLOB
 
 PROJECT_DIR="${0:A:h:h}"
 DIST_DIR="$PROJECT_DIR/dist"
-APP_DIR="$DIST_DIR/AgentIsland.app"
-ARCHIVE_PATH="$DIST_DIR/AgentIsland-macOS-universal.zip"
+PUBLIC_APP_NAME="MAC版灵动岛--Agent运行监测"
+APP_DIR="$DIST_DIR/$PUBLIC_APP_NAME.app"
+ARCHIVE_PATH="$DIST_DIR/$PUBLIC_APP_NAME-macOS-universal.zip"
 STAGING_ROOT="$(mktemp -d /private/tmp/agentisland-build.XXXXXX)"
-STAGING_APP="$STAGING_ROOT/AgentIsland.app"
+STAGING_APP="$STAGING_ROOT/$PUBLIC_APP_NAME.app"
 VERIFY_DIR="$STAGING_ROOT/verify"
 CONTENTS_DIR="$STAGING_APP/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
@@ -80,16 +81,16 @@ sign_app() {
 restore_old_outputs() {
   set +e
 
-  if [[ -e "$BACKUP_ROOT/AgentIsland.app" ]]; then
+  if [[ -e "$BACKUP_ROOT/$PUBLIC_APP_NAME.app" ]]; then
     rm -rf "$APP_DIR"
-    mv "$BACKUP_ROOT/AgentIsland.app" "$APP_DIR"
+    mv "$BACKUP_ROOT/$PUBLIC_APP_NAME.app" "$APP_DIR"
   elif (( ! HAD_OLD_APP )); then
     rm -rf "$APP_DIR"
   fi
 
-  if [[ -e "$BACKUP_ROOT/AgentIsland-macOS-universal.zip" ]]; then
+  if [[ -e "$BACKUP_ROOT/$PUBLIC_APP_NAME-macOS-universal.zip" ]]; then
     rm -f "$ARCHIVE_PATH"
-    mv "$BACKUP_ROOT/AgentIsland-macOS-universal.zip" "$ARCHIVE_PATH"
+    mv "$BACKUP_ROOT/$PUBLIC_APP_NAME-macOS-universal.zip" "$ARCHIVE_PATH"
   elif (( ! HAD_OLD_ARCHIVE )); then
     rm -f "$ARCHIVE_PATH"
   fi
@@ -114,8 +115,8 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-[[ "$APP_DIR" == "$PROJECT_DIR/dist/AgentIsland.app" ]] || { echo "Refusing unsafe app path" >&2; exit 2; }
-[[ "$ARCHIVE_PATH" == "$PROJECT_DIR/dist/AgentIsland-macOS-universal.zip" ]] || { echo "Refusing unsafe archive path" >&2; exit 2; }
+[[ "$APP_DIR" == "$PROJECT_DIR/dist/$PUBLIC_APP_NAME.app" ]] || { echo "Refusing unsafe app path" >&2; exit 2; }
+[[ "$ARCHIVE_PATH" == "$PROJECT_DIR/dist/$PUBLIC_APP_NAME-macOS-universal.zip" ]] || { echo "Refusing unsafe archive path" >&2; exit 2; }
 validate_bundle_id "$BUNDLE_ID_OVERRIDE" || { echo "Invalid AGENT_ISLAND_BUNDLE_ID" >&2; exit 2; }
 validate_version "$VERSION_OVERRIDE" || { echo "Invalid AGENT_ISLAND_VERSION" >&2; exit 2; }
 [[ -z "$BUILD_OVERRIDE" || "$BUILD_OVERRIDE" == <-> ]] || { echo "Invalid AGENT_ISLAND_BUILD_NUMBER" >&2; exit 2; }
@@ -176,8 +177,8 @@ PUBLISH_ROOT="$(mktemp -d "$DIST_DIR/.agentisland-publish.XXXXXX")"
 # Avoid an .app suffix while staging under Desktop: File Provider otherwise
 # recognizes the temporary bundle and may attach Finder metadata before it can
 # be verified. The final same-filesystem rename supplies the public .app name.
-PUBLISH_APP="$PUBLISH_ROOT/AgentIsland.pending"
-PUBLISH_ARCHIVE="$PUBLISH_ROOT/AgentIsland-macOS-universal.zip"
+PUBLISH_APP="$PUBLISH_ROOT/$PUBLIC_APP_NAME.pending"
+PUBLISH_ARCHIVE="$PUBLISH_ROOT/$PUBLIC_APP_NAME-macOS-universal.zip"
 
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 clang \
@@ -229,8 +230,8 @@ codesign --verify --deep --strict --verbose=2 "$PUBLISH_APP"
 COPYFILE_DISABLE=1 ditto --noextattr --norsrc -c -k --keepParent "$STAGING_APP" "$PUBLISH_ARCHIVE"
 mkdir -p "$VERIFY_DIR"
 ditto -x -k "$PUBLISH_ARCHIVE" "$VERIFY_DIR"
-xattr -cr "$VERIFY_DIR/AgentIsland.app"
-codesign --verify --deep --strict --verbose=2 "$VERIFY_DIR/AgentIsland.app"
+xattr -cr "$VERIFY_DIR/$PUBLIC_APP_NAME.app"
+codesign --verify --deep --strict --verbose=2 "$VERIFY_DIR/$PUBLIC_APP_NAME.app"
 
 # Do not touch either published artifact until both staged outputs have passed
 # verification. Keep the old pair in the same directory tree so any failure
@@ -240,8 +241,8 @@ BACKUP_ROOT="$(mktemp -d "$DIST_DIR/.agentisland-backup.XXXXXX")"
 [[ -e "$ARCHIVE_PATH" ]] && HAD_OLD_ARCHIVE=1
 COMMIT_STARTED=1
 
-(( HAD_OLD_APP )) && mv "$APP_DIR" "$BACKUP_ROOT/AgentIsland.app"
-(( HAD_OLD_ARCHIVE )) && mv "$ARCHIVE_PATH" "$BACKUP_ROOT/AgentIsland-macOS-universal.zip"
+(( HAD_OLD_APP )) && mv "$APP_DIR" "$BACKUP_ROOT/$PUBLIC_APP_NAME.app"
+(( HAD_OLD_ARCHIVE )) && mv "$ARCHIVE_PATH" "$BACKUP_ROOT/$PUBLIC_APP_NAME-macOS-universal.zip"
 mv "$PUBLISH_APP" "$APP_DIR"
 mv "$PUBLISH_ARCHIVE" "$ARCHIVE_PATH"
 

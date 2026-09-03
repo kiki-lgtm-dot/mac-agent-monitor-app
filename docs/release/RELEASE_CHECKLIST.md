@@ -5,9 +5,10 @@
 ## 0. 确定本次发布范围
 
 - [ ] 选择渠道：`Developer ID 官网分发` / `Mac App Store` / `iOS TestFlight` / `iOS App Store`，并为不同平台分别记录构建和审核状态。
+- [ ] 明确 App Store Connect 记录模式：同一记录/Universal Purchase 选 `AGENT_ISLAND_APP_STORE_RECORD_MODE=universal-purchase` 并确保 macOS/iOS App Bundle ID 相同；分开两个记录选 `separate-records`，且 macOS/iOS App Bundle ID 必须不同。
 - [ ] Mac producer 和 iOS receiver 代码链路已实现，但在正式签名/Container/schema 和同账号真机验证通过前不宣传“手机可查看 Mac Agent”；不把本地回归通过当成已上线服务。
 - [ ] 确定正式产品名，并检索 App Store、商标和域名冲突。
-- [ ] 核验公开工作名 `MAC版灵动岛--Agent运行监测` 的 App Store、商标与域名可用性，或选择替代名称；将最终 2–30 字符名称设置为 `AGENT_ISLAND_DISPLAY_NAME`，并核对 `CFBundleDisplayName` 与商店名称一致。构建门禁仍会拒绝旧的冲突工作名 `Agent Island` / `TaskLume`。
+- [ ] 核验公开名 `MAC版灵动岛--Agent运行监测` 的 App Store、商标与域名可用性；正式分发时 `AGENT_ISLAND_DISPLAY_NAME`、`CFBundleDisplayName`、`.app` 与 ZIP 必须保持该名称。如必须更名，先将构建/发布脚本和文档作为一次完整迁移，不得只覆盖环境变量。
 - [ ] 确定版本号；首次公开发布建议采用清晰的 `1.0.0` 或经确认的版本策略。
 - [x] 已于 2026-09-02 根据 DeepSeek 官方 API 文档、隐私政策和开放平台服务协议完成公开资料基线审计，并归档到 `DEEPSEEK_TRANSLATION_PRIVACY_AUDIT.md`。
 - [ ] 确定正式版是否保留 DeepSeek 默认端点；如保留，取得 API 请求保留/训练的专用书面依据，或接受无固定保留期与可能训练/优化的保守披露，并实施分层同意。
@@ -37,6 +38,7 @@
 - [ ] 复核 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`，把第三方声明随最终应用分发。
 - [ ] 核实产品名、图标、截图和文案不复制参考项目或暗示厂商背书。
 - [ ] 完成 `DATA_HANDLING_AND_PRIVACY_LABELS.md` 的翻译供应商决策表。
+- [ ] 按 `APP_PRIVACY_SUBMISSION_WORKSHEET.md` 填写 App Store Connect，并运行 `node scripts/validate-app-privacy.mjs --release`；不得用源码清单代替最终 Xcode Privacy Report。
 - [ ] 在翻译页首次使用前提供清楚的离机传输提示，显示目标服务，并让用户主动提交。
 - [ ] 确认隐私遮罩、删除网站/备忘录/学习条目、清除 API Key 和移除数据源均可正常工作。
 
@@ -52,7 +54,7 @@
 - [ ] 使用 `apply-release-identity.sh --check --profile ...` 验证 Apple 签名 profile，再用 `--apply --profile ...` 生成 `.release/CloudKit.entitlements`；不得把 Team ID 猜成 App ID Prefix，也不得手写最终 entitlement 冒充已验证产物。
 - [ ] 不使用 ad-hoc 签名；使用正式身份、secure timestamp 和 runtime options 签名。
 - [ ] 从干净目录生成 universal `arm64 + x86_64` 归档，确认没有 Finder 扩展属性、测试日志或密钥。
-- [ ] `dist` 中只保留唯一 canonical `AgentIsland-macOS-universal.zip`；把带空格、序号或其他后缀的旧副本移出发布目录，正式脚本会拒绝歧义来源包。
+- [ ] `dist` 中只保留唯一 canonical `MAC版灵动岛--Agent运行监测-macOS-universal.zip`；把带空格、序号或其他后缀的旧副本移出发布目录，正式脚本会拒绝歧义来源包。
 - [ ] 使用 `codesign --verify --deep --strict --verbose=2` 验证签名；同时检查每个架构可启动。
 - [ ] 用 `xcrun notarytool` 提交公证并等待 Accepted；下载同一 submission ID 的详细日志，即使 Accepted 也处理其中全部 issue，并把日志随构建 manifest 留档。
 - [ ] 将公证票据 staple 到最终 `.app`，再生成最终 ZIP/DMG；如使用 DMG，也验证其签名与公证流程。
@@ -65,13 +67,14 @@
 ## 3B. Mac App Store 专项
 
 - [ ] 为商店版建立可归档的 Xcode macOS Target；不提交当前 ad-hoc 构建。
+- [ ] 将该 Target 的工程与 Scheme 填入 `AGENT_ISLAND_MAC_APP_STORE_PROJECT` / `AGENT_ISLAND_MAC_APP_STORE_SCHEME`；确认 readiness 从同一 App Target 读到 `AgentIsland.m`、`PrivacyInfo.xcprivacy`、`Web/index.html`、`AgentIsland.icns`、`THIRD_PARTY_NOTICES.md`、Release Bundle ID/Team/显示名、有效 Info.plist URL 键和 `CODE_SIGN_ENTITLEMENTS`。
 - [ ] 开启 App Sandbox。
 - [ ] 把 `~/.codex`、`~/.claude`、IDE 扩展目录和自定义日志改为用户通过选择器明确授权的只读目录。
-- [ ] 仅申请实际需要的 `user-selected read-only` 等文件权限，使用 security-scoped bookmarks 持久化授权，并提供撤销/重新选择入口。
+- [ ] 仅申请实际需要的 `user-selected read-only`、`bookmarks.app-scope`、CloudKit 和翻译功能所需 `network.client`，使用 security-scoped bookmarks 持久化授权，并提供撤销/重新选择入口。
 - [ ] 在用户未授权、拒绝授权、目录移动或 bookmark 失效时显示可恢复的空状态，不反复弹窗。
 - [ ] 验证沙盒内能否可靠识别运行进程；不能访问的能力应删除或降级，不得虚假展示。
-- [ ] 使用 Apple Distribution / Mac App Distribution 所需证书与 provisioning profile 完成 Archive。
-- [ ] 添加并验证 `PrivacyInfo.xcprivacy`；审计 UserDefaults 与 File Timestamp required-reason API。
+- [ ] 使用与 `AGENT_ISLAND_DEVELOPMENT_TEAM` 同一 Team 的 Apple Distribution / Mac App Distribution 证书及 provisioning profile 完成 Archive；另一 Team 的证书不得让 readiness 通过。
+- [ ] 添加并验证 `PrivacyInfo.xcprivacy`；原生 macOS 按最终数据收集行为核对清单。Required Reason API 的平台门禁只应用到 Apple 当前要求的平台，不把 iOS 规则误套到原生 macOS。
 - [ ] 用 Xcode Organizer 生成并审阅 Privacy Report，处理所有验证警告。
 - [ ] 商店包必须自包含，不安装外部代码、不提权、不自动加入登录项，也不在退出后遗留子进程。
 - [ ] 准备无敏感自定义 JSONL 审核夹具或内置离线演示模式。
@@ -82,6 +85,7 @@
 - [ ] 填写并发布 App Privacy 标签，和最终构建、隐私政策保持一致。
 - [ ] 上传中英文元数据、最终截图、隐私政策 URL、支持 URL 和 Review Notes。
 - [ ] 先通过 macOS TestFlight/内部测试验证，再提交 App Review。
+- [ ] 仅针对同一个未改动的候选 Archive，记录沙盒授权流程、Archive 签名结构、匹配 profile/证书、Xcode Privacy Report 和审核路径证据后，才将 `AGENT_ISLAND_MAC_APP_STORE_SANDBOX_FLOW_VERIFIED`、`AGENT_ISLAND_MAC_APP_STORE_ARCHIVE_VERIFIED`、`AGENT_ISLAND_MAC_APP_STORE_PROFILE_CERTIFICATE_VERIFIED`、`AGENT_ISLAND_MAC_APP_STORE_PRIVACY_REPORT_VERIFIED`、`AGENT_ISLAND_MAC_APP_STORE_REVIEW_PATH_VERIFIED` 设为 `true`。
 
 ## 3C. iOS TestFlight 与 App Store 专项
 
@@ -168,6 +172,8 @@
 ## 5. 构建与安全检查
 
 - [ ] 运行 `./scripts/test.sh` 全部通过。
+- [ ] 运行 `node scripts/validate-store-submission.mjs --release` 和 `node scripts/validate-app-privacy.mjs --release`，确认元数据、截图、双语政策、App Privacy 与源码清单均无占位符或发布阻断项。
+- [ ] 运行 `./scripts/release-readiness.sh --json`，将输出与候选构建证据一起留档；不得把源码字符串命中当成功能已验收。
 - [ ] 运行 iOS `validate-project.sh` 静态检查；在完整 Xcode 环境运行 `validate-project.sh --build` 并 Archive。
 - [ ] 运行 iOS `scripts/release-ios.sh`，确认它验证 App/Widget 嵌入、Bundle ID、签名、provisioning profile、App CloudKit entitlement 和 Widget 无 iCloud entitlement；如使用 `--export`，确认只本地导出 IPA 和 SHA-256，metadata 中 `uploaded` 仍为 false。
 - [ ] 在干净 checkout 重建并记录 commit、构建时间、Xcode/SDK 版本和依赖清单。

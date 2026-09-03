@@ -4,6 +4,7 @@ set -euo pipefail
 IOS_ROOT="${0:A:h:h}"
 PRODUCT_ROOT="${IOS_ROOT:h:h}"
 DIST_ROOT="$PRODUCT_ROOT/dist/ios"
+PRIVACY_CONTRACT="$IOS_ROOT/scripts/privacy-manifest-contract.jq"
 PROJECT_PATH="$IOS_ROOT/AgentIsland.xcodeproj"
 SCHEME="AgentIslandMobile"
 CONFIGURATION="Release"
@@ -42,6 +43,8 @@ done
 
 command -v jq >/dev/null 2>&1 || fail "jq is required"
 command -v plutil >/dev/null 2>&1 || fail "plutil is required"
+[[ -f "$PRIVACY_CONTRACT" ]] \
+  || fail "privacy-manifest-contract.jq is required"
 
 DEVELOPER_PATH="${DEVELOPER_DIR:-$(/usr/bin/xcode-select -p 2>/dev/null || true)}"
 [[ "$DEVELOPER_PATH" == */Xcode.app/Contents/Developer ]] \
@@ -170,32 +173,12 @@ validate_privacy_manifests() {
   /usr/bin/plutil -convert json -o "$widget_json" "$widget_manifest" \
     || fail "$stage Widget privacy manifest is invalid"
 
-  /usr/bin/jq -e '
-    .NSPrivacyTracking == false
-    and .NSPrivacyTrackingDomains == []
-    and .NSPrivacyAccessedAPITypes == []
-    and (.NSPrivacyCollectedDataTypes | length == 2)
-    and ([.NSPrivacyCollectedDataTypes[].NSPrivacyCollectedDataType] | sort)
-      == [
-        "NSPrivacyCollectedDataTypeOtherUsageData",
-        "NSPrivacyCollectedDataTypeOtherUserContent"
-      ]
-    and all(
-      .NSPrivacyCollectedDataTypes[];
-      .NSPrivacyCollectedDataTypeLinked == true
-      and .NSPrivacyCollectedDataTypeTracking == false
-      and .NSPrivacyCollectedDataTypePurposes
-        == ["NSPrivacyCollectedDataTypePurposeAppFunctionality"]
-    )
-  ' "$app_json" >/dev/null \
+  /usr/bin/jq -e --arg target app -f "$PRIVACY_CONTRACT" \
+    "$app_json" >/dev/null \
     || fail "$stage App privacy manifest does not match the reviewed disclosure"
 
-  /usr/bin/jq -e '
-    .NSPrivacyTracking == false
-    and .NSPrivacyTrackingDomains == []
-    and .NSPrivacyCollectedDataTypes == []
-    and .NSPrivacyAccessedAPITypes == []
-  ' "$widget_json" >/dev/null \
+  /usr/bin/jq -e --arg target widget -f "$PRIVACY_CONTRACT" \
+    "$widget_json" >/dev/null \
     || fail "$stage Widget privacy manifest must remain empty"
 }
 

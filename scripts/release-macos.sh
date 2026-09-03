@@ -4,8 +4,9 @@ setopt EXTENDED_GLOB
 
 PROJECT_DIR="${0:A:h:h}"
 DIST_DIR="$PROJECT_DIR/dist"
-SOURCE_ARCHIVE="$DIST_DIR/AgentIsland-macOS-universal.zip"
-FINAL_ARCHIVE="$DIST_DIR/AgentIsland-macOS-notarized.zip"
+PUBLIC_APP_NAME="MAC版灵动岛--Agent运行监测"
+SOURCE_ARCHIVE="$DIST_DIR/$PUBLIC_APP_NAME-macOS-universal.zip"
+FINAL_ARCHIVE="$DIST_DIR/$PUBLIC_APP_NAME-macOS-notarized.zip"
 FINAL_CHECKSUM="$FINAL_ARCHIVE.sha256"
 METADATA_DIR="$DIST_DIR/release-metadata"
 SIGN_IDENTITY="${AGENT_ISLAND_DEVELOPER_ID_APPLICATION:-}"
@@ -22,20 +23,83 @@ PRIVACY_POLICY_URL="${AGENT_ISLAND_PRIVACY_POLICY_URL:-}"
 SUPPORT_URL="${AGENT_ISLAND_SUPPORT_URL:-}"
 RELEASE_ROOT="$(mktemp -d /private/tmp/agentisland-release.XXXXXX)"
 EXTRACT_ROOT="$RELEASE_ROOT/extracted"
-CANONICAL_APP="$EXTRACT_ROOT/AgentIsland.app"
+CANONICAL_APP="$EXTRACT_ROOT/$PUBLIC_APP_NAME.app"
 FINAL_VERIFY_ROOT="$RELEASE_ROOT/final-verify"
-FINAL_VERIFY_APP="$FINAL_VERIFY_ROOT/AgentIsland.app"
+FINAL_VERIFY_APP="$FINAL_VERIFY_ROOT/$PUBLIC_APP_NAME.app"
 NOTARY_RESULT="$RELEASE_ROOT/notary-result.json"
 NOTARY_LOG="$RELEASE_ROOT/notary-log.json"
 PROFILE_CERTIFICATES_ROOT="$RELEASE_ROOT/profile-certificates"
-PENDING_ARCHIVE="$RELEASE_ROOT/AgentIsland-macOS-notarized.zip"
-PENDING_CHECKSUM="$RELEASE_ROOT/AgentIsland-macOS-notarized.zip.sha256"
-PENDING_MANIFEST="$RELEASE_ROOT/build-manifest.json"
+PUBLISH_ROOT=""
+BACKUP_ROOT=""
+PENDING_ARCHIVE=""
+PENDING_CHECKSUM=""
+PENDING_METADATA_DIR=""
+PENDING_MANIFEST=""
+METADATA_STEM="AgentIsland-${RELEASE_VERSION}-${RELEASE_BUILD}"
+COMMIT_STARTED=0
+COMMIT_DONE=0
+typeset -a PUBLISH_TARGETS PUBLISH_SOURCES BACKUP_PATHS HAD_OLD_TARGETS
+PUBLISH_TARGETS=()
+PUBLISH_SOURCES=()
+BACKUP_PATHS=()
+HAD_OLD_TARGETS=()
+
+remove_publication_target() {
+  local target="$1"
+  case "$target" in
+    "$FINAL_ARCHIVE"|"$FINAL_CHECKSUM")
+      /bin/rm -f "$target"
+      ;;
+    "$METADATA_DIR")
+      /bin/rm -rf "$target"
+      ;;
+    *)
+      echo "Refusing to remove unexpected publication target: $target" >&2
+      return 1
+      ;;
+  esac
+}
+
+restore_published_outputs() {
+  set +e
+  local index target backup
+  local restore_failed=0
+
+  for (( index = ${#PUBLISH_TARGETS[@]}; index >= 1; index-- )); do
+    target="${PUBLISH_TARGETS[$index]}"
+    backup="${BACKUP_PATHS[$index]}"
+    if [[ -e "$backup" || -L "$backup" ]]; then
+      remove_publication_target "$target" || { restore_failed=1; continue; }
+      /bin/mv "$backup" "$target" || restore_failed=1
+    elif [[ "${HAD_OLD_TARGETS[$index]:-0}" == "0" ]]; then
+      remove_publication_target "$target" || restore_failed=1
+    fi
+  done
+
+  (( restore_failed == 0 ))
+}
 
 cleanup() {
   local exit_code=$?
+  local rollback_failed=0
   trap - EXIT HUP INT TERM
-  [[ "$RELEASE_ROOT" == /private/tmp/agentisland-release.* ]] && /bin/rm -rf "$RELEASE_ROOT"
+
+  if (( COMMIT_STARTED && ! COMMIT_DONE )); then
+    restore_published_outputs || rollback_failed=1
+  fi
+
+  if (( rollback_failed )); then
+    echo "Publication rollback was incomplete; recovery data was preserved at:" >&2
+    [[ -n "$BACKUP_ROOT" ]] && echo "  $BACKUP_ROOT" >&2
+    [[ -n "$PUBLISH_ROOT" ]] && echo "  $PUBLISH_ROOT" >&2
+    echo "  $RELEASE_ROOT" >&2
+  else
+    [[ "$RELEASE_ROOT" == /private/tmp/agentisland-release.* ]] && /bin/rm -rf "$RELEASE_ROOT"
+    [[ -n "$PUBLISH_ROOT" && "$PUBLISH_ROOT" == "$DIST_DIR"/.agentisland-release-publish.* ]] && \
+      /bin/rm -rf "$PUBLISH_ROOT"
+    [[ -n "$BACKUP_ROOT" && "$BACKUP_ROOT" == "$DIST_DIR"/.agentisland-release-backup.* ]] && \
+      /bin/rm -rf "$BACKUP_ROOT"
+  fi
   exit "$exit_code"
 }
 trap cleanup EXIT
@@ -107,6 +171,10 @@ production_bundle_id "$BUNDLE_ID" || { echo "AGENT_ISLAND_BUNDLE_ID must be a pr
 production_team_id "$TEAM_ID" || { echo "AGENT_ISLAND_DEVELOPMENT_TEAM must be the 10-character Apple Team ID" >&2; exit 2; }
 production_display_name "$DISPLAY_NAME" || {
   echo "AGENT_ISLAND_DISPLAY_NAME must be a cleared 2-30 character name, with no surrounding/control whitespace, and must not equal Agent Island or TaskLume" >&2
+  exit 2
+}
+[[ "$DISPLAY_NAME" == "$PUBLIC_APP_NAME" ]] || {
+  echo "AGENT_ISLAND_DISPLAY_NAME must equal the public artifact name: $PUBLIC_APP_NAME" >&2
   exit 2
 }
 [[ "$SIGN_IDENTITY" == "Developer ID Application:"* ]] || { echo "AGENT_ISLAND_DEVELOPER_ID_APPLICATION must name a Developer ID Application identity" >&2; exit 2; }
@@ -205,11 +273,11 @@ done
 
 typeset -a AMBIGUOUS_SOURCE_ARCHIVES
 AMBIGUOUS_SOURCE_ARCHIVES=()
-for ARCHIVE_CANDIDATE in "$DIST_DIR"/AgentIsland-macOS-universal*.zip(N); do
+for ARCHIVE_CANDIDATE in "$DIST_DIR"/*macOS-universal*.zip(N); do
   [[ "$ARCHIVE_CANDIDATE" == "$SOURCE_ARCHIVE" ]] || AMBIGUOUS_SOURCE_ARCHIVES+=("$ARCHIVE_CANDIDATE")
 done
 if (( ${#AMBIGUOUS_SOURCE_ARCHIVES[@]} > 0 )); then
-  echo "Refusing release while ambiguous AgentIsland-macOS-universal*.zip artifacts exist:" >&2
+  echo "Refusing release while non-canonical macOS universal archives exist:" >&2
   print -rl -- "${AMBIGUOUS_SOURCE_ARCHIVES[@]}" >&2
   echo "Move or explicitly archive the stale copies, then rerun the release" >&2
   exit 2
@@ -224,7 +292,7 @@ export AGENT_ISLAND_DISPLAY_NAME="$DISPLAY_NAME"
 "$PROJECT_DIR/scripts/build-app.sh" >/dev/null
 /bin/mkdir -p "$EXTRACT_ROOT"
 /usr/bin/ditto -x -k "$SOURCE_ARCHIVE" "$EXTRACT_ROOT"
-[[ -d "$CANONICAL_APP" ]] || { echo "Release archive does not contain AgentIsland.app" >&2; exit 2; }
+[[ -d "$CANONICAL_APP" ]] || { echo "Release archive does not contain $PUBLIC_APP_NAME.app" >&2; exit 2; }
 /usr/bin/xattr -cr "$CANONICAL_APP"
 /usr/bin/codesign --verify --deep --strict --verbose=2 "$CANONICAL_APP"
 SIGNATURE_DETAILS="$(/usr/bin/codesign -dv --verbose=4 "$CANONICAL_APP" 2>&1)"
@@ -315,6 +383,39 @@ NOTARY_ISSUE_COUNT="$(/usr/bin/jq -r '(.issues // []) | length' "$NOTARY_LOG")"
 /usr/bin/codesign --verify --deep --strict --verbose=2 "$CANONICAL_APP"
 /usr/sbin/spctl --assess --type execute --verbose=4 "$CANONICAL_APP"
 
+# Stage every public release output on the destination filesystem. The final
+# commit can then use same-volume renames and restore the complete previous set
+# if any rename, verification, or handled signal fails.
+/bin/mkdir -p "$DIST_DIR"
+PUBLISH_ROOT="$(mktemp -d "$DIST_DIR/.agentisland-release-publish.XXXXXX")"
+PENDING_ARCHIVE="$PUBLISH_ROOT/${FINAL_ARCHIVE:t}"
+PENDING_CHECKSUM="$PUBLISH_ROOT/${FINAL_CHECKSUM:t}"
+PENDING_METADATA_DIR="$PUBLISH_ROOT/release-metadata"
+PENDING_MANIFEST="$PENDING_METADATA_DIR/$METADATA_STEM-build.json"
+PENDING_METADATA_NOTARY="$PENDING_METADATA_DIR/$METADATA_STEM-notary.json"
+PENDING_METADATA_NOTARY_LOG="$PENDING_METADATA_DIR/$METADATA_STEM-notary-log.json"
+PENDING_METADATA_CHECKSUM="$PENDING_METADATA_DIR/$METADATA_STEM.sha256"
+if [[ -L "$METADATA_DIR" || ( -e "$METADATA_DIR" && ! -d "$METADATA_DIR" ) ]]; then
+  echo "Refusing release because $METADATA_DIR is not a regular directory" >&2
+  exit 2
+fi
+if [[ -d "$METADATA_DIR" ]]; then
+  /usr/bin/ditto --noextattr --norsrc "$METADATA_DIR" "$PENDING_METADATA_DIR"
+else
+  /bin/mkdir -p "$PENDING_METADATA_DIR"
+fi
+# Do not overwrite a copied symlink or hard link from an older metadata set.
+# Recreate this release's four records as new regular files inside staging.
+for PENDING_METADATA_TARGET in \
+    "$PENDING_MANIFEST" "$PENDING_METADATA_NOTARY" \
+    "$PENDING_METADATA_NOTARY_LOG" "$PENDING_METADATA_CHECKSUM"; do
+  if [[ -d "$PENDING_METADATA_TARGET" && ! -L "$PENDING_METADATA_TARGET" ]]; then
+    echo "Refusing to replace invalid staged metadata target: $PENDING_METADATA_TARGET" >&2
+    exit 2
+  fi
+  /bin/rm -f "$PENDING_METADATA_TARGET"
+done
+
 /usr/bin/ditto --noextattr --norsrc -c -k --keepParent "$CANONICAL_APP" "$PENDING_ARCHIVE"
 
 # Verify the exact ZIP that will be delivered, not only the app immediately
@@ -322,7 +423,7 @@ NOTARY_ISSUE_COUNT="$(/usr/bin/jq -r '(.issues // []) | length' "$NOTARY_LOG")"
 # entitlement, Info.plist, or architecture drift before publication.
 /bin/mkdir -p "$FINAL_VERIFY_ROOT"
 /usr/bin/ditto -x -k "$PENDING_ARCHIVE" "$FINAL_VERIFY_ROOT"
-[[ -d "$FINAL_VERIFY_APP" ]] || { echo "Final release archive does not contain AgentIsland.app" >&2; exit 2; }
+[[ -d "$FINAL_VERIFY_APP" ]] || { echo "Final release archive does not contain $PUBLIC_APP_NAME.app" >&2; exit 2; }
 /usr/bin/xcrun stapler validate "$FINAL_VERIFY_APP"
 /usr/bin/codesign --verify --deep --strict --verbose=2 "$FINAL_VERIFY_APP"
 /usr/sbin/spctl --assess --type execute --verbose=4 "$FINAL_VERIFY_APP"
@@ -443,19 +544,99 @@ CREATED_AT="$(/bin/date -u '+%Y-%m-%dT%H:%M:%SZ')"
     createdAt: $createdAt
   }' >"$PENDING_MANIFEST"
 
-/bin/mkdir -p "$METADATA_DIR"
-METADATA_STEM="AgentIsland-${RELEASE_VERSION}-${RELEASE_BUILD}"
-/bin/cp "$NOTARY_RESULT" "$METADATA_DIR/$METADATA_STEM-notary.json"
-/bin/cp "$NOTARY_LOG" "$METADATA_DIR/$METADATA_STEM-notary-log.json"
-/bin/cp "$PENDING_MANIFEST" "$METADATA_DIR/$METADATA_STEM-build.json"
-/bin/cp "$PENDING_CHECKSUM" "$METADATA_DIR/$METADATA_STEM.sha256"
-/bin/mv -f "$PENDING_CHECKSUM" "$FINAL_CHECKSUM"
-/bin/mv -f "$PENDING_ARCHIVE" "$FINAL_ARCHIVE"
+/bin/cp "$NOTARY_RESULT" "$PENDING_METADATA_NOTARY"
+/bin/cp "$NOTARY_LOG" "$PENDING_METADATA_NOTARY_LOG"
+/bin/cp "$PENDING_CHECKSUM" "$PENDING_METADATA_CHECKSUM"
+
+# Validate the complete staged publication set before moving any current public
+# file aside. Metadata is committed as one directory so earlier release records
+# remain consistent with the final ZIP and checksum.
+/usr/bin/cmp -s "$NOTARY_RESULT" "$PENDING_METADATA_NOTARY" || {
+  echo "Staged notarization result metadata mismatch" >&2; exit 2;
+}
+/usr/bin/cmp -s "$NOTARY_LOG" "$PENDING_METADATA_NOTARY_LOG" || {
+  echo "Staged notarization log metadata mismatch" >&2; exit 2;
+}
+/usr/bin/cmp -s "$PENDING_CHECKSUM" "$PENDING_METADATA_CHECKSUM" || {
+  echo "Staged checksum metadata mismatch" >&2; exit 2;
+}
+/usr/bin/jq -e --arg archive "$ARCHIVE_NAME" --arg sha256 "$ARCHIVE_SHA256" '
+  .archive == $archive and .sha256 == $sha256 and
+  .notarizationStatus == "Accepted" and .notaryIssueCount == 0
+' "$PENDING_MANIFEST" >/dev/null || {
+  echo "Staged build manifest does not describe the final archive" >&2; exit 2;
+}
+
+BACKUP_ROOT="$(mktemp -d "$DIST_DIR/.agentisland-release-backup.XXXXXX")"
+PUBLISH_TARGETS=("$FINAL_ARCHIVE" "$FINAL_CHECKSUM" "$METADATA_DIR")
+PUBLISH_SOURCES=("$PENDING_ARCHIVE" "$PENDING_CHECKSUM" "$PENDING_METADATA_DIR")
+BACKUP_PATHS=(
+  "$BACKUP_ROOT/final-archive"
+  "$BACKUP_ROOT/final-checksum"
+  "$BACKUP_ROOT/release-metadata"
+)
+for (( PUBLISH_INDEX = 1; PUBLISH_INDEX <= ${#PUBLISH_TARGETS[@]}; PUBLISH_INDEX++ )); do
+  PUBLISH_TARGET="${PUBLISH_TARGETS[$PUBLISH_INDEX]}"
+  if [[ -e "$PUBLISH_TARGET" || -L "$PUBLISH_TARGET" ]]; then
+    if [[ "$PUBLISH_TARGET" == "$METADATA_DIR" ]]; then
+      [[ -d "$PUBLISH_TARGET" && ! -L "$PUBLISH_TARGET" ]] || {
+        echo "Refusing to replace invalid release metadata target: $PUBLISH_TARGET" >&2
+        exit 2
+      }
+    else
+      [[ -f "$PUBLISH_TARGET" || -L "$PUBLISH_TARGET" ]] || {
+        echo "Refusing to replace invalid release artifact target: $PUBLISH_TARGET" >&2
+        exit 2
+      }
+    fi
+    HAD_OLD_TARGETS[$PUBLISH_INDEX]=1
+  else
+    HAD_OLD_TARGETS[$PUBLISH_INDEX]=0
+  fi
+done
+
+COMMIT_STARTED=1
+for (( PUBLISH_INDEX = 1; PUBLISH_INDEX <= ${#PUBLISH_TARGETS[@]}; PUBLISH_INDEX++ )); do
+  if [[ "${HAD_OLD_TARGETS[$PUBLISH_INDEX]}" == "1" ]]; then
+    /bin/mv "${PUBLISH_TARGETS[$PUBLISH_INDEX]}" "${BACKUP_PATHS[$PUBLISH_INDEX]}"
+  fi
+done
+for (( PUBLISH_INDEX = 1; PUBLISH_INDEX <= ${#PUBLISH_TARGETS[@]}; PUBLISH_INDEX++ )); do
+  /bin/mv "${PUBLISH_SOURCES[$PUBLISH_INDEX]}" "${PUBLISH_TARGETS[$PUBLISH_INDEX]}"
+done
+
 PUBLISHED_ARCHIVE_SHA256="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$FINAL_ARCHIVE" | /usr/bin/awk '{print $1}')"
 [[ "$PUBLISHED_ARCHIVE_SHA256" == "$ARCHIVE_SHA256" ]] || {
   echo "Published release archive checksum changed while committing to dist" >&2
   exit 2
 }
+/usr/bin/cmp -s "$FINAL_CHECKSUM" "$METADATA_DIR/$METADATA_STEM.sha256" || {
+  echo "Published checksum and release metadata diverged while committing to dist" >&2
+  exit 2
+}
+/usr/bin/cmp -s "$NOTARY_RESULT" "$METADATA_DIR/$METADATA_STEM-notary.json" || {
+  echo "Published notarization result metadata changed while committing to dist" >&2
+  exit 2
+}
+/usr/bin/cmp -s "$NOTARY_LOG" "$METADATA_DIR/$METADATA_STEM-notary-log.json" || {
+  echo "Published notarization log metadata changed while committing to dist" >&2
+  exit 2
+}
+/usr/bin/jq -e --arg archive "$ARCHIVE_NAME" --arg sha256 "$ARCHIVE_SHA256" '
+  .archive == $archive and .sha256 == $sha256 and
+  .notarizationStatus == "Accepted" and .notaryIssueCount == 0
+' "$METADATA_DIR/$METADATA_STEM-build.json" >/dev/null || {
+  echo "Published build metadata changed while committing to dist" >&2
+  exit 2
+}
+
+[[ "$BACKUP_ROOT" == "$DIST_DIR"/.agentisland-release-backup.* ]] || {
+  echo "Refusing to remove unexpected publication backup path: $BACKUP_ROOT" >&2
+  exit 2
+}
+COMMIT_DONE=1
+/bin/rm -rf "$BACKUP_ROOT"
+BACKUP_ROOT=""
 
 echo "$FINAL_ARCHIVE"
 echo "$FINAL_CHECKSUM"

@@ -75,10 +75,10 @@ macOS 外壳使用 AppKit 和 `WKWebView`，不依赖 Electron 或第三方运�
 要求：macOS 13 或更高版本、Apple Command Line Tools，以及测试脚本使用的系统 `jq`。
 
 ```bash
-git clone https://github.com/kiki-lgtm-dot/mac-agent-monitor.git
-cd mac-agent-monitor
+git clone https://github.com/kiki-lgtm-dot/mac-agent-monitor-app.git
+cd mac-agent-monitor-app
 ./scripts/build-app.sh
-open dist/AgentIsland.app
+open 'dist/MAC版灵动岛--Agent运行监测.app'
 ```
 
 这里生成的是供本机开发使用的 ad-hoc 签名构建，并非已公证的正式安装包。

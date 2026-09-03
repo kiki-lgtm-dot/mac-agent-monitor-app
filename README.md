@@ -75,10 +75,10 @@ Installed software is never treated as proof that an agent is currently working.
 Requirements: macOS 13 or newer, Apple Command Line Tools, and the system `jq` used by the test suite.
 
 ```bash
-git clone https://github.com/kiki-lgtm-dot/mac-agent-monitor.git
-cd mac-agent-monitor
+git clone https://github.com/kiki-lgtm-dot/mac-agent-monitor-app.git
+cd mac-agent-monitor-app
 ./scripts/build-app.sh
-open dist/AgentIsland.app
+open 'dist/MAC版灵动岛--Agent运行监测.app'
 ```
 
 The build is ad-hoc signed for local development. It is not a notarized public binary.

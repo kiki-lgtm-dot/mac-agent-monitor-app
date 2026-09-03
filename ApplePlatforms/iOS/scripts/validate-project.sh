@@ -7,6 +7,7 @@ project_file="$project_root/AgentIsland.xcodeproj/project.pbxproj"
 scheme_file="$project_root/AgentIsland.xcodeproj/xcshareddata/xcschemes/AgentIslandMobile.xcscheme"
 workspace_file="$project_root/AgentIsland.xcodeproj/project.xcworkspace/contents.xcworkspacedata"
 asset_manifest="$project_root/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json"
+privacy_contract="$project_root/scripts/privacy-manifest-contract.jq"
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/agentisland-ios-validation.XXXXXX")"
 run_build=false
 run_tests=false
@@ -104,6 +105,7 @@ required_files=(
   "Resources/Assets.xcassets/AppIcon.appiconset/Contents.json"
   "Resources/en.lproj/Localizable.strings"
   "Resources/zh-Hans.lproj/Localizable.strings"
+  "scripts/privacy-manifest-contract.jq"
   "scripts/release-ios.sh"
 )
 
@@ -123,50 +125,21 @@ plutil -lint \
 
 privacy_json="$work_dir/privacy.json"
 plutil -convert json -o "$privacy_json" "$project_root/Config/PrivacyInfo.xcprivacy"
-jq -e '
-  .NSPrivacyTracking == false
-  and .NSPrivacyTrackingDomains == []
-  and (.NSPrivacyAccessedAPITypes | length == 1)
-  and any(
-    .NSPrivacyAccessedAPITypes[];
-    .NSPrivacyAccessedAPIType == "NSPrivacyAccessedAPICategoryUserDefaults"
-    and .NSPrivacyAccessedAPITypeReasons == ["CA92.1"]
-  )
-  and (.NSPrivacyCollectedDataTypes | length == 2)
-  and ([.NSPrivacyCollectedDataTypes[].NSPrivacyCollectedDataType] | sort)
-    == [
-      "NSPrivacyCollectedDataTypeOtherUsageData",
-      "NSPrivacyCollectedDataTypeOtherUserContent"
-    ]
-  and any(
-    .NSPrivacyCollectedDataTypes[];
-    .NSPrivacyCollectedDataType == "NSPrivacyCollectedDataTypeOtherUsageData"
-    and .NSPrivacyCollectedDataTypeLinked == true
-    and .NSPrivacyCollectedDataTypeTracking == false
-    and (.NSPrivacyCollectedDataTypePurposes
-      | index("NSPrivacyCollectedDataTypePurposeAppFunctionality") != null)
-  )
-  and any(
-    .NSPrivacyCollectedDataTypes[];
-    .NSPrivacyCollectedDataType == "NSPrivacyCollectedDataTypeOtherUserContent"
-    and .NSPrivacyCollectedDataTypeLinked == true
-    and .NSPrivacyCollectedDataTypeTracking == false
-    and (.NSPrivacyCollectedDataTypePurposes
-      | index("NSPrivacyCollectedDataTypePurposeAppFunctionality") != null)
-  )
-' "$privacy_json" >/dev/null \
+jq -e --arg target app -f "$privacy_contract" "$privacy_json" >/dev/null \
   || fail "privacy manifest must disclose synced data and the CA92.1 example-mode preference"
 
 widget_privacy_json="$work_dir/widget-privacy.json"
 plutil -convert json -o "$widget_privacy_json" \
   "$project_root/WidgetExtension/PrivacyInfo.xcprivacy"
-jq -e '
-  .NSPrivacyTracking == false
-  and .NSPrivacyTrackingDomains == []
-  and .NSPrivacyCollectedDataTypes == []
-  and .NSPrivacyAccessedAPITypes == []
-' "$widget_privacy_json" >/dev/null \
+jq -e --arg target widget -f "$privacy_contract" "$widget_privacy_json" >/dev/null \
   || fail "Widget privacy manifest must declare no tracking, collection, or required-reason APIs"
+
+missing_reason_privacy_json="$work_dir/privacy-missing-user-defaults-reason.json"
+jq '.NSPrivacyAccessedAPITypes = []' "$privacy_json" >"$missing_reason_privacy_json"
+if jq -e --arg target app -f "$privacy_contract" \
+    "$missing_reason_privacy_json" >/dev/null 2>&1; then
+  fail "privacy contract must reject an App manifest without the CA92.1 declaration"
+fi
 
 zsh -n "$project_root/scripts/release-ios.sh" \
   || fail "release-ios.sh has invalid zsh syntax"
@@ -186,6 +159,7 @@ for release_marker in \
   'validate_app_info "$EXPORTED_APP_PATH" "exported App"' \
   'validate_privacy_manifests "$APP_PATH" "$WIDGET_PATH" "archived"' \
   'validate_privacy_manifests "$EXPORTED_APP_PATH" "$EXPORTED_WIDGET_PATH" "exported"' \
+  'privacy-manifest-contract.jq' \
   'privacyManifestSHA256' \
   'extract_profile_entitlements_json' \
   'Project.xcconfig must contain a final, conflict-checked AGENT_ISLAND_DISPLAY_NAME' \

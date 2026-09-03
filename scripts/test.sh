@@ -12,7 +12,8 @@ fi
 PROJECT_DIR="${0:A:h:h}"
 PUBLIC_DISPLAY_NAME="MAC版灵动岛--Agent运行监测"
 APP_PATH="$(LC_ALL=C AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" "$PROJECT_DIR/scripts/build-app.sh")"
-ARCHIVE_PATH="$PROJECT_DIR/dist/AgentIsland-macOS-universal.zip"
+EXPECTED_APP_PATH="$PROJECT_DIR/dist/$PUBLIC_DISPLAY_NAME.app"
+ARCHIVE_PATH="$PROJECT_DIR/dist/$PUBLIC_DISPLAY_NAME-macOS-universal.zip"
 BINARY="$APP_PATH/Contents/MacOS/AgentIsland"
 FIXTURE="$PROJECT_DIR/Tests/Fixtures/custom-agent.jsonl"
 CODEX_FIXTURE="$PROJECT_DIR/Tests/Fixtures/codex-token-events.jsonl"
@@ -24,8 +25,13 @@ WORKSPACE_CORRUPT_FIXTURE="$PROJECT_DIR/Tests/Fixtures/workspace-corrupt.json"
 TRANSLATION_RESPONSE_FIXTURE="$PROJECT_DIR/Tests/Fixtures/openai-translation-response.json"
 MOBILE_TOOL_FIXTURE="$PROJECT_DIR/Tests/Fixtures/mobile-tool-snapshot.json"
 VERIFY_ROOT="$(mktemp -d /private/tmp/agentisland-test.XXXXXX)"
-trap 'rm -rf "$VERIFY_ROOT"' EXIT
+PRIVACY_TEST_ROOT="$(mktemp -d "$PROJECT_DIR/dist/.privacy-evidence-test.XXXXXX")"
+trap 'rm -rf "$VERIFY_ROOT" "$PRIVACY_TEST_ROOT"' EXIT
 
+[[ "$APP_PATH" == "$EXPECTED_APP_PATH" ]] || {
+  echo "Build returned a non-canonical public app path: $APP_PATH" >&2
+  exit 1
+}
 [[ "$(plutil -extract CFBundleShortVersionString raw "$PROJECT_DIR/Resources/Info.plist")" == "0.6.1" ]]
 [[ "$(plutil -extract CFBundleVersion raw "$PROJECT_DIR/Resources/Info.plist")" == "8" ]]
 [[ "$(plutil -extract CFBundleShortVersionString raw "$APP_PATH/Contents/Info.plist")" == "0.6.1" ]]
@@ -66,18 +72,153 @@ for marker in '--check' '--apply' 'identity.lock.json' 'identity-backup' \
 done
 "$PROJECT_DIR/Tests/test-release-identity.sh"
 "$PROJECT_DIR/Tests/test-store-submission.sh"
+[[ -f "$PROJECT_DIR/scripts/validate-app-privacy.mjs" ]]
+[[ -f "$PROJECT_DIR/docs/release/APP_PRIVACY_SUBMISSION_WORKSHEET.md" ]]
+APP_PRIVACY_RESULT="$VERIFY_ROOT/app-privacy-validation.json"
+node "$PROJECT_DIR/scripts/validate-app-privacy.mjs" >"$APP_PRIVACY_RESULT"
+/usr/bin/jq -e '
+  .schemaVersion == 1 and
+  .mode == "draft" and
+  .draftValid == true and
+  (.sourcePrivacyReady | type == "boolean") and
+  (.releaseEvidenceReady | type == "boolean") and
+  (.releaseReady | type == "boolean") and
+  (.releaseEvidencePath | type == "string") and
+  (.validatorSelfTests.evidenceContract == true) and
+  (.macOS.timestampAPIUsed | type == "boolean") and
+  (.macOS.automaticHomeScanPresent | type == "boolean") and
+  (.macOS.securityScopedBookmarkMarkersPresent | type == "boolean") and
+  (.macOS.sandboxAuthorizationIsSeparateGate == true) and
+  (.structuralErrors | type == "array") and
+  (.releaseBlockers | type == "array")
+' "$APP_PRIVACY_RESULT" >/dev/null
+if /usr/bin/jq -e '.releaseReady == true' "$APP_PRIVACY_RESULT" >/dev/null; then
+  node "$PROJECT_DIR/scripts/validate-app-privacy.mjs" --release >/dev/null
+elif node "$PROJECT_DIR/scripts/validate-app-privacy.mjs" --release >/dev/null 2>&1; then
+  echo "App Privacy validator accepted a release without complete archive-bound evidence" >&2
+  exit 1
+fi
+
+PRIVACY_CANDIDATE="$PRIVACY_TEST_ROOT/candidate.zip"
+PRIVACY_FIXTURE_APP="$VERIFY_ROOT/PrivacyFixture.app"
+/bin/mkdir -p "$PRIVACY_FIXTURE_APP/Contents/MacOS" "$PRIVACY_FIXTURE_APP/Contents/Resources"
+/bin/cp "$APP_PATH/Contents/Info.plist" "$PRIVACY_FIXTURE_APP/Contents/Info.plist"
+/bin/cp "$APP_PATH/Contents/MacOS/AgentIsland" "$PRIVACY_FIXTURE_APP/Contents/MacOS/AgentIsland"
+/bin/cp "$APP_PATH/Contents/Resources/PrivacyInfo.xcprivacy" \
+  "$PRIVACY_FIXTURE_APP/Contents/Resources/PrivacyInfo.xcprivacy"
+/usr/bin/plutil -replace CFBundleIdentifier -string 'com.agentisland.privacyfixture' \
+  "$PRIVACY_FIXTURE_APP/Contents/Info.plist"
+COPYFILE_DISABLE=1 /usr/bin/ditto --noextattr --norsrc -c -k --keepParent \
+  "$PRIVACY_FIXTURE_APP" "$PRIVACY_CANDIDATE"
+PRIVACY_CANDIDATE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$PRIVACY_CANDIDATE" | /usr/bin/awk '{print $1}')"
+PRIVACY_CANDIDATE_RELATIVE="${PRIVACY_CANDIDATE#$PROJECT_DIR/}"
+PRIVACY_CANDIDATE_BUNDLE_ID="$(/usr/bin/plutil -extract CFBundleIdentifier raw "$PRIVACY_FIXTURE_APP/Contents/Info.plist")"
+PRIVACY_CANDIDATE_VERSION="$(/usr/bin/plutil -extract CFBundleShortVersionString raw "$PRIVACY_FIXTURE_APP/Contents/Info.plist")"
+PRIVACY_CANDIDATE_BUILD="$(/usr/bin/plutil -extract CFBundleVersion raw "$PRIVACY_FIXTURE_APP/Contents/Info.plist")"
+PRIVACY_EVIDENCE_RECORDS="$PRIVACY_TEST_ROOT/evidence-records.jsonl"
+/usr/bin/touch "$PRIVACY_EVIDENCE_RECORDS"
+for PRIVACY_EVIDENCE_KIND in \
+    privacyManifests xcodePrivacyReport networkAudit cloudKitVerification \
+    titleSyncVerification translationProviderDecision publicPagesVerification \
+    appStoreConnectPublication; do
+  PRIVACY_EVIDENCE_FILE="$PRIVACY_TEST_ROOT/$PRIVACY_EVIDENCE_KIND.txt"
+  print -r -- "candidateArchiveSHA256=$PRIVACY_CANDIDATE_SHA evidence=$PRIVACY_EVIDENCE_KIND" \
+    >"$PRIVACY_EVIDENCE_FILE"
+  PRIVACY_EVIDENCE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$PRIVACY_EVIDENCE_FILE" | /usr/bin/awk '{print $1}')"
+  PRIVACY_EVIDENCE_RELATIVE="${PRIVACY_EVIDENCE_FILE#$PROJECT_DIR/}"
+  /usr/bin/jq -cn \
+    --arg key "$PRIVACY_EVIDENCE_KIND" \
+    --arg path "$PRIVACY_EVIDENCE_RELATIVE" \
+    --arg sha256 "$PRIVACY_EVIDENCE_SHA" \
+    --arg candidateSHA "$PRIVACY_CANDIDATE_SHA" \
+    '{key: $key, value: {path: $path, sha256: $sha256, candidateArchiveSHA256s: [$candidateSHA]}}' \
+    >>"$PRIVACY_EVIDENCE_RECORDS"
+done
+PRIVACY_EVIDENCE_OBJECT="$(/usr/bin/jq -sc 'from_entries' "$PRIVACY_EVIDENCE_RECORDS")"
+PRIVACY_EVIDENCE_CONFIG="$PRIVACY_TEST_ROOT/app-privacy-evidence.json"
+/usr/bin/jq -n \
+  --arg candidatePath "$PRIVACY_CANDIDATE_RELATIVE" \
+  --arg candidateSHA "$PRIVACY_CANDIDATE_SHA" \
+  --arg bundleID "$PRIVACY_CANDIDATE_BUNDLE_ID" \
+  --arg version "$PRIVACY_CANDIDATE_VERSION" \
+  --arg build "$PRIVACY_CANDIDATE_BUILD" \
+  --argjson evidence "$PRIVACY_EVIDENCE_OBJECT" \
+  '{
+    schemaVersion: 1,
+    recordScope: "macOS",
+    reviewedAt: "2026-09-03T12:00:00Z",
+    archives: [{
+      platform: "macOS",
+      distribution: "mac-app-store",
+      path: $candidatePath,
+      sha256: $candidateSHA,
+      bundleID: $bundleID,
+      version: $version,
+      build: $build
+    }],
+    evidence: $evidence
+  }' >"$PRIVACY_EVIDENCE_CONFIG"
+PRIVACY_EVIDENCE_CONFIG_RELATIVE="${PRIVACY_EVIDENCE_CONFIG#$PROJECT_DIR/}"
+VALID_PRIVACY_RESULT="$VERIFY_ROOT/app-privacy-valid-evidence.json"
+AGENT_ISLAND_APP_PRIVACY_EVIDENCE="$PRIVACY_EVIDENCE_CONFIG_RELATIVE" \
+  node "$PROJECT_DIR/scripts/validate-app-privacy.mjs" --release >"$VALID_PRIVACY_RESULT"
+/usr/bin/jq -e '
+  .draftValid == true and .sourcePrivacyReady == true and
+  .releaseEvidenceReady == true and .releaseReady == true and
+  (.releaseEvidence.archives | length == 1) and
+  .releaseEvidence.archives[0].sha256 != null and
+  (.releaseEvidence.evidenceKinds | length == 8)
+' "$VALID_PRIVACY_RESULT" >/dev/null
+
+print -r -- 'tampered after evidence capture' >>"$PRIVACY_CANDIDATE"
+TAMPERED_PRIVACY_RESULT="$VERIFY_ROOT/app-privacy-tampered-evidence.json"
+AGENT_ISLAND_APP_PRIVACY_EVIDENCE="$PRIVACY_EVIDENCE_CONFIG_RELATIVE" \
+  node "$PROJECT_DIR/scripts/validate-app-privacy.mjs" >"$TAMPERED_PRIVACY_RESULT"
+/usr/bin/jq -e '
+  .releaseReady == false and .releaseEvidenceReady == false and
+  (.releaseBlockers | any(contains("sha256 does not match the candidate archive file")))
+' "$TAMPERED_PRIVACY_RESULT" >/dev/null
+if AGENT_ISLAND_APP_PRIVACY_EVIDENCE="$PRIVACY_EVIDENCE_CONFIG_RELATIVE" \
+    node "$PROJECT_DIR/scripts/validate-app-privacy.mjs" --release >/dev/null 2>&1; then
+  echo "App Privacy validator accepted evidence after the candidate archive changed" >&2
+  exit 1
+fi
+
+FAKE_PRIVACY_PACKAGE="$PRIVACY_TEST_ROOT/not-a-package.pkg"
+print -r -- 'not an installer package' >"$FAKE_PRIVACY_PACKAGE"
+FAKE_PRIVACY_PACKAGE_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$FAKE_PRIVACY_PACKAGE" | /usr/bin/awk '{print $1}')"
+FAKE_PRIVACY_PACKAGE_RELATIVE="${FAKE_PRIVACY_PACKAGE#$PROJECT_DIR/}"
+FAKE_PRIVACY_CONFIG="$PRIVACY_TEST_ROOT/fake-package-evidence.json"
+/usr/bin/jq \
+  --arg path "$FAKE_PRIVACY_PACKAGE_RELATIVE" \
+  --arg sha256 "$FAKE_PRIVACY_PACKAGE_SHA" \
+  '.archives[0].path = $path
+    | .archives[0].sha256 = $sha256
+    | .evidence[].candidateArchiveSHA256s = [$sha256]' \
+  "$PRIVACY_EVIDENCE_CONFIG" >"$FAKE_PRIVACY_CONFIG"
+FAKE_PRIVACY_CONFIG_RELATIVE="${FAKE_PRIVACY_CONFIG#$PROJECT_DIR/}"
+FAKE_PRIVACY_RESULT="$VERIFY_ROOT/app-privacy-fake-package.json"
+AGENT_ISLAND_APP_PRIVACY_EVIDENCE="$FAKE_PRIVACY_CONFIG_RELATIVE" \
+  node "$PROJECT_DIR/scripts/validate-app-privacy.mjs" >"$FAKE_PRIVACY_RESULT"
+/usr/bin/jq -e '
+  .releaseReady == false and
+  (.releaseBlockers | any(contains("has a .pkg name but is not an XAR package")))
+' "$FAKE_PRIVACY_RESULT" >/dev/null
 for marker in 'notarytool submit' 'stapler staple' 'stapler validate' 'spctl --assess' \
   'AGENT_ISLAND_DEVELOPER_ID_APPLICATION' 'release-metadata' 'shasum -a 256' 'notarySubmissionID' \
   'AGENT_ISLAND_DISPLAY_NAME' 'DeveloperCertificates' 'notarytool log' 'notaryIssueCount' \
-  'provisioningProfileSHA256' 'signingCertificateSHA1' 'Refusing release while ambiguous AgentIsland-macOS-universal*.zip artifacts exist' \
+  'provisioningProfileSHA256' 'signingCertificateSHA1' 'Refusing release while non-canonical macOS universal archives exist' \
   'Set AGENT_ISLAND_ENTITLEMENTS' 'Set AGENT_ISLAND_PROVISIONING_PROFILE' \
   'Set AGENT_ISLAND_ICLOUD_CONTAINER_ID' \
   'Set AGENT_ISLAND_PRIVACY_POLICY_URL' 'Set AGENT_ISLAND_SUPPORT_URL' \
-  'Signed app does not contain the expected release App ID/team and production CloudKit entitlement'; do
+  'Signed app does not contain the expected release App ID/team and production CloudKit entitlement' \
+  'AGENT_ISLAND_DISPLAY_NAME must equal the public artifact name' \
+  '.agentisland-release-publish.' '.agentisland-release-backup.' \
+  'restore_published_outputs' 'PUBLISH_TARGETS=("$FINAL_ARCHIVE" "$FINAL_CHECKSUM" "$METADATA_DIR")'; do
   rg -q --fixed-strings "$marker" "$PROJECT_DIR/scripts/release-macos.sh"
 done
-rg -q --fixed-strings 'CANONICAL_APP="$EXTRACT_ROOT/AgentIsland.app"' "$PROJECT_DIR/scripts/release-macos.sh"
-rg -q --fixed-strings 'FINAL_VERIFY_APP="$FINAL_VERIFY_ROOT/AgentIsland.app"' "$PROJECT_DIR/scripts/release-macos.sh"
+rg -q --fixed-strings 'CANONICAL_APP="$EXTRACT_ROOT/$PUBLIC_APP_NAME.app"' "$PROJECT_DIR/scripts/release-macos.sh"
+rg -q --fixed-strings 'FINAL_VERIFY_APP="$FINAL_VERIFY_ROOT/$PUBLIC_APP_NAME.app"' "$PROJECT_DIR/scripts/release-macos.sh"
 rg -q --fixed-strings 'Secure timestamp is missing from the release signature' "$PROJECT_DIR/scripts/release-macos.sh"
 rg -q --fixed-strings 'Final release must contain exactly arm64 and x86_64 architectures' "$PROJECT_DIR/scripts/release-macos.sh"
 rg -q --fixed-strings 'Final archive release entitlements mismatch' "$PROJECT_DIR/scripts/release-macos.sh"
@@ -86,7 +227,7 @@ rg -q --fixed-strings 'Final archive provisioning profile mismatch' "$PROJECT_DI
 rg -q --fixed-strings 'Published release archive checksum changed while committing to dist' "$PROJECT_DIR/scripts/release-macos.sh"
 rg -q --fixed-strings 'LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$PENDING_ARCHIVE"' "$PROJECT_DIR/scripts/release-macos.sh"
 rg -q --fixed-strings 'LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$EXPORTED_IPA"' "$PROJECT_DIR/ApplePlatforms/iOS/scripts/release-ios.sh"
-if rg -q --fixed-strings '"$DIST_DIR/AgentIsland.app"' "$PROJECT_DIR/scripts/release-macos.sh"; then
+if rg -q --fixed-strings '"$DIST_DIR/$PUBLIC_APP_NAME.app"' "$PROJECT_DIR/scripts/release-macos.sh"; then
   echo "macOS release verification still trusts the Desktop-visible app instead of the canonical archive" >&2
   exit 1
 fi
@@ -176,7 +317,7 @@ if /usr/bin/env \
   AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
   AGENT_ISLAND_VERSION='1.0.0' \
   AGENT_ISLAND_BUILD_NUMBER='1' \
-  AGENT_ISLAND_DISPLAY_NAME='Release Fixture' \
+  AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
   AGENT_ISLAND_ENTITLEMENTS='/nonexistent/test.entitlements' \
   AGENT_ISLAND_PROVISIONING_PROFILE='/nonexistent/test.provisionprofile' \
   AGENT_ISLAND_ICLOUD_CONTAINER_ID='iCloud.com.agentisland.release' \
@@ -186,7 +327,7 @@ if /usr/bin/env \
   echo "Release script accepted a non-production privacy URL" >&2
   exit 1
 fi
-MISMATCH_OUTPUT="$(/usr/bin/env \
+DISPLAY_NAME_OUTPUT="$(/usr/bin/env \
   AGENT_ISLAND_DEVELOPER_ID_APPLICATION='Developer ID Application: Test (ABCDE12345)' \
   AGENT_ISLAND_NOTARY_KEYCHAIN_PROFILE='test-profile' \
   AGENT_ISLAND_BUNDLE_ID='com.agentisland.release' \
@@ -194,6 +335,21 @@ MISMATCH_OUTPUT="$(/usr/bin/env \
   AGENT_ISLAND_VERSION='1.0.0' \
   AGENT_ISLAND_BUILD_NUMBER='1' \
   AGENT_ISLAND_DISPLAY_NAME='Release Fixture' \
+  AGENT_ISLAND_ENTITLEMENTS='/nonexistent/test.entitlements' \
+  AGENT_ISLAND_PROVISIONING_PROFILE='/nonexistent/test.provisionprofile' \
+  AGENT_ISLAND_ICLOUD_CONTAINER_ID='iCloud.com.agentisland.release' \
+  AGENT_ISLAND_PRIVACY_POLICY_URL='https://agentisland.app/privacy' \
+  AGENT_ISLAND_SUPPORT_URL='https://agentisland.app/support' \
+  "$PROJECT_DIR/scripts/release-macos.sh" 2>&1 || true)"
+[[ "$DISPLAY_NAME_OUTPUT" == *'must equal the public artifact name'* ]]
+MISMATCH_OUTPUT="$(/usr/bin/env \
+  AGENT_ISLAND_DEVELOPER_ID_APPLICATION='Developer ID Application: Test (ABCDE12345)' \
+  AGENT_ISLAND_NOTARY_KEYCHAIN_PROFILE='test-profile' \
+  AGENT_ISLAND_BUNDLE_ID='com.agentisland.release' \
+  AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
+  AGENT_ISLAND_VERSION='1.0.0' \
+  AGENT_ISLAND_BUILD_NUMBER='1' \
+  AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
   AGENT_ISLAND_ENTITLEMENTS="$PROJECT_DIR/Tests/Fixtures/release-cloudkit.entitlements" \
   AGENT_ISLAND_PROVISIONING_PROFILE="$PROJECT_DIR/Tests/Fixtures/release-cloudkit.entitlements" \
   AGENT_ISLAND_ICLOUD_CONTAINER_ID='iCloud.com.agentisland.wrong' \
@@ -208,7 +364,7 @@ PROFILE_OUTPUT="$(/usr/bin/env \
   AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
   AGENT_ISLAND_VERSION='1.0.0' \
   AGENT_ISLAND_BUILD_NUMBER='1' \
-  AGENT_ISLAND_DISPLAY_NAME='Release Fixture' \
+  AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
   AGENT_ISLAND_ENTITLEMENTS="$PROJECT_DIR/Tests/Fixtures/release-cloudkit.entitlements" \
   AGENT_ISLAND_PROVISIONING_PROFILE="$PROJECT_DIR/Tests/Fixtures/release-cloudkit.entitlements" \
   AGENT_ISLAND_ICLOUD_CONTAINER_ID='iCloud.com.agentisland.releasefixture' \
@@ -227,7 +383,29 @@ for READINESS_GATE in \
   'iosPrivacyPolicyURLConfigured' 'iosSupportURLConfigured' \
   'cloudKitProductionSchemaVerified' 'iosRealDeviceSyncVerified' \
   'iosLiveActivityVerified' 'iosReviewPathVerified' \
+  'appleDistributionTeamIdentityConfigured' \
+  'macAppStoreXcodeProjectConfigured' 'macAppStoreTargetMembershipConfigured' \
+  'macAppStoreRuntimeResourcesInTarget' 'macAppStoreBuildSettingsMatch' \
+  'macPrivacyManifestInAppTarget' 'macAppStoreInfoPlistConfigured' \
+  'macAppSandboxEntitlementConfigured' 'macUserSelectedReadOnlyEntitlementConfigured' \
+  'macAppScopeBookmarkEntitlementConfigured' 'macNetworkClientEntitlementConfigured' \
+  'macAppStoreCloudKitEntitlementConfigured' 'macAppStoreEntitlementsConfigured' \
+  'macSecurityScopedBookmarkMarkersPresent' 'macAutomaticHomeScanMarkersPresent' \
+  'macPrivacySourceReady' 'macPrivacyReleaseEvidenceReady' 'storeSubmissionAssetsReady' \
+  'appStoreRecordModeConfigured' 'universalPurchaseBundleIDsMatch' \
+  'appStoreRecordModeBundleIDsValid' \
+  'macAppStoreSandboxFlowVerified' 'macAppStoreArchiveVerified' \
+  'macAppStoreProfileCertificateVerified' 'macAppStorePrivacyReportVerified' \
+  'macAppStoreReviewPathVerified' 'readyForMacAppStoreArchive' \
+  'readyForFunctionalMacAppStoreSubmission' \
+  'macDeveloperIDToolchainConfigured' '$MAC_DEVELOPER_ID_TOOLCHAIN' \
   '$ENTITLEMENTS_READY' '$CLOUDKIT_CONTAINER_READY' '$PROVISIONING_PROFILE_READY' '$RELEASE_PRIVACY_READY' '$RELEASE_SUPPORT_READY' \
+  '$APPLE_DISTRIBUTION_TEAM_IDENTITY_READY' \
+  '$MAC_APP_STORE_XCODE_PROJECT' '$MAC_APP_STORE_TARGET_MEMBERSHIP' \
+  '$MAC_APP_STORE_RUNTIME_RESOURCES_IN_TARGET' '$MAC_APP_STORE_BUILD_SETTINGS_MATCH' \
+  '$MAC_APP_STORE_INFO_PLIST_CONFIGURED' '$MAC_APP_STORE_ENTITLEMENTS_READY' \
+  '$MAC_APP_STORE_RECORD_MODE_BUNDLE_IDS_VALID' \
+  '$MAC_PRIVACY_SOURCE_READY' '$STORE_SUBMISSION_ASSETS_READY' \
   '$cloudKitProductionSchemaVerified and $iosRealDeviceSyncVerified' \
   '$iosLiveActivityVerified and $iosReviewPathVerified'; do
   rg -q --fixed-strings "$READINESS_GATE" "$PROJECT_DIR/scripts/release-readiness.sh"
@@ -248,17 +426,29 @@ done
   -u AGENT_ISLAND_IOS_REAL_DEVICE_SYNC_VERIFIED \
   -u AGENT_ISLAND_IOS_LIVE_ACTIVITY_VERIFIED \
   -u AGENT_ISLAND_IOS_REVIEW_PATH_VERIFIED \
+  -u AGENT_ISLAND_MAC_APP_STORE_PROJECT \
+  -u AGENT_ISLAND_MAC_APP_STORE_SCHEME \
+  -u AGENT_ISLAND_APP_STORE_RECORD_MODE \
+  -u AGENT_ISLAND_MAC_APP_STORE_SANDBOX_FLOW_VERIFIED \
+  -u AGENT_ISLAND_MAC_APP_STORE_ARCHIVE_VERIFIED \
+  -u AGENT_ISLAND_MAC_APP_STORE_PROFILE_CERTIFICATE_VERIFIED \
+  -u AGENT_ISLAND_MAC_APP_STORE_PRIVACY_REPORT_VERIFIED \
+  -u AGENT_ISLAND_MAC_APP_STORE_REVIEW_PATH_VERIFIED \
   "$PROJECT_DIR/scripts/release-readiness.sh" | jq -e '
   (.fullXcode | type == "boolean") and
+  (.macDeveloperIDToolchainConfigured | type == "boolean") and
   (.developerPath | type == "string") and
   ((.xcodeVersion == null) or (.xcodeVersion | type == "string")) and
   ((.iphoneSDK == null) or (.iphoneSDK | type == "string")) and
   (.currentUploadToolchain | type == "boolean") and
+  (.currentMacAppStoreToolchain | type == "boolean") and
   (.validSigningIdentities | type == "number") and
   (.developerIDApplicationIdentities | type == "number") and
   (.developerIDIdentityConfigured | type == "boolean") and
   (.appleDevelopmentIdentities | type == "number") and
   (.appleDistributionIdentities | type == "number") and
+  (.appleDistributionTeamIdentities | type == "number") and
+  (.appleDistributionTeamIdentityConfigured | type == "boolean") and
   (.availableDiskGiB | type == "number") and
   (.enoughDiskForXcode | type == "boolean") and
   (.macDistributionArchiveSetClean | type == "boolean") and
@@ -288,7 +478,40 @@ done
   (.iosPrivacyManifestPresent | type == "boolean") and
   (.iosAppIconPresent | type == "boolean") and
   (.iosSyncTransportImplemented | type == "boolean") and
+  (.macAppStoreProjectPath | type == "string") and
+  (.macAppStoreScheme | type == "string") and
+  ((.macAppStoreTargetName == null) or (.macAppStoreTargetName | type == "string")) and
+  ((.macAppStoreEntitlementsPath == null) or (.macAppStoreEntitlementsPath | type == "string")) and
+  ((.macAppStoreInfoPlistPath == null) or (.macAppStoreInfoPlistPath | type == "string")) and
+  (.macAppStoreXcodeProjectConfigured | type == "boolean") and
+  (.macAppStoreTargetMembershipConfigured | type == "boolean") and
+  (.macAppStoreRuntimeResourcesInTarget | type == "boolean") and
+  (.macAppStoreBuildSettingsMatch | type == "boolean") and
+  (.macPrivacyManifestInAppTarget | type == "boolean") and
+  (.macAppStoreInfoPlistConfigured | type == "boolean") and
+  (.macAppSandboxEntitlementConfigured | type == "boolean") and
+  (.macUserSelectedReadOnlyEntitlementConfigured | type == "boolean") and
+  (.macAppScopeBookmarkEntitlementConfigured | type == "boolean") and
+  (.macNetworkClientEntitlementConfigured | type == "boolean") and
+  (.macAppStoreCloudKitEntitlementConfigured | type == "boolean") and
+  (.macAppStoreEntitlementsConfigured | type == "boolean") and
+  (.macSecurityScopedBookmarkMarkersPresent | type == "boolean") and
+  (.macAutomaticHomeScanMarkersPresent | type == "boolean") and
+  (.macPrivacySourceReady | type == "boolean") and
+  (.macPrivacyReleaseEvidenceReady | type == "boolean") and
+  (.storeSubmissionAssetsReady | type == "boolean") and
+  (.appStoreRecordModeConfigured | type == "boolean") and
+  ((.appStoreRecordMode == null) or (.appStoreRecordMode | type == "string")) and
+  (.universalPurchaseBundleIDsMatch | type == "boolean") and
+  (.appStoreRecordModeBundleIDsValid | type == "boolean") and
+  (.macAppStoreSandboxFlowVerified | type == "boolean") and
+  (.macAppStoreArchiveVerified | type == "boolean") and
+  (.macAppStoreProfileCertificateVerified | type == "boolean") and
+  (.macAppStorePrivacyReportVerified | type == "boolean") and
+  (.macAppStoreReviewPathVerified | type == "boolean") and
   (.readyForDeveloperIDRelease | type == "boolean") and
+  (.readyForMacAppStoreArchive | type == "boolean") and
+  (.readyForFunctionalMacAppStoreSubmission | type == "boolean") and
   (.readyForIOSArchive | type == "boolean") and
   (.readyForFunctionalIOSTestFlight | type == "boolean") and
   (.iosDevelopmentTeamConfigured == false) and
@@ -303,8 +526,56 @@ done
   (.iosRealDeviceSyncVerified == false) and
   (.iosLiveActivityVerified == false) and
   (.iosReviewPathVerified == false) and
+  (.appleDistributionTeamIdentityConfigured == false) and
+  (.appStoreRecordModeConfigured == false) and
+  (.appStoreRecordMode == null) and
+  (.universalPurchaseBundleIDsMatch == false) and
+  (.appStoreRecordModeBundleIDsValid == false) and
+  (.macAppStoreSandboxFlowVerified == false) and
+  (.macAppStoreArchiveVerified == false) and
+  (.macAppStoreProfileCertificateVerified == false) and
+  (.macAppStorePrivacyReportVerified == false) and
+  (.macAppStoreReviewPathVerified == false) and
+  (.readyForMacAppStoreArchive == false) and
+  (.readyForFunctionalMacAppStoreSubmission == false) and
   (.readyForFunctionalIOSTestFlight == false)
 ' >/dev/null
+
+/usr/bin/env \
+  AGENT_ISLAND_BUNDLE_ID='com.agentisland.release' \
+  AGENT_ISLAND_IOS_BUNDLE_ID='com.agentisland.release' \
+  AGENT_ISLAND_APP_STORE_RECORD_MODE='universal-purchase' \
+  "$PROJECT_DIR/scripts/release-readiness.sh" | /usr/bin/jq -e '
+    .appStoreRecordModeConfigured == true and
+    .universalPurchaseBundleIDsMatch == true and
+    .appStoreRecordModeBundleIDsValid == true
+  ' >/dev/null
+/usr/bin/env \
+  AGENT_ISLAND_BUNDLE_ID='com.agentisland.release' \
+  AGENT_ISLAND_IOS_BUNDLE_ID='com.agentisland.release' \
+  AGENT_ISLAND_APP_STORE_RECORD_MODE='separate-records' \
+  "$PROJECT_DIR/scripts/release-readiness.sh" | /usr/bin/jq -e '
+    .appStoreRecordModeConfigured == true and
+    .universalPurchaseBundleIDsMatch == true and
+    .appStoreRecordModeBundleIDsValid == false
+  ' >/dev/null
+/usr/bin/env \
+  AGENT_ISLAND_BUNDLE_ID='com.agentisland.mac' \
+  AGENT_ISLAND_IOS_BUNDLE_ID='com.agentisland.ios' \
+  AGENT_ISLAND_APP_STORE_RECORD_MODE='separate-records' \
+  "$PROJECT_DIR/scripts/release-readiness.sh" | /usr/bin/jq -e '
+    .appStoreRecordModeConfigured == true and
+    .universalPurchaseBundleIDsMatch == false and
+    .appStoreRecordModeBundleIDsValid == true
+  ' >/dev/null
+
+DEVELOPER_ID_READINESS_BLOCK="$(/usr/bin/sed -n \
+  '/^READY_DEVELOPER_ID=false$/,/^READY_IOS_ARCHIVE=false$/p' \
+  "$PROJECT_DIR/scripts/release-readiness.sh")"
+if [[ "$DEVELOPER_ID_READINESS_BLOCK" == *'MAC_APP_STORE'* ]]; then
+  echo "Mac App Store gates leaked into Developer ID readiness" >&2
+  exit 1
+fi
 
 /usr/bin/env \
   AGENT_ISLAND_BUNDLE_ID='com.agentisland.release' \
@@ -312,7 +583,7 @@ done
   AGENT_ISLAND_IOS_WIDGET_BUNDLE_ID='com.agentisland.release.liveactivity' \
   AGENT_ISLAND_ENTITLEMENTS="$PROJECT_DIR/Tests/Fixtures/release-cloudkit.entitlements" \
   AGENT_ISLAND_PROVISIONING_PROFILE="$PROJECT_DIR/Tests/Fixtures/release-cloudkit.entitlements" \
-  AGENT_ISLAND_DISPLAY_NAME='Release Fixture' \
+  AGENT_ISLAND_DISPLAY_NAME="$PUBLIC_DISPLAY_NAME" \
   AGENT_ISLAND_PRIVACY_POLICY_URL='https://agentisland.app/privacy' \
   AGENT_ISLAND_SUPPORT_URL='https://agentisland.app/support' \
   AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
@@ -320,7 +591,7 @@ done
   "$PROJECT_DIR/scripts/release-readiness.sh" | jq -e '
     (.cloudKitEntitlementsConfigured == true) and
     (.productionDisplayNameConfigured == true) and
-    (.productionDisplayName == "Release Fixture") and
+    (.productionDisplayName == "MAC版灵动岛--Agent运行监测") and
     (.cloudKitContainerConfigured == true) and
     (.provisioningProfileConfigured == false) and
     (.provisioningProfileSigningCertificateConfigured == false) and
@@ -343,7 +614,6 @@ done
 [[ "$(plutil -extract NSPrivacyCollectedDataTypes.1.NSPrivacyCollectedDataType raw "$PROJECT_DIR/Resources/PrivacyInfo.xcprivacy")" == "NSPrivacyCollectedDataTypeOtherUserContent" ]]
 [[ "$(plutil -extract NSPrivacyCollectedDataTypes.1.NSPrivacyCollectedDataTypeLinked raw "$PROJECT_DIR/Resources/PrivacyInfo.xcprivacy")" == "true" ]]
 [[ "$(plutil -extract NSPrivacyCollectedDataTypes.1.NSPrivacyCollectedDataTypeTracking raw "$PROJECT_DIR/Resources/PrivacyInfo.xcprivacy")" == "false" ]]
-[[ "$(plutil -extract NSPrivacyAccessedAPITypes.0.NSPrivacyAccessedAPIType raw "$PROJECT_DIR/Resources/PrivacyInfo.xcprivacy")" == "NSPrivacyAccessedAPICategoryUserDefaults" ]]
 for SENSITIVE_PERMISSION_KEY in NSCameraUsageDescription NSMicrophoneUsageDescription NSScreenCaptureUsageDescription NSAppleEventsUsageDescription; do
   if /usr/bin/plutil -extract "$SENSITIVE_PERMISSION_KEY" raw "$APP_PATH/Contents/Info.plist" >/dev/null 2>&1; then
     echo "Desktop build unexpectedly requests $SENSITIVE_PERMISSION_KEY" >&2
@@ -1091,8 +1361,16 @@ jq -e '(.error | contains("磁盘根目录"))' "$VERIFY_ROOT/root-zh.json" >/dev
 jq -e '(.error | test("root"; "i")) and (.error | test("[\u3400-\u9fff]") | not)' \
   "$VERIFY_ROOT/root-en.json" >/dev/null
 
-ditto -x -k "$ARCHIVE_PATH" "$VERIFY_ROOT"
-xattr -cr "$VERIFY_ROOT/AgentIsland.app"
-codesign --verify --deep --strict --verbose=2 "$VERIFY_ROOT/AgentIsland.app"
+ARCHIVE_VERIFY_ROOT="$VERIFY_ROOT/archive"
+mkdir -p "$ARCHIVE_VERIFY_ROOT"
+ditto -x -k "$ARCHIVE_PATH" "$ARCHIVE_VERIFY_ROOT"
+typeset -a ARCHIVED_APPS
+ARCHIVED_APPS=("$ARCHIVE_VERIFY_ROOT"/*.app(N))
+[[ ${#ARCHIVED_APPS[@]} -eq 1 && "${ARCHIVED_APPS[1]}" == "$ARCHIVE_VERIFY_ROOT/$PUBLIC_DISPLAY_NAME.app" ]] || {
+  echo "Archive does not contain exactly the canonical public app name" >&2
+  exit 1
+}
+xattr -cr "$ARCHIVED_APPS[1]"
+codesign --verify --deep --strict --verbose=2 "$ARCHIVED_APPS[1]"
 
 echo "MAC版灵动岛--Agent运行监测 tests passed"

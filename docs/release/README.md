@@ -14,9 +14,12 @@
 - `IOS_APP_REVIEW_NOTES.md`：iOS 审核说明、数据边界和演示路径。
 - `IOS_SCREENSHOT_CHECKLIST.md`：iPhone、锁屏实时活动和灵动岛截图清单。
 - `DATA_HANDLING_AND_PRIVACY_LABELS.md`：数据处理清单、App Privacy 标签建议和 Privacy Manifest 审计项。
+- `APP_PRIVACY_SUBMISSION_WORKSHEET.md`：App Store Connect App Privacy 逐项填写基线、Manifest 映射和最终构建证据表。
 - `DEEPSEEK_TRANSLATION_PRIVACY_AUDIT.md`：DeepSeek 默认翻译端点的官方公开资料、代码核对、数据地区/保留/训练边界和建议的分层告知文案。
 - `RELEASE_IDENTITY.md`：正式 Bundle/Team/Container 的只读检查、首次可恢复应用、身份锁和 profile 派生 entitlement 流程。
 - `RELEASE_CHECKLIST.md`：从当前开发构建到公开上线的检查清单。
+
+源码阶段可分别运行 `node scripts/validate-app-privacy.mjs` 和 `node scripts/validate-store-submission.mjs`；候选发布时两者都必须带 `--release` 通过。这两项只是发布门禁的一部分，不代替最终 Archive、签名/profile、Xcode Privacy Report 和真机验证。
 
 ## 必须替换的占位符
 

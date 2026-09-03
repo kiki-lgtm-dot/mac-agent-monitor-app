@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -187,6 +187,150 @@ for (const document of metadataDocuments) {
   }
 }
 
+// These files contain the operator-, account-, and build-specific values that
+// App Store Connect and App Review need. Draft validation deliberately allows
+// placeholders so the repository stays reusable, but release validation must
+// never become green merely because screenshots and marketing copy are ready.
+const submissionDocumentPaths = [
+  "docs/release/APP_STORE_METADATA.md",
+  "docs/release/IOS_APP_STORE_AND_TESTFLIGHT_METADATA.md",
+  "docs/release/APP_REVIEW_NOTES.md",
+  "docs/release/IOS_APP_REVIEW_NOTES.md",
+  "docs/release/PRIVACY_POLICY_ZH.md",
+  "docs/release/PRIVACY_POLICY_EN.md",
+  "docs/release/APP_PRIVACY_SUBMISSION_WORKSHEET.md",
+];
+
+function unresolvedBracketPlaceholders(markdown) {
+  const placeholders = [];
+  // Ignore inline links, reference links/definitions, and task-list boxes.
+  // Submission placeholders remain deliberately explicit as bare [value].
+  const matcher = /(?<!\])\[([^\]\n]+)\](?!\s*(?:\(|\[|:))/g;
+  for (const match of markdown.matchAll(matcher)) {
+    const value = match[1].trim();
+    if (!value || value.toLowerCase() === "x") continue;
+    placeholders.push(`[${value}]`);
+  }
+  for (const match of markdown.matchAll(/<((?:正式|待填|YOUR)[^>\n]*)>/g)) {
+    placeholders.push(`<${match[1].trim()}>`);
+  }
+  return [...new Set(placeholders)];
+}
+
+function releaseDraftSentinels(markdown) {
+  const sentinels = [];
+  const expression = /(?:草案|不可提交|\bdraft\b|owner-only|当前预览)/iu;
+  for (const [index, line] of markdown.split(/\r?\n/).entries()) {
+    const match = line.match(expression);
+    if (match) {
+      sentinels.push({ line: index + 1, value: match[0] });
+    }
+  }
+  return sentinels;
+}
+
+const placeholderParserRegression = unresolvedBracketPlaceholders([
+  '[Apple](https://developer.apple.com)',
+  '[privacy][policy]',
+  '[policy]: https://example.invalid',
+  '- [ ] unfinished task',
+  '- [x] finished task',
+  '[支持邮箱]',
+].join('\n'));
+if (JSON.stringify(placeholderParserRegression) !== JSON.stringify(['[支持邮箱]'])) {
+  structuralErrors.push('submission placeholder parser regression failed');
+}
+const sentinelParserRegression = releaseDraftSentinels([
+  '# Final document',
+  'This submission draft must not ship.',
+  '当前状态：不可提交。',
+].join('\n'));
+if (sentinelParserRegression.length !== 2
+    || sentinelParserRegression[0].line !== 2
+    || sentinelParserRegression[1].line !== 3) {
+  structuralErrors.push('submission draft-sentinel parser regression failed');
+}
+
+const submissionDocuments = submissionDocumentPaths.map((relativePath) => {
+  const path = join(projectRoot, relativePath);
+  if (!existsSync(path)) {
+    structuralErrors.push(`missing submission document: ${path}`);
+    return {
+      path,
+      heading: "",
+      unresolvedPlaceholders: [],
+      draftHeading: false,
+      releaseDraftSentinels: [],
+    };
+  }
+  const markdown = readFileSync(path, "utf8");
+  const heading = markdown.split(/\r?\n/).find((line) => /^#\s+/.test(line))?.trim() ?? "";
+  const unresolvedPlaceholders = unresolvedBracketPlaceholders(markdown);
+  const draftHeading = /(?:草案|\bdraft\b)/i.test(heading);
+  const draftSentinels = releaseDraftSentinels(markdown);
+  for (const placeholder of unresolvedPlaceholders) {
+    releaseBlockers.push(`${relativePath}: unresolved placeholder ${placeholder}`);
+  }
+  for (const sentinel of draftSentinels) {
+    releaseBlockers.push(
+      `${relativePath}:${sentinel.line}: release document still contains ${JSON.stringify(sentinel.value)}`,
+    );
+  }
+  return {
+    path,
+    heading,
+    unresolvedPlaceholders,
+    draftHeading,
+    releaseDraftSentinels: draftSentinels,
+  };
+});
+
+function inspectAppPrivacyReleaseGate() {
+  const validatorPath = join(projectRoot, "scripts/validate-app-privacy.mjs");
+  if (!existsSync(validatorPath)) {
+    structuralErrors.push(`missing App Privacy validator: ${validatorPath}`);
+    return null;
+  }
+  const child = spawnSync(process.execPath, [validatorPath], {
+    cwd: projectRoot,
+    encoding: "utf8",
+    env: process.env,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  let validation;
+  try {
+    validation = JSON.parse(child.stdout);
+  } catch (error) {
+    structuralErrors.push(`App Privacy validator did not return JSON: ${error.message}`);
+    return null;
+  }
+  if (child.status !== 0 || validation.draftValid !== true) {
+    structuralErrors.push("App Privacy source validation failed");
+    for (const error of validation.structuralErrors ?? []) {
+      structuralErrors.push(`App Privacy: ${error}`);
+    }
+  }
+  if (validation.releaseReady !== true) {
+    const blockers = validation.releaseBlockers ?? [];
+    if (blockers.length === 0) {
+      releaseBlockers.push("App Privacy release evidence is not ready");
+    } else {
+      for (const blocker of blockers) {
+        releaseBlockers.push(`App Privacy: ${blocker}`);
+      }
+    }
+  }
+  return {
+    draftValid: validation.draftValid === true,
+    sourcePrivacyReady: validation.sourcePrivacyReady === true,
+    releaseEvidenceReady: validation.releaseEvidenceReady === true,
+    releaseReady: validation.releaseReady === true,
+    releaseEvidencePath: validation.releaseEvidencePath ?? null,
+  };
+}
+
+const appPrivacy = inspectAppPrivacyReleaseGate();
+
 const allowedScreenshotDimensions = {
   macos: new Set(["1280x800", "1440x900", "2560x1600", "2880x1800"]),
   ios: new Set([
@@ -303,6 +447,8 @@ const result = {
     screenshotsMustNotHaveAlpha: true,
   },
   metadata,
+  submissionDocuments,
+  appPrivacy,
   icons: { ready: iconChecks.length > 0 && iconChecks.every((item) => item.valid), images: iconChecks },
   referenceScreenshots,
   finalScreenshots,
@@ -310,6 +456,12 @@ const result = {
   releaseBlockers,
   draftValid: metadataStructurallyValid,
   releaseReady,
+  validatorSelfTests: {
+    placeholderParser: JSON.stringify(placeholderParserRegression) === JSON.stringify(['[支持邮箱]']),
+    releaseDraftSentinelParser: sentinelParserRegression.length === 2
+      && sentinelParserRegression[0].line === 2
+      && sentinelParserRegression[1].line === 3,
+  },
 };
 
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
