@@ -16,7 +16,7 @@
 - `STORE_SCREENSHOT_EVIDENCE.schema.json`：最终中英文截图与精确候选包的结构化证据契约；填写方式见 `../release-assets/README.md`。
 - `APP_STORE_SUBMISSION.schema.json`：macOS/iOS App Store 记录、版本、商业合规、审核、TestFlight 与截图顺序的强类型提交清单契约；可复制的待填样例位于 `../../Config/AppStoreSubmission.example.json`。
 - `PUBLIC_PAGES_EVIDENCE.md`：隐私政策与支持页面的显式联网采集、本地封存及离线复验流程。
-- `ASC_READONLY_SNAPSHOT.md`：App Store Connect App/Build 只读快照、精确候选绑定和 15 分钟有效期契约。
+- `ASC_READONLY_SNAPSHOT.md`：App Store Connect App/Build/提交元数据子集的只读快照、精确候选绑定和 15 分钟有效期契约。
 - `DATA_HANDLING_AND_PRIVACY_LABELS.md`：数据处理清单、App Privacy 标签建议和 Privacy Manifest 审计项。
 - `APP_PRIVACY_SUBMISSION_WORKSHEET.md`：App Store Connect App Privacy 逐项填写基线、Manifest 映射和最终构建证据表。
 - `DEEPSEEK_TRANSLATION_PRIVACY_AUDIT.md`：DeepSeek 默认翻译端点的官方公开资料、代码核对、数据地区/保留/训练边界和建议的分层告知文案。
@@ -37,6 +37,8 @@ node scripts/validate-app-store-submission.mjs --release
 
 草案和本地诊断可以用 `AGENT_ISLAND_APP_STORE_SUBMISSION` 指定已规范化的仓库相对路径；但最终 readiness、公开页绑定和 App Review 选择门禁只接受固定文件 `.release/app-store-submission.json`。自定义路径不是发布别名，不能进入最终证据链。无 `--release` 的草案模式允许显式占位符并逐项报告未决项，但 `localPreflightReady` 与各平台 `submissionManifestReady` 会保持 `false`；发布模式会对任何占位符、未知/缺失字段、不安全路径、符号链接、明文凭据、版本/Bundle 偏差、未决商业合规以及与精确候选包不一致的截图集失败关闭。清单校验器会消费 `validate-store-submission.mjs` 的结果并绑定 identity lock、证据哈希、候选包 tuple、双语元数据与有序截图集合。输出中的 `appStoreConnectComparison.expected` 提供每个平台预期的 App Resource ID、Bundle ID、SKU、Primary Locale、税类与地区，供 ASC 对照；当前 Build 快照只能证明 App 身份子集，不能证明税类、可售地区、Made for Kids、Content Rights 和加密回答等远端元数据。因此 `macAppStoreConnectRemoteMetadataComparisonComplete` / `iosAppStoreConnectRemoteMetadataComparisonComplete` 当前固定为 `false`，`readyForMacAppStoreReviewSelection` / `readyForIOSAppStoreReviewSelection` 也保持失败关闭；`submissionReadyForRemoteAction` 同样始终为 `false`。它不接受 Apple 密码、App 专用密码、API 私钥或 Token；审核账号必须使用 `keychain://` 或 `ci-secret://` 定位引用，且密文本身不得进入清单或 Git。
 
+精确 Build 快照之上还可使用 `capture-asc-submission-metadata.mjs` 封存 API 可见的 App、版本、已关联 Build、双语文案、脱敏审核匹配结果与 TestFlight 子集；脚本不会查询或保存审核账号名和密码。该证据会诚实列出税类、DSA、Made for Kids 当前声明、年龄分级、截图顺序及审核凭据可用性等人工项，不会将 API 可见子集误报为整份提交已验证。首发须将 `version.releaseKind` 设为 `initial` 且所有商店 `whatsNew` 设为 `null`；后续更新才使用 `update` 与非空更新说明。
+
 ## 身份锁与 Mac App Store 证据层级
 
 新的正式身份必须使用 `Config/ReleaseIdentity.json` schemaVersion 2，并由 `.release/identity.lock.json` 锁定。`appStoreRecordMode=universal-purchase` 时 macOS/iOS 主 App Bundle ID 必须相同；`separate-records` 时必须不同。`AGENT_ISLAND_APP_STORE_RECORD_MODE`、`AGENT_ISLAND_BUNDLE_ID` 和 `AGENT_ISLAND_IOS_BUNDLE_ID` 必须分别等于锁中的记录模式、macOS App ID 和 iOS App ID；旧 schemaVersion 1 只作 Universal Purchase 兼容输入，不能表示分开记录。
@@ -48,11 +50,11 @@ Mac App Store 发布状态必须按以下证据层级逐步判定，不得用单
 3. `readyForMacAppStoreUpload: true` 只表示本地候选、候选级 App Privacy、功能 QA 和 `macStoreSubmissionAssetsReady` 已通过上传前门禁；它不依赖 iOS 独有素材，也不表示已上传、Apple 已处理或已提审。
 4. 显式执行 `submit-macos-app-store.sh --upload` 后，将交付记录填入 `AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE`。上传命令被接受不等于 App Store Connect 处理完成。
 5. 人工在 App Store Connect 确认该精确构建为 `Complete` 并检查全部警告后，用 `confirm-macos-app-store-evidence.sh` 生成处理记录，再填入 `AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE`。这是操作人员的本地证据，验证脚本不会回查 Apple 状态。
-6. 当前 `readyForMacAppStoreReviewSelection` 必须保持 `false`，直到可信集成完成全量远端元数据比对。未来即使该字段为 `true`，也只表示证据链支持授权人在对应 macOS 版本中人工选择该 Build，不表示 Build 已被选中或已执行远端提交。进入 App Store Connect 前，仍需运行 `scripts/assert-release-preflight.sh mac-app-store-review /absolute/path/readiness.json` 复验，并由授权人再次核对税类、地区、儿童、版权和加密回答后手动选择构建与提审。
+6. 当前已能封存 App Store Connect API 可见的 macOS 提交元数据子集；但税类、DSA、年龄分级语义、截图顺序等仍需独立人工证据，所以 `readyForMacAppStoreReviewSelection` 总门禁继续失败关闭。元数据快照要求授权人先把精确 Build 关联到对应 macOS version；未来即使该字段为 `true`，也只表示这条关联及本地证据链已通过，不表示已经 Add for Review 或 Submit for Review。执行审核动作前仍需运行 `scripts/assert-release-preflight.sh mac-app-store-review /absolute/path/readiness.json` 复验，并由授权人再次核对税类、地区、儿童、版权和加密回答。
 
-iOS 也分为两个独立层级：`readyForFunctionalIOSTestFlight: true` 只表示精确 TestFlight 安装包已完成候选绑定的处理、安装、隐私与真机功能验收；`readyForIOSAppStoreReviewSelection` 另外要求 iOS 中英文商店材料、截图、App Icon、公开支持信息、App Privacy 证据、记录模式和全量远端元数据比对。当前后一对比尚未实现，所以该选择门禁保持 `false`。可用
+iOS 也分为两个独立层级：`readyForFunctionalIOSTestFlight: true` 只表示精确 TestFlight 安装包已完成候选绑定的处理、安装、隐私与真机功能验收；`readyForIOSAppStoreReviewSelection` 另外要求 iOS 中英文商店材料、截图、App Icon、公开支持信息、App Privacy 证据、记录模式和全量远端元数据比对。当前已能封存 API 可见子集，但税类、DSA、年龄分级语义、截图顺序等仍需独立人工证据，所以该选择总门禁继续失败关闭并保持 `false`。可用
 `scripts/assert-release-preflight.sh ios-app-store-review /absolute/path/readiness.json`
-在进入 App Store Connect 前复验。该结果仍不表示已经选择 Build、Add for Review 或 Submit for Review，这些远程操作必须由账号授权人明确执行。
+在进入 App Store Connect 前复验。该证据可验证精确 Build 已关联到对应 iOS version，但仍不表示已经 Add for Review 或 Submit for Review；这两项远程操作必须由账号授权人明确执行。
 
 readiness 报告会把本次 ASC 新鲜度策略原样固化为 `appStoreConnectSnapshotMaxAgeValid` 和 `appStoreConnectSnapshotMaxAgeSeconds`，供后续 preflight 使用同一边界复验。当 ASC 快照未配置或未通过验证时，`macAppStoreConnectBuildSnapshotWarningsPresent` / `iosAppStoreConnectBuildSnapshotWarningsPresent` 为 `null`，表示“未知”，而不是“已确认无警告”。整个 `release-readiness.sh` 流程只做本地 `--verify`，不联网也不修改 App Store Connect。
 

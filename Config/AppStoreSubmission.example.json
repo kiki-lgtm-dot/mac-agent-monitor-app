@@ -14,6 +14,7 @@
       "version": {
         "versionString": "0.6.1",
         "buildNumber": "8",
+        "releaseKind": "initial",
         "releaseMode": "manual",
         "scheduledReleaseAt": null,
         "copyright": "[YEAR] [LEGAL RIGHTS HOLDER]"
@@ -77,7 +78,7 @@
           "promotionalText": "在 Mac 菜单栏和灵动岛风格面板中，查看本地 AI Agent 的运行状态、活跃对话、工作时长与可验证 Token 摘要。",
           "description": "MAC版灵动岛--Agent运行监测是一款隐私优先的 macOS 本地工作看板。它展示相关 Agent、活跃对话、工作时长与来自可验证本地来源的 Token 摘要，并提供常用网站、备忘录和可选翻译学习工具。本地 Agent 数据不等于服务商账单，翻译内容只在用户明确发送时离开设备。",
           "keywords": "AI Agent,Token,本地监测,灵动岛,工作看板,开发工具",
-          "whatsNew": "首次发布：查看本地 Agent 状态、活跃对话、工作时长和 Token 摘要，并支持常用网站、备忘录与可选翻译。",
+          "whatsNew": null,
           "privacyPolicyURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/",
           "supportURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/",
           "marketingURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/"
@@ -89,7 +90,7 @@
           "promotionalText": "See local AI-agent status, active conversations, working time, and verifiable token summaries in a focused Mac panel.",
           "description": "MAC版灵动岛--Agent运行监测 is a privacy-first local workspace for macOS. It presents relevant agents, active conversations, working time, and token summaries from verifiable local sources, alongside bookmarks, notes, and an optional translation-learning tool. Local token totals are not provider billing totals. Translation text leaves the device only when the user explicitly sends it.",
           "keywords": "AI agents,token usage,local monitor,productivity,developer tools",
-          "whatsNew": "Initial release with local agent status, active conversations, working time, token summaries, bookmarks, notes, and optional translation.",
+          "whatsNew": null,
           "privacyPolicyURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/",
           "supportURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/",
           "marketingURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/"
@@ -121,6 +122,7 @@
       "version": {
         "versionString": "0.6.1",
         "buildNumber": "8",
+        "releaseKind": "initial",
         "releaseMode": "manual",
         "scheduledReleaseAt": null,
         "copyright": "[YEAR] [LEGAL RIGHTS HOLDER]"
@@ -184,7 +186,7 @@
           "promotionalText": "在 Mac 明确启用私有同步后，于 iPhone 刷新查看 AI Agent、活跃对话、时长与 Token 摘要，并把最近状态带到锁屏和灵动岛。",
           "description": "MAC版灵动岛--Agent运行监测的 iPhone 伴侣版是一款隐私优先看板。在 Mac 与 iPhone 使用同一 iCloud 账户并明确启用私有同步后，可查看经过精简的 Agent 状态、活跃对话数、工作时长和 Token 摘要。它支持锁屏 Live Activity 与灵动岛，不直接浏览 Mac 文件，并在未配置同步时显示明确空状态。",
           "keywords": "智能体,令牌用量,开发工具,实时活动,效率工具,状态看板",
-          "whatsNew": "首次发布：在 iPhone、锁屏与灵动岛查看 Mac Agent 的隐私化状态摘要，并提供明确标识的离线审核示例。",
+          "whatsNew": null,
           "privacyPolicyURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/",
           "supportURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/",
           "marketingURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/"
@@ -196,7 +198,7 @@
           "promotionalText": "Enable private sync on Mac, then refresh iPhone to see agents, conversations, time, and tokens on the Lock Screen and Dynamic Island.",
           "description": "The iPhone companion for MAC版灵动岛--Agent运行监测 is a privacy-first dashboard. After explicit private sync under the same iCloud account is enabled on both devices, it shows a minimized summary of agent status, active conversations, working time, and token usage. It supports Lock Screen Live Activities and Dynamic Island, never browses Mac files directly, and presents a clear empty state when sync is not configured.",
           "keywords": "AI monitor,token usage,developer tools,Live Activity,Mac companion",
-          "whatsNew": "Initial release with private Mac status summaries on iPhone, Lock Screen, and Dynamic Island, plus a visibly labelled offline review example.",
+          "whatsNew": null,
           "privacyPolicyURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/",
           "supportURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/",
           "marketingURL": "https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/"
@@ -227,6 +229,7 @@
           "email": "[BETA REVIEW CONTACT EMAIL]",
           "phone": "[BETA REVIEW CONTACT PHONE IN E.164 FORMAT]"
         },
+        "betaReviewNotes": "Use the visibly labelled offline example first. For private CloudKit sync, sign in to the same iCloud account on the Mac and iPhone, then verify title hiding and account isolation as described in the review instructions.",
         "login": {
           "strategy": "no-login",
           "credentialsSecretReference": null,

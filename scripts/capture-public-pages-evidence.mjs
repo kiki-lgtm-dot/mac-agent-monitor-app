@@ -1208,12 +1208,13 @@ function validateLogin(value, label) {
 }
 
 function validateVersion(value, expected, label) {
-  exactKeys(value, ["versionString", "buildNumber", "releaseMode", "scheduledReleaseAt", "copyright"], label);
+  exactKeys(value, ["versionString", "buildNumber", "releaseKind", "releaseMode", "scheduledReleaseAt", "copyright"], label);
   assertString(value.versionString, `${label}.versionString`, { maximum: 32, pattern: /^[0-9]+(?:\.[0-9]+){1,2}$/u });
   assertString(value.buildNumber, `${label}.buildNumber`, { maximum: 32, pattern: /^[1-9][0-9]*$/u });
   if (value.versionString !== expected.version || value.buildNumber !== expected.build) {
     fail(`${label} differs from the current project version`);
   }
+  if (!["initial", "update"].includes(value.releaseKind)) fail(`${label}.releaseKind is unsupported`);
   if (!["manual", "automatic", "scheduled"].includes(value.releaseMode)) fail(`${label}.releaseMode is unsupported`);
   if (value.releaseMode === "scheduled") {
     if (parseTimestamp(value.scheduledReleaseAt, `${label}.scheduledReleaseAt`) <= Date.now()) {
@@ -1293,16 +1294,21 @@ function validateCommerce(value, label) {
   }
 }
 
-function validateLocalization(value, label, configuration, configuredURLs, allowedOrigins) {
+function validateLocalization(value, label, configuration, configuredURLs, allowedOrigins, releaseKind) {
   exactKeys(value, [
     "locale", "name", "subtitle", "promotionalText", "description", "keywords", "whatsNew",
     "privacyPolicyURL", "supportURL", "marketingURL",
   ], label);
   if (!["zh-Hans", "en-US"].includes(value.locale)) fail(`${label}.locale is unsupported`);
   if (value.name !== configuration.productName) fail(`${label}.name differs from the configured product name`);
-  for (const field of ["subtitle", "promotionalText", "description", "keywords", "whatsNew"]) {
+  for (const field of ["subtitle", "promotionalText", "description", "keywords"]) {
     assertString(value[field], `${label}.${field}`, { minimum: field === "subtitle" || field === "promotionalText" ? 0 : 1,
       maximum: field === "subtitle" ? 30 : field === "promotionalText" ? 170 : field === "keywords" ? 100 : 4000 });
+  }
+  if (releaseKind === "initial") {
+    if (value.whatsNew !== null) fail(`${label}.whatsNew must be null for an initial release`);
+  } else {
+    assertString(value.whatsNew, `${label}.whatsNew`, { maximum: 4000 });
   }
   if (value.privacyPolicyURL !== configuredURLs.privacy || value.supportURL !== configuredURLs.support) {
     fail(`${label} public-page URLs differ from current xcconfig`);
@@ -1340,11 +1346,12 @@ function validateScreenshotSets(value, label, platform) {
 }
 
 function validateTestFlight(value, label) {
-  exactKeys(value, ["distribution", "feedbackEmail", "betaReviewContact", "login", "localizations"], label);
+  exactKeys(value, ["distribution", "feedbackEmail", "betaReviewContact", "betaReviewNotes", "login", "localizations"], label);
   if (!["internal-only", "external"].includes(value.distribution)) fail(`${label}.distribution is unsupported`);
   assertString(value.feedbackEmail, `${label}.feedbackEmail`, { maximum: 254,
     pattern: /^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,63}$/iu });
   validateContact(value.betaReviewContact, `${label}.betaReviewContact`);
+  assertString(value.betaReviewNotes, `${label}.betaReviewNotes`);
   validateLogin(value.login, `${label}.login`);
   assertArray(value.localizations, `${label}.localizations`, 2, 2);
   const locales = [];
@@ -1400,7 +1407,8 @@ function validateSubmissionRecord(record, platform, configuration, configuredURL
   assertString(record.review.notes, `${label}.review.notes`);
   assertArray(record.localizations, `${label}.localizations`, 2, 2);
   const locales = record.localizations.map((localization, index) =>
-    validateLocalization(localization, `${label}.localizations[${index}]`, configuration, configuredURLs, allowedOrigins));
+    validateLocalization(localization, `${label}.localizations[${index}]`, configuration, configuredURLs,
+      allowedOrigins, record.version.releaseKind));
   if (JSON.stringify([...new Set(locales)].sort()) !== JSON.stringify(["en-US", "zh-Hans"]) || !locales.includes(record.primaryLocale)) {
     fail(`${label}.localizations do not match the required locales`);
   }

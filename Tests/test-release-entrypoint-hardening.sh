@@ -582,8 +582,8 @@ for expression in \
     '.macAppStoreConnectBuildSnapshotExpiresAt = "not-a-time"' \
     '.macAppStoreConnectBuildSnapshotExpiresAt = .macAppStoreConnectBuildSnapshotCapturedAt' \
     '.macAppStoreConnectBuildSnapshotExportComplianceRequired = true' \
-    '.macAppStoreUploadSubmittedAt = "2026-09-04T00:06:00Z"' \
-    '.macAppStoreWarningsReviewedAt = "2026-09-04T00:06:00Z"' \
+    '.macAppStoreUploadSubmittedAt = ((.macAppStoreProcessingVerifiedAt | fromdateiso8601) + 60 | todateiso8601)' \
+    '.macAppStoreWarningsReviewedAt = .macAppStoreUploadSubmittedAt' \
     '.macAppStoreAppReviewSubmissionRecorded = true'; do
   INVALID_REPORT="$TEST_ROOT/mac-app-store-review-$RANDOM.json"
   /usr/bin/jq "$expression" "$MAC_APP_STORE_REVIEW_REPORT" >"$INVALID_REPORT"
@@ -1151,6 +1151,10 @@ IOS_ATOMIC_PUBLISH_LINE="$(/usr/bin/grep -nF \
   || fail "iOS must revalidate the identity lock at every artifact action boundary"
 
 for marker in \
+    'TEMPORARY_ROOT="${TEMPORARY_ROOT_INPUT:A}"' \
+    'WORK_DIR="$(mktemp -d "$TEMPORARY_ROOT/agentisland-ios-release.XXXXXX")"' \
+    'WORK_DIR="${WORK_DIR:A}"' \
+    '"$WORK_DIR" == "$TEMPORARY_ROOT"/agentisland-ios-release.*' \
     'STAGING_ROOT="$(mktemp -d "$DIST_ROOT/.agentisland-ios-release-staging.XXXXXX")"' \
     'PUBLISH_LOCK="$DIST_ROOT/.agentisland-ios-release-$RELEASE_BASENAME.publish-lock"' \
     '[[ ! -e "$FINAL_RELEASE_DIR" && ! -L "$FINAL_RELEASE_DIR" ]]' \

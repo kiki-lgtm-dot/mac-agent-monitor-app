@@ -512,6 +512,9 @@ expect_structural_failure "forbidden-secret-field" '.records.macos.review.apiSec
 expect_structural_failure "unsafe-mac-path" '.records.macos.screenshotSets[0].orderedPaths[0] = "../escape.png"' "must not contain empty, dot, or parent"
 expect_structural_failure "unsafe-ios-path" '.records.ios.screenshotSets[0].orderedPaths[0] = "/private/tmp/escape.png"' "repository-relative POSIX path"
 expect_structural_failure "bad-secret-reference" '.records.ios.review.login.strategy = "review-account" | .records.ios.review.login.credentialsSecretReference = "plaintext-password"' "credentialsSecretReference"
+expect_platform_structural_failure "initial-whats-new" '.records.ios.localizations[0].whatsNew = "Not valid on first release"' "must be null for an initial release" "ios"
+expect_platform_structural_failure "update-missing-whats-new" '.records.macos.version.releaseKind = "update"' "whatsNew must be a string" "macos"
+expect_platform_structural_failure "invalid-release-kind" '.records.ios.version.releaseKind = "migration"' "releaseKind is unsupported" "ios"
 
 # Product, policy, and account values fail closed without being mislabeled as
 # globally verified remote state.

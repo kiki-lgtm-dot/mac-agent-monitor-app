@@ -394,7 +394,18 @@ EXPECTED_CHECKSUM_LINE="$EXPECTED_IPA_SHA256  ${IPA_PATH:t}"
 [[ "$(/bin/cat "$CHECKSUM_PATH")" == "$EXPECTED_CHECKSUM_LINE" ]] \
   || fail "the IPA checksum sidecar does not match the verified artifact"
 
-WORK_DIRECTORY="$(mktemp -d "${TMPDIR:-/tmp}/agentisland-testflight.XXXXXX")"
+TEMPORARY_ROOT_INPUT="${TMPDIR:-/tmp}"
+[[ -d "$TEMPORARY_ROOT_INPUT" ]] \
+  || fail "TMPDIR must name an existing directory"
+TEMPORARY_ROOT="${TEMPORARY_ROOT_INPUT:A}"
+[[ "$TEMPORARY_ROOT" == /* && -d "$TEMPORARY_ROOT" && ! -L "$TEMPORARY_ROOT" ]] \
+  || fail "TMPDIR could not be resolved to a canonical directory"
+WORK_DIRECTORY="$(mktemp -d "$TEMPORARY_ROOT/agentisland-testflight.XXXXXX")" \
+  || fail "could not create the private TestFlight working directory"
+WORK_DIRECTORY="${WORK_DIRECTORY:A}"
+[[ "${WORK_DIRECTORY:h}" == "$TEMPORARY_ROOT" && \
+    -d "$WORK_DIRECTORY" && ! -L "$WORK_DIRECTORY" ]] \
+  || fail "the private TestFlight working directory is not canonical"
 LOCK_DIRECTORY=""
 LOCK_HELD=false
 VALIDATION_RESULT_TEMP=""
@@ -414,7 +425,8 @@ cleanup() {
   if [[ "$LOCK_HELD" == true && -n "$LOCK_DIRECTORY" ]]; then
     /bin/rmdir "$LOCK_DIRECTORY" 2>/dev/null || true
   fi
-  if [[ "$WORK_DIRECTORY" == "${TMPDIR:-/tmp}"/agentisland-testflight.* ]]; then
+  if [[ "$WORK_DIRECTORY" == "$TEMPORARY_ROOT"/agentisland-testflight.* && \
+      -d "$WORK_DIRECTORY" && ! -L "$WORK_DIRECTORY" ]]; then
     /bin/rm -rf "$WORK_DIRECTORY"
   fi
   exit "$exit_code"

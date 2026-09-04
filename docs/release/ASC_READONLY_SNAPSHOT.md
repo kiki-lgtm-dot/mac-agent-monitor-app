@@ -1,6 +1,6 @@
 # App Store Connect 只读快照
 
-这组脚本只读取 Apple 的 App Store Connect API，不创建版本、不选择构建、不分发
+这组脚本只读取 Apple 的 App Store Connect API，不创建版本、不关联或切换构建、不分发
 TestFlight，也不执行 Add for Review 或 Submit for Review。它用于把短暂的远端状态绑定到
 本地候选产物和 `.release/identity.lock.json`，供发布就绪检查离线消费。
 
@@ -189,6 +189,72 @@ Build 快照额外输出：
 }
 ```
 
+## 提交元数据快照（API 可见子集）
+
+精确 Build 快照完成后，可再采集一份与最终
+`.release/app-store-submission.json` 绑定的提交元数据快照：
+
+```sh
+node scripts/capture-asc-submission-metadata.mjs \
+  --manifest "$PWD/.release/app-store-submission.json" \
+  --build-snapshot "/absolute/path/to/asc-build-snapshot.json" \
+  --bundle-id "$AGENT_ISLAND_IOS_BUNDLE_ID" --platform iOS \
+  --version "$AGENT_ISLAND_VERSION" --build "$AGENT_ISLAND_BUILD_NUMBER" \
+  --artifact "/absolute/path/to/exact-candidate.ipa" \
+  --identity-lock "$PWD/.release/identity.lock.json" \
+  --output "/absolute/path/to/asc-submission-metadata.json"
+```
+
+macOS 使用同一命令，但将 platform 改为 `macOS`，artifact 改为本次精确
+PKG。采集仅发出 HTTPS `GET`，输出为不覆盖的普通 `0444` 文件；
+`--manifest` 只接受仓库规范固定路径
+`$PWD/.release/app-store-submission.json`。快照会逐值比对 App 身份、
+分类、版本与已关联 Build、中英文案，以及脱敏后的审核联系信息/备注匹配结果；
+iOS 外部测试还会比对 TestFlight 本地化、Beta Review 联系信息、登录需求和
+`testFlight.betaReviewNotes`，快照对联系信息与备注只保存布尔匹配结果。
+审核演示账号名和密码不会被 API 查询或写入证据，其是否真实可用必须另作
+受控人工检查。内测专用 TestFlight 只比对精确 Build 的 What to Test；
+Beta App Description、反馈邮箱、Beta Review 联系信息/备注和登录项继续列为人工范围。macOS
+TestFlight 不在这份提交元数据快照的覆盖范围内，仍按独立测试流程验收。
+
+特别注意，App Store 版本本地化中的 `whatsNew` 是更新说明。submission
+manifest 必须用 `version.releaseKind` 明确区分 `initial` 和 `update`：首发时
+每个商店 localization 的 `whatsNew` 必须为 `null`，更新时才必须填写并与
+ASC 精确比对。TestFlight Beta Build 的 `whatsNew` 表示 What to Test，是
+另一个可单独比对的字段。
+
+当前提交契约只允许 `zh-Hans` 与 `en-US`；四组 ASC localization 子资源都
+必须恰好包含这两个 locale，额外、缺失或重复语言都会失败关闭。采集前还
+必须先在目标 App Store version 上关联精确 Build，否则无法生成这份快照。
+
+输出把字段分为 `apiComparedPaths`、`semanticSignalPaths`、
+`separatelyAttestedPaths` 和 `manualOrUnsupported`。Apple 公共 API 不能精确读取的
+税类、DSA 法律声明、年龄问卷/最终评级、截图展示顺序等始终列入
+`manualOrUnsupported`。`isOrEverWasMadeForKids` 也只是“当前或曾经”的语义信号，
+不冒充当前 Made for Kids 声明的精确证明。因此当前版本即使 API 子集
+全部一致，`submissionManifestFullyVerified` 和
+`remoteMetadataComparisonComplete` 仍固定为 `false`；它只是 API 可见子集的
+可审计中间证据，不是绕过人工合规复核或打开远端完整门禁的通行证。
+
+离线复验命令与采集命令参数相同，另加 `--verify`：
+
+```sh
+node scripts/capture-asc-submission-metadata.mjs \
+  --verify "/absolute/path/to/asc-submission-metadata.json" \
+  --manifest "$PWD/.release/app-store-submission.json" \
+  --build-snapshot "/absolute/path/to/asc-build-snapshot.json" \
+  --bundle-id "$AGENT_ISLAND_IOS_BUNDLE_ID" --platform iOS \
+  --version "$AGENT_ISLAND_VERSION" --build "$AGENT_ISLAND_BUILD_NUMBER" \
+  --artifact "/absolute/path/to/exact-candidate.ipa" \
+  --identity-lock "$PWD/.release/identity.lock.json" \
+  --max-age-seconds 900
+```
+
+`--verify` 模式不创建 ASC 客户端、不发网络请求也不读取 API 凭据；它会
+重新绑定固定 manifest、Build 快照、精确候选包与 identity lock，并要求
+快照是普通 `0444` 文件且未过期。当前这份子集证据不会将
+`remoteMetadataComparisonComplete` 翻转为 `true`。
+
 ## 离线验证
 
 `release-readiness.sh` 不应联网。它应调用相同脚本的 `--verify` 模式，并传入当前候选：
@@ -260,8 +326,9 @@ App 快照不返回 `preReleaseVersion`/`build`/`buildUpload`。Build 快照会�
 
 这些脚本不会创建 App Store Connect App 记录。用户必须先在 App Store Connect 网页创建
 记录、上传签名构建并等待 Apple 处理。Apple 状态达到 `VALID`/`COMPLETE` 后才能采集 Build
-快照。选择构建、TestFlight 分发、人工审核 warning、Add for Review 和 Submit for Review
-仍是独立且需要明确授权的后续步骤，本实现不会执行它们。
+快照。授权人还必须先在对应 App Store version 中关联这一精确 Build，提交元数据快照才能采集；
+脚本只验证这个已有关系，不会更改它。TestFlight 分发、人工审核 warning、Add for Review 和
+Submit for Review 仍是独立且需要明确授权的后续步骤，本实现不会执行它们。
 
 ## 离线测试
 

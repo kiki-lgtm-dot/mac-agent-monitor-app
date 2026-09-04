@@ -36,7 +36,7 @@ export const DEFAULT_MAX_PAGES = 10;
 export const DEFAULT_PROJECT_ROOT = realpathSync(dirname(dirname(fileURLToPath(import.meta.url))));
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
-const RESOURCE_ID_PATTERN = /^[^\s/?#]{1,256}$/u;
+const RESOURCE_ID_PATTERN = /^(?!\.{1,2}$)[^\s/?#]{1,256}$/u;
 const BUNDLE_ID_PATTERN = /^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
 const VERSION_PATTERN = /^[0-9]+(?:\.[0-9]+){1,2}$/;
 const BUILD_PATTERN = /^[1-9][0-9]*$/;

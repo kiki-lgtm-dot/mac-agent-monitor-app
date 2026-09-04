@@ -70,6 +70,7 @@ fi
   "$PROJECT_DIR/Tests/test-app-store-submission.sh" \
   "$PROJECT_DIR/Tests/test-public-pages-evidence.sh" \
   "$PROJECT_DIR/Tests/test-asc-readonly-snapshot.sh" \
+  "$PROJECT_DIR/Tests/test-asc-submission-metadata.sh" \
   "$PROJECT_DIR/ApplePlatforms/iOS/scripts/confirm-functional-qa-evidence.sh" \
   "$PROJECT_DIR/ApplePlatforms/iOS/scripts/validate-functional-qa-evidence.sh" \
   "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh" \
@@ -90,6 +91,8 @@ node --check "$PROJECT_DIR/scripts/capture-public-pages-evidence.mjs"
 node --check "$PROJECT_DIR/scripts/app-store-connect-api.mjs"
 node --check "$PROJECT_DIR/scripts/capture-asc-app-snapshot.mjs"
 node --check "$PROJECT_DIR/scripts/capture-asc-build-snapshot.mjs"
+node --check "$PROJECT_DIR/scripts/app-store-connect-submission-metadata.mjs"
+node --check "$PROJECT_DIR/scripts/capture-asc-submission-metadata.mjs"
 [[ -x "$PROJECT_DIR/scripts/release-macos.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/release-readiness.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/assert-release-preflight.sh" ]]
@@ -101,9 +104,12 @@ node --check "$PROJECT_DIR/scripts/capture-asc-build-snapshot.mjs"
 [[ -x "$PROJECT_DIR/scripts/app-store-connect-api.mjs" ]]
 [[ -x "$PROJECT_DIR/scripts/capture-asc-app-snapshot.mjs" ]]
 [[ -x "$PROJECT_DIR/scripts/capture-asc-build-snapshot.mjs" ]]
+[[ -f "$PROJECT_DIR/scripts/app-store-connect-submission-metadata.mjs" ]]
+[[ -x "$PROJECT_DIR/scripts/capture-asc-submission-metadata.mjs" ]]
 [[ -x "$PROJECT_DIR/Tests/test-app-store-submission.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-public-pages-evidence.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-asc-readonly-snapshot.sh" ]]
+[[ -x "$PROJECT_DIR/Tests/test-asc-submission-metadata.sh" ]]
 [[ -x "$PROJECT_DIR/ApplePlatforms/iOS/scripts/confirm-functional-qa-evidence.sh" ]]
 [[ -x "$PROJECT_DIR/ApplePlatforms/iOS/scripts/validate-functional-qa-evidence.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh" ]]
@@ -197,6 +203,7 @@ done
 "$PROJECT_DIR/Tests/test-app-store-submission.sh"
 "$PROJECT_DIR/Tests/test-public-pages-evidence.sh"
 "$PROJECT_DIR/Tests/test-asc-readonly-snapshot.sh"
+"$PROJECT_DIR/Tests/test-asc-submission-metadata.sh"
 "$PROJECT_DIR/Tests/test-ios-functional-qa-evidence.sh"
 "$PROJECT_DIR/Tests/test-ios-entitlements-contract.sh"
 node "$PROJECT_DIR/Tests/test-ios-build-settings.mjs"

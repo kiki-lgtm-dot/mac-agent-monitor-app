@@ -338,6 +338,22 @@ function writeIdentityLock(value) {
   assert.equal(cliResult.releaseIdentity.appStoreRecordMode, "universal-purchase");
 }
 
+// JSON:API resource IDs must never be dot path segments because URL
+// normalization could otherwise escape the intended /v1 resource route.
+{
+  const invalid = appResource();
+  invalid.id = "..";
+  const { client } = fixtureClient({ apps: [invalid] });
+  await expectCode(() => captureAppSnapshot({
+    client,
+    bundleId,
+    artifactPath,
+    identityLockPath,
+    projectRoot,
+    now: fixedNow,
+  }), "ASC_RESPONSE_INVALID");
+}
+
 // Release archives can be hundreds of MiB. Hash them in bounded chunks rather
 // than retaining the complete PKG/IPA Buffer until the ASC request returns.
 {

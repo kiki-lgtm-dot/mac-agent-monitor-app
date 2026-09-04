@@ -154,6 +154,7 @@
       "required": [
         "versionString",
         "buildNumber",
+        "releaseKind",
         "releaseMode",
         "scheduledReleaseAt",
         "copyright"
@@ -166,6 +167,12 @@
         "buildNumber": {
           "type": "string",
           "pattern": "^[1-9][0-9]*$"
+        },
+        "releaseKind": {
+          "enum": [
+            "initial",
+            "update"
+          ]
         },
         "releaseMode": {
           "enum": [
@@ -419,8 +426,10 @@
           "maxLength": 100
         },
         "whatsNew": {
-          "type": "string",
-          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ],
           "maxLength": 4000
         },
         "privacyPolicyURL": {
@@ -467,6 +476,62 @@
     },
     "commonRecordProperties": {
       "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "version": {
+                "properties": {
+                  "releaseKind": {
+                    "const": "initial"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "localizations": {
+                "items": {
+                  "properties": {
+                    "whatsNew": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "version": {
+                "properties": {
+                  "releaseKind": {
+                    "const": "update"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "localizations": {
+                "items": {
+                  "properties": {
+                    "whatsNew": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
       "required": [
         "appResourceId",
         "bundleIdentifier",
@@ -567,6 +632,7 @@
         "distribution",
         "feedbackEmail",
         "betaReviewContact",
+        "betaReviewNotes",
         "login",
         "localizations"
       ],
@@ -582,6 +648,9 @@
         },
         "betaReviewContact": {
           "$ref": "#/$defs/contact"
+        },
+        "betaReviewNotes": {
+          "$ref": "#/$defs/nonEmptyString"
         },
         "login": {
           "$ref": "#/$defs/login"

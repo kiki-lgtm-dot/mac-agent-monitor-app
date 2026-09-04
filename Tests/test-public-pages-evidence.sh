@@ -176,7 +176,7 @@ SCREENSHOT_SHA="$(LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$FIXTURE_ROOT/.release
       .bundleIdentifier = "com.agentisland.fixture" |
       .sku = "AGENTISLAND-FIXTURE" |
       .version = {
-        versionString: "0.6.1", buildNumber: "8", releaseMode: "manual",
+        versionString: "0.6.1", buildNumber: "8", releaseKind: "initial", releaseMode: "manual",
         scheduledReleaseAt: null, copyright: "2026 AgentIsland Fixture"
       } |
       .categories = {primary: "developer-tools", secondary: "productivity"} |

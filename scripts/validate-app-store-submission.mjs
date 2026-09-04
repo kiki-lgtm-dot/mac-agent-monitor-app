@@ -31,7 +31,7 @@ const CONTRACT_KEYS = Object.freeze({
     "review", "localizations", "screenshotSets",
   ],
   iosRecordExtension: ["widgetBundleIdentifier", "testFlight"],
-  version: ["versionString", "buildNumber", "releaseMode", "scheduledReleaseAt", "copyright"],
+  version: ["versionString", "buildNumber", "releaseKind", "releaseMode", "scheduledReleaseAt", "copyright"],
   categories: ["primary", "secondary"],
   commerce: ["ageRating", "madeForKids", "contentRights", "eula", "digitalServicesAct", "pricing", "exportCompliance"],
   ageRating: ["questionnaireStatus", "declaredRating"],
@@ -48,7 +48,7 @@ const CONTRACT_KEYS = Object.freeze({
     "privacyPolicyURL", "supportURL", "marketingURL",
   ],
   screenshotSet: ["locale", "device", "orderedPaths"],
-  testFlight: ["distribution", "feedbackEmail", "betaReviewContact", "login", "localizations"],
+  testFlight: ["distribution", "feedbackEmail", "betaReviewContact", "betaReviewNotes", "login", "localizations"],
   testFlightLocalization: ["locale", "betaAppDescription", "whatToTest"],
 });
 
@@ -770,6 +770,7 @@ function validateVersion(value, label, platform) {
   if (!exactObject(value, CONTRACT_KEYS.version, label, platforms)) return;
   if (!/^\d+(?:\.\d+){1,2}$/.test(value.versionString ?? "")) structural(`${label}.versionString is invalid`, platforms);
   if (!/^[1-9][0-9]*$/.test(value.buildNumber ?? "")) structural(`${label}.buildNumber is invalid`, platforms);
+  if (!["initial", "update"].includes(value.releaseKind)) structural(`${label}.releaseKind is unsupported`, platforms);
   if (!["manual", "automatic", "scheduled"].includes(value.releaseMode)) structural(`${label}.releaseMode is unsupported`, platforms);
   if (value.releaseMode === "scheduled") {
     const scheduledMilliseconds = canonicalUTCTimestamp(value.scheduledReleaseAt);
@@ -924,7 +925,7 @@ function validateCategories(value, label, platform) {
   }
 }
 
-function validateLocalization(value, label, platform) {
+function validateLocalization(value, label, platform, releaseKind) {
   const platforms = [platform];
   if (!exactObject(value, CONTRACT_KEYS.localization, label, platforms)) return null;
   if (!REQUIRED_LOCALES.includes(value.locale)) structural(`${label}.locale is unsupported`, platforms);
@@ -937,7 +938,11 @@ function validateLocalization(value, label, platform) {
       && Buffer.byteLength(value.keywords, "utf8") > 100) {
     structural(`${label}.keywords exceeds App Store Connect's 100-byte limit`, platforms);
   }
-  expectString(value.whatsNew, `${label}.whatsNew`, platforms, { maximum: 4000 });
+  if (releaseKind === "initial") {
+    if (value.whatsNew !== null) structural(`${label}.whatsNew must be null for an initial release`, platforms);
+  } else {
+    expectString(value.whatsNew, `${label}.whatsNew`, platforms, { maximum: 4000 });
+  }
   for (const field of ["name", "subtitle", "promotionalText", "description", "keywords", "whatsNew"]) {
     if (typeof value[field] === "string" && /`|\*\*|__|\[[^\]\n]+\]\([^)]+\)/.test(value[field])) {
       structural(`${label}.${field} contains unsupported Markdown`, platforms);
@@ -998,6 +1003,7 @@ function validateTestFlight(value, label) {
   if (!["internal-only", "external"].includes(value.distribution)) structural(`${label}.distribution is unsupported`, platforms);
   validateEmail(value.feedbackEmail, `${label}.feedbackEmail`, platforms);
   validateContact(value.betaReviewContact, `${label}.betaReviewContact`, platforms);
+  expectString(value.betaReviewNotes, `${label}.betaReviewNotes`, platforms);
   validateLogin(value.login, `${label}.login`, platforms);
   const locales = [];
   if (expectArray(value.localizations, `${label}.localizations`, platforms, 2, 2)) {
@@ -1060,7 +1066,8 @@ function validateRecord(value, platform) {
   const locales = [];
   if (expectArray(value.localizations, `${label}.localizations`, platforms, 2, 2)) {
     value.localizations.forEach((localization, index) => {
-      const locale = validateLocalization(localization, `${label}.localizations[${index}]`, platform);
+      const locale = validateLocalization(localization, `${label}.localizations[${index}]`, platform,
+        value.version?.releaseKind);
       if (locale) locales.push(locale);
     });
   }

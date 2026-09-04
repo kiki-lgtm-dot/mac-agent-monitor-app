@@ -331,7 +331,17 @@ SELECTED_IDENTITY_SHA1="$(print -r -- "$SELECTED_IDENTITY_SHA1S" | /usr/bin/head
 print -r -- "$SELECTED_IDENTITY_SHA1" | /usr/bin/grep -Eq '^[0-9A-F]{40}$' \
   || fail "selected Apple Distribution identity has an invalid certificate SHA-1"
 
-WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/agentisland-ios-release.XXXXXX")"
+TEMPORARY_ROOT_INPUT="${TMPDIR:-/tmp}"
+[[ -d "$TEMPORARY_ROOT_INPUT" ]] \
+  || fail "TMPDIR must name an existing directory"
+TEMPORARY_ROOT="${TEMPORARY_ROOT_INPUT:A}"
+[[ "$TEMPORARY_ROOT" == /* && -d "$TEMPORARY_ROOT" && ! -L "$TEMPORARY_ROOT" ]] \
+  || fail "TMPDIR could not be resolved to a canonical directory"
+WORK_DIR="$(mktemp -d "$TEMPORARY_ROOT/agentisland-ios-release.XXXXXX")" \
+  || fail "could not create the private iOS release working directory"
+WORK_DIR="${WORK_DIR:A}"
+[[ "${WORK_DIR:h}" == "$TEMPORARY_ROOT" && -d "$WORK_DIR" && ! -L "$WORK_DIR" ]] \
+  || fail "the private iOS release working directory is not canonical"
 READINESS_REPORT="$WORK_DIR/release-readiness.json"
 STAGING_ROOT=""
 PUBLISH_LOCK=""
@@ -361,7 +371,8 @@ cleanup() {
       -d "$PUBLISH_LOCK" && ! -L "$PUBLISH_LOCK" ]]; then
     /bin/rmdir "$PUBLISH_LOCK" 2>/dev/null
   fi
-  if [[ "$WORK_DIR" == "${TMPDIR:-/tmp}"/agentisland-ios-release.* ]]; then
+  if [[ "$WORK_DIR" == "$TEMPORARY_ROOT"/agentisland-ios-release.* && \
+      -d "$WORK_DIR" && ! -L "$WORK_DIR" ]]; then
     /bin/rm -rf "$WORK_DIR"
   fi
   exit "$exit_code"

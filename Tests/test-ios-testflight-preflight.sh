@@ -6,6 +6,21 @@ SCRIPT="$PROJECT_ROOT/ApplePlatforms/iOS/scripts/submit-testflight.sh"
 TEST_ROOT="$(mktemp -d /private/tmp/agentisland-ios-preflight-test.XXXXXX)"
 trap '/bin/rm -rf "$TEST_ROOT"' EXIT HUP INT TERM
 
+# macOS commonly exposes TMPDIR below /var even though its physical path is
+# /private/var. Exercise the same lexical/physical mismatch with a private
+# fixture so upload preflight cannot regress to passing a non-canonical report
+# path into assert-release-preflight.sh.
+CANONICAL_TEST_TMPDIR="$TEST_ROOT/private/var/folders/fixture/T"
+TMPDIR_ALIAS_ROOT="$TEST_ROOT/var"
+/bin/mkdir -p "$CANONICAL_TEST_TMPDIR"
+/bin/ln -s "$TEST_ROOT/private/var" "$TMPDIR_ALIAS_ROOT"
+NONCANONICAL_TEST_TMPDIR="$TMPDIR_ALIAS_ROOT/folders/fixture/T/"
+[[ "${NONCANONICAL_TEST_TMPDIR:a}" != "${NONCANONICAL_TEST_TMPDIR:A}" ]] \
+  || {
+    print -u2 -r -- "iOS TestFlight preflight test failed: TMPDIR fixture is canonical"
+    exit 1
+  }
+
 fail() {
   print -u2 -r -- "iOS TestFlight preflight test failed: $*"
   exit 1
@@ -72,7 +87,9 @@ for delivery_marker in \
   '.testflight-submit.lock' \
   'publish_readonly_no_overwrite' \
   '/bin/chmod 0444 "$VALIDATION_RESULT_TEMP"' \
-  'release artifact paths must already be canonical'; do
+  'release artifact paths must already be canonical' \
+  'TEMPORARY_ROOT="${TEMPORARY_ROOT_INPUT:A}"' \
+  'WORK_DIRECTORY="$(mktemp -d "$TEMPORARY_ROOT/agentisland-testflight.XXXXXX")"'; do
   contains "$delivery_marker" "$SCRIPT"
 done
 [[ "$(/usr/bin/grep -Ec \
@@ -618,6 +635,7 @@ assert_no_transient_delivery_state() {
 
 run_remote() {
   local mode="$1"
+  TMPDIR="$NONCANONICAL_TEST_TMPDIR" \
   DEVELOPER_DIR="$FAKE_DEVELOPER_PATH" \
   AGENT_ISLAND_ASC_API_KEY_ID="$API_KEY_ID" \
   AGENT_ISLAND_ASC_API_ISSUER_ID="$API_ISSUER_ID" \
@@ -691,6 +709,9 @@ run_remote --validate >"$TEST_ROOT/remote-validation-valid.txt" 2>&1 \
 [[ "$(/usr/bin/wc -l <"$XCRUN_LOG" | /usr/bin/tr -d ' ')" == "1" ]] \
   || fail "remote validation did not make exactly one staged-candidate request"
 assert_no_transient_delivery_state
+[[ "$(/usr/bin/find "$CANONICAL_TEST_TMPDIR" -mindepth 1 -maxdepth 1 \
+    -name 'agentisland-testflight.*' -print | /usr/bin/wc -l | /usr/bin/tr -d ' ')" == "0" ]] \
+  || fail "canonicalized non-canonical TMPDIR left a private working directory behind"
 clear_remote_outputs
 
 print -n -r -- 'do not overwrite this result' >"$VALIDATION_RESULT_PATH"
