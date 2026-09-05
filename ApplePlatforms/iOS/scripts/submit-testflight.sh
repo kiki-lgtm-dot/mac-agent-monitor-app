@@ -5,6 +5,7 @@ umask 077
 
 IOS_ROOT="${0:A:h:h}"
 PRODUCT_ROOT="${IOS_ROOT:h:h}"
+CMS_PROFILE_HELPER="$PRODUCT_ROOT/scripts/apple-cms-profile.zsh"
 CONFIG_FILE="$IOS_ROOT/Config/Project.xcconfig"
 PRIVACY_CONTRACT="$IOS_ROOT/scripts/privacy-manifest-contract.jq"
 IOS_ENTITLEMENTS_CONTRACT="$IOS_ROOT/scripts/ios-entitlements-contract.jq"
@@ -12,6 +13,12 @@ PREFLIGHT_ASSERTION="$PRODUCT_ROOT/scripts/assert-release-preflight.sh"
 MODE="check"
 MODE_WAS_EXPLICIT=false
 RELEASE_DIRECTORY=""
+
+[[ -f "$CMS_PROFILE_HELPER" && ! -L "$CMS_PROFILE_HELPER" ]] || {
+  print -u2 -- "Apple CMS profile helper is missing or unsafe"
+  exit 66
+}
+source "$CMS_PROFILE_HELPER"
 
 usage() {
   /bin/cat <<'EOF'
@@ -547,10 +554,10 @@ APP_PROFILE_PLIST="$WORK_DIRECTORY/app-profile.plist"
 WIDGET_PROFILE_PLIST="$WORK_DIRECTORY/widget-profile.plist"
 APP_PROFILE_ENTITLEMENTS_JSON="$WORK_DIRECTORY/app-profile-entitlements.json"
 WIDGET_PROFILE_ENTITLEMENTS_JSON="$WORK_DIRECTORY/widget-profile-entitlements.json"
-/usr/bin/security cms -D -i "$APP_PROFILE" >"$APP_PROFILE_PLIST" \
-  || fail "could not decode IPA App embedded.mobileprovision"
-/usr/bin/security cms -D -i "$WIDGET_PROFILE" >"$WIDGET_PROFILE_PLIST" \
-  || fail "could not decode IPA Widget embedded.mobileprovision"
+agent_island_decode_apple_signed_profile "$APP_PROFILE" "$APP_PROFILE_PLIST" \
+  || fail "IPA App provisioning profile failed Apple CMS signer verification"
+agent_island_decode_apple_signed_profile "$WIDGET_PROFILE" "$WIDGET_PROFILE_PLIST" \
+  || fail "IPA Widget provisioning profile failed Apple CMS signer verification"
 extract_profile_entitlements_json "$APP_PROFILE_PLIST" \
   "$APP_PROFILE_ENTITLEMENTS_JSON"
 extract_profile_entitlements_json "$WIDGET_PROFILE_PLIST" \

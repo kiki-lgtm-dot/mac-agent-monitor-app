@@ -16,7 +16,7 @@ Know which agents are working—without leaving your flow.
 
 ![MAC版灵动岛--Agent运行监测 中文界面（内置离线示例数据）](docs/media/mac-agent-monitor-overview-zh.png)
 
-> **Project status:** source preview. The macOS app is usable for local development. The iPhone companion, private CloudKit sync, signing, notarization, and App Store configuration still require your own Apple Developer identifiers and real-device validation.
+> **Project status:** release preparation. The iOS and macOS apps share the registered Universal Purchase identifier `com.kiki.agentisland`; the Live Activity extension uses `com.kiki.agentisland.liveactivity`, and the production CloudKit schema is deployed in `iCloud.com.kiki.agentisland`. Distribution profiles have been generated. Submission archives, uploads, same-account Mac→iPhone device QA, screenshots, App Privacy publication, DSA completion, and App Review are still pending.
 
 ## What it does
 

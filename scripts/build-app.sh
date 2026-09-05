@@ -3,6 +3,12 @@ set -euo pipefail
 setopt EXTENDED_GLOB
 
 PROJECT_DIR="${0:A:h:h}"
+CMS_PROFILE_HELPER="$PROJECT_DIR/scripts/apple-cms-profile.zsh"
+[[ -f "$CMS_PROFILE_HELPER" && ! -L "$CMS_PROFILE_HELPER" ]] || {
+  print -u2 -- "Apple CMS profile helper is missing or unsafe"
+  exit 66
+}
+source "$CMS_PROFILE_HELPER"
 DIST_DIR="$PROJECT_DIR/dist"
 PUBLIC_APP_NAME="MAC版灵动岛--Agent运行监测"
 APP_DIR="$DIST_DIR/$PUBLIC_APP_NAME.app"
@@ -136,7 +142,10 @@ if [[ -n "$ENTITLEMENTS_PATH" || -n "$PROVISIONING_PROFILE" ]]; then
     exit 2
   fi
   PROFILE_PLIST="$STAGING_ROOT/provisioning-profile.plist"
-  /usr/bin/security cms -D -i "$PROVISIONING_PROFILE" -o "$PROFILE_PLIST" >/dev/null
+  VERIFIED_PROVISIONING_PROFILE="$STAGING_ROOT/provisioning-profile.cms"
+  agent_island_decode_apple_signed_profile \
+    "$PROVISIONING_PROFILE" "$PROFILE_PLIST" "$VERIFIED_PROVISIONING_PROFILE" \
+    || { echo "Provisioning profile did not pass the Apple CMS signer trust gate" >&2; exit 2; }
   PROFILE_ENTITLEMENTS_PLIST="$STAGING_ROOT/provisioning-profile-entitlements.plist"
   PROFILE_ENTITLEMENTS_JSON="$STAGING_ROOT/provisioning-profile-entitlements.json"
   /usr/bin/plutil -extract Entitlements xml1 -o "$PROFILE_ENTITLEMENTS_PLIST" "$PROFILE_PLIST"
@@ -204,7 +213,8 @@ COPYFILE_DISABLE=1 cp "$PROJECT_DIR/Resources/AgentIsland.icns" "$RESOURCES_DIR/
 COPYFILE_DISABLE=1 cp "$PROJECT_DIR/Resources/PrivacyInfo.xcprivacy" "$RESOURCES_DIR/PrivacyInfo.xcprivacy"
 COPYFILE_DISABLE=1 cp "$PROJECT_DIR/Web/index.html" "$RESOURCES_DIR/Web/index.html"
 COPYFILE_DISABLE=1 cp "$PROJECT_DIR/THIRD_PARTY_NOTICES.md" "$RESOURCES_DIR/THIRD_PARTY_NOTICES.md"
-[[ -n "$PROVISIONING_PROFILE" ]] && COPYFILE_DISABLE=1 cp "$PROVISIONING_PROFILE" "$CONTENTS_DIR/embedded.provisionprofile"
+[[ -n "$PROVISIONING_PROFILE" ]] && COPYFILE_DISABLE=1 cp \
+  "$VERIFIED_PROVISIONING_PROFILE" "$CONTENTS_DIR/embedded.provisionprofile"
 [[ -n "$BUNDLE_ID_OVERRIDE" ]] && /usr/bin/plutil -replace CFBundleIdentifier -string "$BUNDLE_ID_OVERRIDE" "$CONTENTS_DIR/Info.plist"
 [[ -n "$VERSION_OVERRIDE" ]] && /usr/bin/plutil -replace CFBundleShortVersionString -string "$VERSION_OVERRIDE" "$CONTENTS_DIR/Info.plist"
 [[ -n "$BUILD_OVERRIDE" ]] && /usr/bin/plutil -replace CFBundleVersion -string "$BUILD_OVERRIDE" "$CONTENTS_DIR/Info.plist"

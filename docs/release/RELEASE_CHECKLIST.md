@@ -1,28 +1,31 @@
 # MAC版灵动岛--Agent运行监测 发布检查清单
 
-> 当前状态：macOS 与 iOS 已统一为 0.6.1（Build 8）。macOS 仍是 `local.agentisland.desktop` + ad-hoc 签名的本机开发预览；iOS 已有 SwiftUI App、Widget/Live Activity Extension、按 iCloud 账号隔离的私有 CloudKit 接收器、离线缓存、Xcode 工程和图标，Mac CloudKit producer 也已实现并通过本地 CLI/回归。当前仍使用 `com.example.agentisland`/`iCloud.com.example.agentisland`/空 Team ID，且真实 Developer ID CloudKit entitlement/profile、Production schema、同账号 Mac→iPhone 真机验证和经完整 Xcode+iOS SDK 验证的 Archive 均未完成。下面分别覆盖 Developer ID、Mac App Store 和 iOS TestFlight/App Store。
+> 当前状态（2026-09-05）：iOS 与 macOS 采用 Universal Purchase，共用 App Store Connect App ID `6808917414`、Bundle ID `com.kiki.agentisland`、SKU `AGENTISLAND-UNIVERSAL` 和版本 `0.6.1`；Widget ID 为 `com.kiki.agentisland.liveactivity`，Team ID 为 `AW4HMBZN7M`。CloudKit Container `iCloud.com.kiki.agentisland` 与 Production schema 已配置，四份渠道 profile 已生成并保存在 Git 忽略的本地发布目录。正式 Archive/PKG/IPA、签名绑定验证、上传、真机 QA、商店素材、DSA trader status 与审核均未完成。
+
+CloudKit 固定使用 Private / Production 的 `AgentIslandSnapshot` 记录类型、`latest` 记录名和 `payloadJSON` 字段。Production 公共数据库的兜底权限仅为 `_icloud` CREATE、`_creator` READ + WRITE，未授予 `_world` READ；应用运行时不得切换为公共数据库。
 
 ## 0. 确定本次发布范围
 
 - [ ] 选择渠道：`Developer ID 官网分发` / `Mac App Store` / `iOS TestFlight` / `iOS App Store`，并为不同平台分别记录构建和审核状态。
-- [ ] 明确 App Store Connect 记录模式并写入 `Config/ReleaseIdentity.json` schemaVersion 2：同一记录/Universal Purchase 选 `appStoreRecordMode=universal-purchase` 且 macOS/iOS 主 App Bundle ID 必须相同；分开两个记录选 `separate-records` 且两者必须不同。旧 schemaVersion 1 只能规范化为 Universal Purchase，不能用于分开记录。
-- [ ] Mac producer 和 iOS receiver 代码链路已实现，但在正式签名/Container/schema 和同账号真机验证通过前不宣传“手机可查看 Mac Agent”；不把本地回归通过当成已上线服务。
-- [ ] 确定正式产品名，并检索 App Store、商标和域名冲突。
-- [ ] 核验公开名 `MAC版灵动岛--Agent运行监测` 的 App Store、商标与域名可用性；正式分发时 `AGENT_ISLAND_DISPLAY_NAME`、`CFBundleDisplayName`、`.app` 与 ZIP 必须保持该名称。如必须更名，先将构建/发布脚本和文档作为一次完整迁移，不得只覆盖环境变量。
-- [ ] 确定版本号；首次公开发布建议采用清晰的 `1.0.0` 或经确认的版本策略。
+- [x] 已选择 Universal Purchase，并以 schemaVersion 2 锁定 `appStoreRecordMode=universal-purchase`；macOS/iOS 主 App Bundle ID 均为 `com.kiki.agentisland`。
+- [ ] Mac producer、iOS receiver、正式 Container 与 Production schema 已就绪；在最终签名构建和同账号真机验证通过前不宣传“手机可查看 Mac Agent”，也不把本地回归通过当成已上线服务。
+- [x] App Store Connect 记录名称已确定为 `MAC版灵动岛--Agent运行监测`。
+- [ ] 独立完成商标和域名冲突检索；App Store 名称已创建不等于取得商标权。
+- [ ] 继续核验公开名 `MAC版灵动岛--Agent运行监测` 的商标与域名可用性；正式分发时 `AGENT_ISLAND_DISPLAY_NAME`、`CFBundleDisplayName`、`.app` 与 ZIP 必须保持该名称。如必须更名，先将构建/发布脚本和文档作为一次完整迁移，不得只覆盖环境变量。
+- [x] iOS 与 macOS App Store 版本均设为 `0.6.1`（工程当前 Build `8`，上传前仍须核对单调递增）。
 - [x] 已于 2026-09-02 根据 DeepSeek 官方 API 文档、隐私政策和开放平台服务协议完成公开资料基线审计，并归档到 `DEEPSEEK_TRANSLATION_PRIVACY_AUDIT.md`。
 - [ ] 确定正式版是否保留 DeepSeek 默认端点；如保留，取得 API 请求保留/训练的专用书面依据，或接受无固定保留期与可能训练/优化的保守披露，并实施分层同意。
 - [ ] 决定免费、付费或后续商业模式；当前没有 IAP/订阅实现。
 
 ## 1. 开发者与标识
 
-- [ ] 在 Apple Developer 账号核对个人开发者法定姓名和 Team ID。
-- [ ] 注册正式 Bundle ID：`[正式Bundle ID]`。
-- [ ] 按 `RELEASE_IDENTITY.md` 填写 schemaVersion 2 `Config/ReleaseIdentity.json`，先运行默认 `--check`；确认 macOS App、iOS App、Widget、记录模式、Team、Container 和固定 CloudKit 契约全部通过后才运行 `--apply`。
-- [ ] 核对第一次 `--apply` 已在 `.release/identity-backup` 保存可恢复原文件，并生成 `.release/identity.lock.json`；确认 `AGENT_ISLAND_APP_STORE_RECORD_MODE`、`AGENT_ISLAND_BUNDLE_ID`、`AGENT_ISLAND_IOS_BUNDLE_ID` 分别精确匹配锁中的模式、macOS App ID 和 iOS App ID。锁定后不得用环境变量切到另一套标识。
+- [x] 已核对 Apple Developer Team ID：`AW4HMBZN7M`；个人开发者法定姓名仍仅在需填写的人工字段中使用，不写入仓库。
+- [x] 已注册 macOS/iOS 通用正式 Bundle ID：`com.kiki.agentisland`。
+- [x] 已按 `RELEASE_IDENTITY.md` 填写、检查并应用 schemaVersion 2 正式身份；记录模式、主 App、Widget、Team、Container 和 CloudKit 契约一致。
+- [x] 首次应用的可恢复备份与身份锁已保存在 Git 忽略的本地发布目录；后续不得用环境变量切换为另一套标识。
 - [ ] 同步修改 `CFBundleIdentifier`、Keychain service 标识、构建脚本、测试和文档。
-- [ ] 为 iOS App 与 Widget Extension 分别注册 `[正式iOS Bundle ID]` 和 `[正式iOS Widget Bundle ID]`，保持 Extension ID 与 Xcode 配置一致。
-- [ ] 在 `ApplePlatforms/iOS/Config/Project.xcconfig` 替换 `com.example.agentisland` 和空 Team ID；确认 iOS 版本/Build 单调递增。
+- [x] 已注册 iOS App `com.kiki.agentisland` 与 Widget Extension `com.kiki.agentisland.liveactivity`。
+- [x] iOS/macOS 构建配置已写入正式 App、Widget、Team 与 Container 标识；上传前仍须确认版本/Build 单调递增。
 - [ ] 为已安装开发版设计一次性本地数据/Keychain 迁移；更换 Bundle ID 后旧偏好和密钥不会自然属于新应用。
 - [ ] 创建正式 App Icon（完整尺寸、无敏感或侵权素材），在浅色/深色桌面检查。
 - [ ] 确认 `CFBundleShortVersionString`、`CFBundleVersion`、最低 macOS 版本和版权信息。
@@ -140,8 +143,9 @@
 - [ ] “检查更新”仅打开最终 `AgentIslandSupportURL` 的 HTTPS 支持/下载页；空或占位 URL 显示明确错误，不包含自动下载/安装器。
 - [ ] 创建或确认有效的 `Developer ID Application` 证书。
 - [ ] 为应用开启 Hardened Runtime，并只加入实际需要的 entitlements。
-- [ ] 如 Developer ID 版包含 iPhone 私有同步，为正式 App ID 开启 CloudKit，绑定精确 Container，生成包含该能力且未过期的 Developer ID provisioning profile；从 profile 复制完整 macOS `com.apple.application-identifier` 与 Team ID，并验证源 entitlement、profile 的 `DeveloperCertificates` 确实包含本次签名证书、归档后的 entitlement 完全一致且未启用 `get-task-allow`。
-- [ ] 使用 `apply-release-identity.sh --check --profile ...` 验证 Apple 签名 profile，再用 `--apply --profile ...` 生成 `.release/CloudKit.entitlements`；不得把 Team ID 猜成 App ID Prefix，也不得手写最终 entitlement 冒充已验证产物。
+- [x] 已为正式 App ID 开启 CloudKit、绑定 `iCloud.com.kiki.agentisland`，并生成 Developer ID CloudKit provisioning profile；profile 文件只保存在 Git 忽略的本地发布目录。
+- [ ] 在正式签名归档中验证 `DeveloperCertificates` 包含实际签名证书、归档 entitlement 与已生成文件完全一致，且未启用 `get-task-allow`。
+- [x] 已通过隔离发布钥匙串运行 `apply-release-identity.sh --check --profile ...` 和 `--apply --profile ...`，由 Apple CMS 验签通过的 Developer ID profile 派生 `.release/CloudKit.entitlements`；未把 Team ID 猜成 App ID Prefix，也未手写最终 entitlement。
 - [ ] 不使用 ad-hoc 签名；使用正式身份、secure timestamp 和 runtime options 签名。
 - [ ] 从干净目录生成 universal `arm64 + x86_64` 归档，确认没有 Finder 扩展属性、测试日志或密钥。
 - [ ] `dist` 中只保留唯一 canonical `MAC版灵动岛--Agent运行监测-macOS-universal.zip`；把带空格、序号或其他后缀的旧副本移出发布目录，正式脚本会拒绝歧义来源包。
@@ -170,7 +174,8 @@
 - [ ] 商店包必须自包含，不安装外部代码、不提权、不自动加入登录项，也不在退出后遗留子进程。
 - [ ] 在同一最终签名候选包中验收已实现的内置离线示例：全程显式标识，不读 Agent 日志/自定义源/主目录授权，不发翻译/外链或 CloudKit 请求，退出后真实监测仍关闭。
 - [ ] 为翻译功能提供审核可用的临时端点/凭据或离线演示，不要求审核员付费购买第三方 API。
-- [ ] 在 App Store Connect 创建记录，填写 `[SKU]`、Bundle ID、类别、年龄分级、版权与地区可用性。
+- [x] 已在 App Store Connect 创建 iOS + macOS Universal Purchase 记录：App ID `6808917414`、SKU `AGENTISLAND-UNIVERSAL`、Bundle ID `com.kiki.agentisland`。
+- [ ] 完成类别、年龄分级、版权、价格/税类、地区可用性和版本发布方式等元数据。
 - [ ] 按账号与销售地区如实完成 DSA trader status、税务、银行、出口合规和中国大陆等地区问卷。
 - [ ] 根据最终加密用途回答出口合规；不要在未核对时猜测 `ITSAppUsesNonExemptEncryption`。
 - [ ] 填写并发布 App Privacy 标签，和最终构建、隐私政策保持一致。
@@ -190,10 +195,10 @@
 - [ ] 安装项目要求的完整 Xcode 26 或更新版本及 iOS 26 SDK+；不能只依赖 Command Line Tools 的静态校验。Apple 自 2026-04-28 起不接受用更旧 iOS SDK 构建的新上传。
 - [ ] 先运行 `ApplePlatforms/iOS/scripts/validate-project.sh`，再在完整 Xcode 环境运行 `--build`，处理全部编译、签名和 Sendable/并发警告。
 - [ ] 正式配置齐全后运行 `ApplePlatforms/iOS/scripts/release-ios.sh`生成签名 Archive；如需本地 IPA，使用 `--export`。该脚本**不上传**，必须先审阅 `dist/ios` 中的 Archive、release metadata 和可选 SHA-256，再在 Xcode Organizer 中单独决定上传。
-- [ ] 在开发者后台注册 iOS App ID、Widget Extension ID 和生产所需能力。
-- [ ] 注册正式 iCloud container，并把现有 entitlement/xcconfig 中的 `iCloud.com.example.agentisland` 替换为精确标识；在开发者后台关联正式 App ID。
+- [x] 已在开发者后台注册 iOS App ID、Widget Extension ID 和当前生产所需能力。
+- [x] 已注册 `iCloud.com.kiki.agentisland`，关联正式 App ID，并将工程构建配置切换到该 Container。
 - [ ] 保留并验证现有 Mac 隐私化快照 producer 和 `CloudKitSnapshotProvider` 私有数据库 receiver；使用真实 Developer ID CloudKit entitlement/provisioning profile 完成签名上传，并验证同账号、撤销、重试、账号切换隔离、冲突和过期状态。
-- [ ] 创建 `AgentIslandSnapshot/latest/payloadJSON` 对应的开发 schema 并部署到生产 CloudKit；Mac 与 iPhone 的 record type/name/field 必须一致。
+- [x] 已创建并部署 `AgentIslandSnapshot/latest/payloadJSON` 对应的 Production schema；公共数据库兜底权限仅 `_icloud` CREATE、`_creator` READ + WRITE，无 `_world` READ。
 - [ ] 验证 Mac 同步默认关闭，必须经离机字段说明和明确同意后才上传；普通刷新上传至少节流 60 秒，“立即同步”可强制刷新。
 - [ ] 验证实际 producer 隐私 schema：默认不上传完整对话标题，只有用户单独明确选择且标题来源明确时才允许，并通过长度/路径/密钥样式过滤。
 - [ ] 确认生产负载始终排除 prompt、任务摘要、回复、模型名、API Key、进程 ID、备忘录、翻译内容、Mac 文件路径和工作区路径；当前 producer 的 `safeSummary` 保持空值。
@@ -208,7 +213,7 @@
 - [ ] 核对 App Target `Config/PrivacyInfo.xcprivacy` 已同时声明 Other Usage Data 与 Other User Content（与用户关联 / App Functionality / no tracking），并在 App Store Connect 使用相同口径；确认 Widget 嵌入独立 `WidgetExtension/PrivacyInfo.xcprivacy`，collected data/accessed API/tracking domains 均为空且 tracking=false，并确认 Widget 无 iCloud entitlement。若首发移除完整标题同步，再按最终行为重新评估 Other User Content，而不是保留过时披露。
 - [ ] 使用真实同步数据完成 iPhone/iPad 适配范围决定、Dynamic Type、VoiceOver、深浅色、旋转和本地化测试。
 - [ ] 在支持 Dynamic Island 的真机测试紧凑、最小、展开和锁屏视图；普通 iPhone 上验证锁屏 Live Activity。
-- [ ] 生成 Development/TestFlight Archive，先邀请内部测试；正式签名/Production schema/同账号真机链路未验收时，不邀请外部测试或提交 Beta App Review。
+- [ ] 生成 Development/TestFlight Archive，先邀请内部测试；最终签名构建和同账号真机链路未验收时，不邀请外部测试或提交 Beta App Review。
 - [ ] 对 `release-ios.sh --export` 生成的候选目录运行 `submit-testflight.sh --check`；仅在核对完整 `Bundle ID:Version:Build:IPA SHA-256` 确认值后执行独立上传。`release-readiness.sh` 必须重跑该无凭据预检并输出 `iosLocalIPAPreflightPassed=true`，纯文本伪 IPA 或手写 JSON 不得进入 exact-build 状态。
 - [ ] App Store Connect 显示该精确构建已 `VALID`/`Complete` 后，记录 Build ID 和 UTC 时间，逐项检查 processing errors/warnings/information 并记录 `--warnings-reviewed-at`；分发给测试者、从 TestFlight 真机安装后，用带 `--warnings-reviewed` 的 `confirm-testflight-evidence.sh` 生成不覆盖的 `testflight-verification-*.json`。成功上传本身不得推断为警告已复核。
 - [ ] 外部 TestFlight 前填写中英文 Beta Description、What to Test、反馈邮箱、审核联系人和可复现的配对/演示步骤。
@@ -318,6 +323,6 @@
 
 ## 8. 当前结论
 
-- Developer ID 直接分发：完成正式 Bundle ID、证书签名、Hardened Runtime、公证、正式页面与 QA 后可以上线。
-- Mac App Store：在上述基础上，还必须完成 App Sandbox 的用户授权数据源改造、Privacy Manifest 和审核演示路径。
-- iPhone App Store：Xcode 工程、App/Extension Target、SwiftUI 看板、Live Activity、图标、Mac producer 和按账号隔离的 iOS receiver 代码已具备；仍需替换正式标识与 Team，为 Mac 配置真实 Developer ID CloudKit entitlement/profile，部署 Production schema，使用完整 Xcode+iOS SDK 编译，完成同账号真机验证并生成可提交 Archive。现有 macOS `.app` 仍不能直接转换或上传为 iPhone App。
+- Developer ID 直接分发：正式标识、Container 和 profile 已准备；仍须完成 profile/证书绑定、最终签名、Hardened Runtime、公证、QA 与公开下载验证。
+- Mac App Store：记录与 Mac App Store profile 已准备；仍须生成正式 Archive/PKG，完成沙盒功能 QA、元数据/截图、上传、处理确认和审核。
+- iPhone App Store：记录、App/Widget ID、Container、Production schema 与对应 profiles 已准备；仍须使用完整 Xcode+iOS SDK 生成正式 Archive/IPA，完成同账号真机同步与 Live Activity 验证、TestFlight、元数据/截图、DSA trader status 和审核。现有 macOS `.app` 不能直接转换或上传为 iPhone App。

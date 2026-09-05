@@ -4,11 +4,17 @@ setopt EXTENDED_GLOB
 
 PROJECT_DIR="${0:A:h:h}"
 SIGNING_IDENTITIES_HELPER="$PROJECT_DIR/scripts/apple-signing-identities.zsh"
+CMS_PROFILE_HELPER="$PROJECT_DIR/scripts/apple-cms-profile.zsh"
 [[ -f "$SIGNING_IDENTITIES_HELPER" && ! -L "$SIGNING_IDENTITIES_HELPER" ]] || {
   print -u2 -- "Apple signing identity helper is missing or unsafe"
   exit 66
 }
+[[ -f "$CMS_PROFILE_HELPER" && ! -L "$CMS_PROFILE_HELPER" ]] || {
+  print -u2 -- "Apple CMS profile helper is missing or unsafe"
+  exit 66
+}
 source "$SIGNING_IDENTITIES_HELPER"
+source "$CMS_PROFILE_HELPER"
 DIST_DIR="$PROJECT_DIR/dist"
 PUBLIC_APP_NAME="MAC版灵动岛--Agent运行监测"
 SOURCE_ARCHIVE="$DIST_DIR/$PUBLIC_APP_NAME-macOS-universal.zip"
@@ -16,6 +22,7 @@ FINAL_ARCHIVE="$DIST_DIR/$PUBLIC_APP_NAME-macOS-notarized.zip"
 FINAL_CHECKSUM="$FINAL_ARCHIVE.sha256"
 METADATA_DIR="$DIST_DIR/release-metadata"
 DEVELOPER_ID_ENTITLEMENTS_CONTRACT="$PROJECT_DIR/scripts/developer-id-entitlements-contract.jq"
+CLOUDKIT_PROFILE_AUTHORIZATION="$PROJECT_DIR/scripts/cloudkit-profile-authorization.jq"
 PREFLIGHT_ASSERTION="$PROJECT_DIR/scripts/assert-release-preflight.sh"
 SIGN_IDENTITY="${AGENT_ISLAND_DEVELOPER_ID_APPLICATION:-}"
 NOTARY_PROFILE="${AGENT_ISLAND_NOTARY_KEYCHAIN_PROFILE:-}"
@@ -166,6 +173,11 @@ production_display_name() {
   echo "Developer ID entitlement contract is missing or unsafe" >&2
   exit 2
 }
+[[ -f "$CLOUDKIT_PROFILE_AUTHORIZATION" && \
+  ! -L "$CLOUDKIT_PROFILE_AUTHORIZATION" ]] || {
+  echo "CloudKit profile authorization contract is missing or unsafe" >&2
+  exit 2
+}
 [[ -f "$PREFLIGHT_ASSERTION" && ! -L "$PREFLIGHT_ASSERTION" ]] || {
   echo "Release preflight assertion is missing or unsafe" >&2
   exit 2
@@ -207,10 +219,6 @@ fi
 SOURCE_ENTITLEMENTS_JSON="$(/usr/bin/plutil -convert json -o - "$ENTITLEMENTS_PATH")"
 SOURCE_APP_IDENTIFIER="$(print -r -- "$SOURCE_ENTITLEMENTS_JSON" | \
   /usr/bin/jq -r '."com.apple.application-identifier" // empty')"
-[[ "$SOURCE_APP_IDENTIFIER" == "$TEAM_ID.$BUNDLE_ID" ]] || {
-  echo "AGENT_ISLAND_ENTITLEMENTS application identifier must exactly match Team ID and AGENT_ISLAND_BUNDLE_ID" >&2
-  exit 2
-}
 print -r -- "$SOURCE_ENTITLEMENTS_JSON" | /usr/bin/jq -e \
   --arg container "$CLOUDKIT_CONTAINER_ID" \
   --arg applicationIdentifier "$SOURCE_APP_IDENTIFIER" \
@@ -221,10 +229,14 @@ print -r -- "$SOURCE_ENTITLEMENTS_JSON" | /usr/bin/jq -e \
 }
 
 PROFILE_PLIST="$RELEASE_ROOT/provisioning-profile.plist"
-if ! /usr/bin/security cms -D -i "$PROVISIONING_PROFILE" -o "$PROFILE_PLIST" >/dev/null 2>&1; then
-  echo "AGENT_ISLAND_PROVISIONING_PROFILE is not a decodable signed provisioning profile" >&2
+VERIFIED_PROVISIONING_PROFILE="$RELEASE_ROOT/provisioning-profile.cms"
+if ! agent_island_decode_apple_signed_profile \
+    "$PROVISIONING_PROFILE" "$PROFILE_PLIST" "$VERIFIED_PROVISIONING_PROFILE"; then
+  echo "AGENT_ISLAND_PROVISIONING_PROFILE did not pass the Apple CMS signer trust gate" >&2
   exit 2
 fi
+PROVISIONING_PROFILE="$VERIFIED_PROVISIONING_PROFILE"
+export AGENT_ISLAND_PROVISIONING_PROFILE="$PROVISIONING_PROFILE"
 /usr/bin/plutil -lint "$PROFILE_PLIST" >/dev/null
 PROFILE_ENTITLEMENTS_PLIST="$RELEASE_ROOT/provisioning-profile-entitlements.plist"
 PROFILE_ENTITLEMENTS_JSON="$RELEASE_ROOT/provisioning-profile-entitlements.json"
@@ -233,15 +245,21 @@ PROFILE_ENTITLEMENTS_JSON="$RELEASE_ROOT/provisioning-profile-entitlements.json"
 /usr/bin/plutil -extract Entitlements xml1 -o "$PROFILE_ENTITLEMENTS_PLIST" "$PROFILE_PLIST"
 /usr/bin/plutil -convert json -o "$PROFILE_ENTITLEMENTS_JSON" "$PROFILE_ENTITLEMENTS_PLIST"
 /usr/bin/jq -e \
-  --arg container "$CLOUDKIT_CONTAINER_ID" --arg sourceAppIdentifier "$SOURCE_APP_IDENTIFIER" --arg team "$TEAM_ID" '
-  ( ."com.apple.application-identifier" == $sourceAppIdentifier ) and
-  ( ."com.apple.developer.team-identifier" == $team ) and
-  ((."com.apple.developer.icloud-services" // []) | index("CloudKit") != null) and
-  ((."com.apple.developer.icloud-container-identifiers" // []) == [$container]) and
-  (."com.apple.developer.icloud-container-environment" == "Production") and
-  ((."com.apple.security.get-task-allow" // false) == false)
-' "$PROFILE_ENTITLEMENTS_JSON" >/dev/null || {
-  echo "Provisioning profile entitlements do not match the release App ID/team or exact production CloudKit container" >&2
+  --arg applicationIdentifier "$SOURCE_APP_IDENTIFIER" \
+  --arg team "$TEAM_ID" \
+  --arg container "$CLOUDKIT_CONTAINER_ID" \
+  -f "$CLOUDKIT_PROFILE_AUTHORIZATION" \
+  "$PROFILE_ENTITLEMENTS_JSON" >/dev/null || {
+  echo "Provisioning profile does not authorize the exact release App ID/team and production CloudKit capability" >&2
+  exit 2
+}
+PROFILE_APP_IDENTIFIER="$(/usr/bin/jq -r '."com.apple.application-identifier" // empty' \
+  "$PROFILE_ENTITLEMENTS_JSON")"
+PROFILE_APP_ID_PREFIX_COUNT="$(/usr/bin/plutil -extract ApplicationIdentifierPrefix raw -o - "$PROFILE_PLIST" 2>/dev/null || true)"
+PROFILE_APP_ID_PREFIX="$(/usr/bin/plutil -extract ApplicationIdentifierPrefix.0 raw -o - "$PROFILE_PLIST" 2>/dev/null || true)"
+[[ "$PROFILE_APP_ID_PREFIX_COUNT" == "1" && -n "$PROFILE_APP_ID_PREFIX" && \
+  "$PROFILE_APP_IDENTIFIER" == "$PROFILE_APP_ID_PREFIX.$BUNDLE_ID" ]] || {
+  echo "Provisioning profile ApplicationIdentifierPrefix and application-identifier must exactly identify AGENT_ISLAND_BUNDLE_ID" >&2
   exit 2
 }
 PROFILE_TEAM_COUNT="$(/usr/bin/plutil -extract TeamIdentifier raw -o - "$PROFILE_PLIST" 2>/dev/null || true)"

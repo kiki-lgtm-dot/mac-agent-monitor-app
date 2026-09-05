@@ -1,13 +1,13 @@
 # iOS App Review Notes 草案
 
-> 当前状态：**不可提交**。Mac CloudKit producer 和按 iCloud 账号隔离的 iPhone receiver/离线缓存代码链路已实现，producer 的本地 CLI/回归已通过。但真实 Developer ID CloudKit entitlement/provisioning profile、正式 Container 与 Production schema、同一 iCloud 账号 Mac→iPhone 真机链路、完整 Xcode+iOS SDK 构建、真机 Live Activity 和 Archive 尚未验证。以下文本是这些发布门槛通过后的审核模板，不得把代码完成写成生产同步已可用。
+> 当前状态：**不可提交**。Mac CloudKit producer 和按 iCloud 账号隔离的 iPhone receiver/离线缓存代码链路已实现，producer 的本地 CLI/回归已通过；正式 App ID、CloudKit Container、Production schema 和分发 provisioning profiles 已在 Apple 后台建立。但同一 iCloud 账号 Mac→iPhone 真机链路、完整 Xcode+iOS SDK 构建、真机 Live Activity 和可提交 Archive 尚未验证。以下文本是这些发布门槛通过后的审核模板，不得把后台配置或代码完成写成生产同步已可用。
 
 ## 1. 提交前必须准备
 
 - `[审核联系人姓名、电话、邮箱]`
 - `[最终、已检查冲突的 App Store 展示名]`；当前公开工作名为 `MAC版灵动岛--Agent运行监测`，
   但仍需完成商店与商标可用性核验。
-- `[正式 iOS App Bundle ID]` 与 `[正式 Widget Bundle ID]`
+- iOS App Bundle ID `com.kiki.agentisland` 与 Widget Bundle ID `com.kiki.agentisland.liveactivity`
 - 当前设计使用用户私有 CloudKit；若最终改为其他传输，提交前重写全部相关说明。
 - `[从 Mac 配对、授权并产生第一份摘要的逐步操作]`
 - 内置审核演示模式已经实现；提交时保留下面的精确进入、退出和重置步骤。
@@ -143,8 +143,8 @@ App 目标的 `Config/PrivacyInfo.xcprivacy` 已申报用于 App 功能的“其
 
 - 删除本节、顶部“不可提交”提示和所有方括号占位符。
 - 按最终 UI 改写每一个菜单名和操作步骤，不允许审核员猜测。
-- 正式签名/Production schema/同账号真机链路未验收时，不得把明确标识的内置示例或手工注入缓存冒充生产同步；示例模式只用于审核 UI 与交互。
-- 用真实 Developer ID entitlement/profile、Production schema 和同账号 Mac→iPhone 真机链路完成从零验证，再把本模板写成最终 Review Notes；若再加入 HTTPS、APNs、后台任务、账号或崩溃报告，同样更新。
+- Production schema 虽已部署，但正式签名候选和同账号真机链路未验收时，不得把明确标识的内置示例或手工注入缓存冒充生产同步；示例模式只用于审核 UI 与交互。
+- 使用已配置的 Developer ID entitlement/profile 产生正式签名候选，再完成同账号 Mac→iPhone 真机链路的从零验证，然后把本模板写成最终 Review Notes；若再加入 HTTPS、APNs、后台任务、账号或崩溃报告，同样更新。
 - 在同一审核 Build 上从零验证全部步骤，并在无 Dynamic Island 的设备验证锁屏形态。
 
 ## 6. Apple 官方参考

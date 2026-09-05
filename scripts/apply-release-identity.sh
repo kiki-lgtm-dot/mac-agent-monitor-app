@@ -3,6 +3,7 @@ set -euo pipefail
 setopt EXTENDED_GLOB
 
 PROJECT_DIR="${0:A:h:h}"
+CMS_PROFILE_HELPER="$PROJECT_DIR/scripts/apple-cms-profile.zsh"
 DEFAULT_IDENTITY_FILE="$PROJECT_DIR/Config/ReleaseIdentity.json"
 IDENTITY_FILE=""
 PROFILE_PATH="${AGENT_ISLAND_PROVISIONING_PROFILE:-}"
@@ -14,6 +15,7 @@ BACKUP_DIR="$RELEASE_DIR/identity-backup"
 MAC_INFO_PATH="$PROJECT_DIR/Resources/Info.plist"
 IOS_CONFIG_PATH="$PROJECT_DIR/ApplePlatforms/iOS/Config/Project.xcconfig"
 MAC_CONFIG_PATH="$PROJECT_DIR/ApplePlatforms/macOS/Config/Project.xcconfig"
+CLOUDKIT_PROFILE_AUTHORIZATION="$PROJECT_DIR/scripts/cloudkit-profile-authorization.jq"
 STAGING_DIR=""
 BACKUP_STAGING_DIR=""
 LEGACY_MAC_BACKUP_STAGE=""
@@ -92,8 +94,14 @@ IDENTITY_FILE="${IDENTITY_FILE:-$DEFAULT_IDENTITY_FILE}"
 [[ -f "$MAC_INFO_PATH" && ! -L "$MAC_INFO_PATH" ]] || fail "missing or unsafe Resources/Info.plist"
 [[ -f "$IOS_CONFIG_PATH" && ! -L "$IOS_CONFIG_PATH" ]] || fail "missing or unsafe iOS Project.xcconfig"
 [[ -f "$MAC_CONFIG_PATH" && ! -L "$MAC_CONFIG_PATH" ]] || fail "missing or unsafe macOS Project.xcconfig"
+[[ -f "$CMS_PROFILE_HELPER" && ! -L "$CMS_PROFILE_HELPER" ]] \
+  || fail "Apple CMS profile helper is missing or unsafe"
+source "$CMS_PROFILE_HELPER"
 command -v /usr/bin/jq >/dev/null || fail "jq is required"
 command -v /usr/bin/plutil >/dev/null || fail "plutil is required"
+[[ -f "$CLOUDKIT_PROFILE_AUTHORIZATION" && \
+  ! -L "$CLOUDKIT_PROFILE_AUTHORIZATION" ]] \
+  || fail "CloudKit profile authorization contract is missing or unsafe"
 
 STAGING_DIR="$(mktemp -d /private/tmp/agentisland-identity.XXXXXX)"
 cleanup() {
@@ -441,8 +449,10 @@ if [[ -n "$PROFILE_PATH" ]]; then
   [[ -f "$PROFILE_PATH" && ! -L "$PROFILE_PATH" ]] \
     || fail "--profile must name an existing regular, non-symlink signed provisioning profile"
   PROFILE_PLIST="$STAGING_DIR/profile.plist"
-  /usr/bin/security cms -D -i "$PROFILE_PATH" -o "$PROFILE_PLIST" >/dev/null 2>&1 \
-    || fail "the provisioning profile is not a decodable Apple-signed CMS profile"
+  VERIFIED_PROFILE="$STAGING_DIR/profile.cms"
+  agent_island_decode_apple_signed_profile \
+    "$PROFILE_PATH" "$PROFILE_PLIST" "$VERIFIED_PROFILE" \
+    || fail "the provisioning profile did not pass the Apple CMS signer trust gate"
   /usr/bin/plutil -lint "$PROFILE_PLIST" >/dev/null
   PROFILE_ENTITLEMENTS_PLIST="$STAGING_DIR/profile-entitlements.plist"
   PROFILE_JSON="$STAGING_DIR/profile-entitlements.json"
@@ -451,22 +461,17 @@ if [[ -n "$PROFILE_PATH" ]]; then
   # first; read profile metadata directly from the decoded plist below.
   /usr/bin/plutil -extract Entitlements xml1 -o "$PROFILE_ENTITLEMENTS_PLIST" "$PROFILE_PLIST"
   /usr/bin/plutil -convert json -o "$PROFILE_JSON" "$PROFILE_ENTITLEMENTS_PLIST"
+  PROFILE_APP_IDENTIFIER="$(/usr/bin/jq -r \
+    '."com.apple.application-identifier" // ."application-identifier" // empty' \
+    "$PROFILE_JSON")"
   /usr/bin/jq -e \
-    --arg bundle "$MAC_BUNDLE_ID" \
+    --arg applicationIdentifier "$PROFILE_APP_IDENTIFIER" \
     --arg team "$TEAM_ID" \
-    --arg container "$CLOUDKIT_CONTAINER_ID" '
-    ."com.apple.application-identifier" as $appIdentifier |
-    (($appIdentifier | type) == "string") and
-    ($appIdentifier | endswith("." + $bundle)) and
-    (."com.apple.developer.team-identifier" == $team) and
-    ((."com.apple.developer.icloud-services" // []) | index("CloudKit") != null) and
-    ((."com.apple.developer.icloud-container-identifiers" // []) == [$container]) and
-    (."com.apple.developer.icloud-container-environment" == "Production") and
-    ((."com.apple.security.get-task-allow" // false) == false)
-  ' "$PROFILE_JSON" >/dev/null \
-    || fail "profile entitlements must authorize the exact App ID, Team, and sole Production CloudKit container"
+    --arg container "$CLOUDKIT_CONTAINER_ID" \
+    -f "$CLOUDKIT_PROFILE_AUTHORIZATION" \
+    "$PROFILE_JSON" >/dev/null \
+    || fail "profile entitlements must authorize the exact App ID, Team, and Production CloudKit capability"
 
-  PROFILE_APP_IDENTIFIER="$(/usr/bin/jq -r '."com.apple.application-identifier"' "$PROFILE_JSON")"
   PROFILE_APP_ID_PREFIX_COUNT="$(/usr/bin/plutil -extract ApplicationIdentifierPrefix raw -o - "$PROFILE_PLIST" 2>/dev/null || true)"
   PROFILE_APP_ID_PREFIX="$(/usr/bin/plutil -extract ApplicationIdentifierPrefix.0 raw -o - "$PROFILE_PLIST" 2>/dev/null || true)"
   PROFILE_TEAM_COUNT="$(/usr/bin/plutil -extract TeamIdentifier raw -o - "$PROFILE_PLIST" 2>/dev/null || true)"
@@ -488,7 +493,7 @@ if [[ -n "$PROFILE_PATH" ]]; then
   PROFILE_PREFIX="$PROFILE_APP_ID_PREFIX"
   PROFILE_UUID="$(/usr/bin/plutil -extract UUID raw -o - "$PROFILE_PLIST" 2>/dev/null || true)"
   PROFILE_NAME="$(/usr/bin/plutil -extract Name raw -o - "$PROFILE_PLIST" 2>/dev/null || true)"
-  PROFILE_SHA256="$(sha256_file "$PROFILE_PATH")"
+  PROFILE_SHA256="$(sha256_file "$VERIFIED_PROFILE")"
 
   /usr/bin/jq -n \
     --arg appIdentifier "$PROFILE_APP_IDENTIFIER" \

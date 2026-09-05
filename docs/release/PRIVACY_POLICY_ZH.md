@@ -11,7 +11,7 @@
 
 本政策适用于 MAC版灵动岛--Agent运行监测 的 macOS 应用，以及在提供时的 iPhone 伴侣应用（统称“本应用”）。Mac 应用用于在顶部面板中查看本机 AI Agent 的运行状态与 Token 用量，并提供网站快捷入口、备忘录和用户主动触发的翻译学习功能；iPhone 应用用于查看用户选择同步的精简 Agent 状态摘要。
 
-Mac 端 CloudKit producer 和 iPhone 端 receiver 的代码链路已实现，producer 的本地 CLI/回归验证已通过。但在正式 Developer ID CloudKit entitlement/provisioning profile、Production Container/schema、同一 iCloud 账号的 Mac→iPhone 真机链路和可提交 Archive 全部验收前，不能宣称同步已具备上线条件。本政策发布前必须再次与最终签名构建和 App Privacy 回答核对。本政策不对用户选择的第三方 AI 服务、网站、浏览器或其他应用自身的数据处理行为负责；这些服务适用其各自的隐私政策。
+Mac 端 CloudKit producer 和 iPhone 端 receiver 的代码链路已实现，producer 的本地 CLI/回归验证已通过；`iCloud.com.kiki.agentisland` 的 Production Schema 已部署，所需分发 Profile 已生成。但在正式签名 Archive/上传和同一 iCloud 账号的 Mac→iPhone 真机链路验收前，不能宣称同步已具备上线条件。本政策发布前必须再次与最终签名构建和 App Privacy 回答核对。本政策不对用户选择的第三方 AI 服务、网站、浏览器或其他应用自身的数据处理行为负责；这些服务适用其各自的隐私政策。
 
 ## 2. 核心原则
 

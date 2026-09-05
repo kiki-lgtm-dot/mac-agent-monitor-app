@@ -1,12 +1,12 @@
 # App Privacy 提交工作表
 
-> 状态：发布门禁模板。只有最终签名候选包、Xcode Privacy Report、生产 CloudKit、翻译供应商决策和 App Store Connect 答案都以下方结构化证据绑定到同一候选包后，发布检查才会通过。
+> 状态：发布门禁模板。Universal Purchase 生产标识与 CloudKit Production Schema 已配置；正式 Archive/上传、同账号真机 QA、截图、App Privacy 发布、DSA 和审核仍未完成。只有最终签名候选包、Xcode Privacy Report、生产 CloudKit 验证、翻译供应商决策和 App Store Connect 答案都以下方结构化证据绑定到同一候选包后，发布检查才会通过。
 
 这份工作表把代码中的 Privacy Manifest、隐私政策和 App Store Connect 问卷分开管理。Privacy Manifest 不会自动替代 App Store Connect 的 App Privacy 回答；两者必须与最终构建的真实行为一致。
 
 ## 1. 先确定回答范围
 
-App Privacy 回答位于 **App 记录级别**，不是单个 Target 或单个平台级别。若 iOS 与 macOS 使用同一个 App Store Connect App 记录，应按两个平台中最全面的实际数据处理方式回答，而不是只看 iPhone App。
+App Privacy 回答位于 **App 记录级别**，不是单个 Target 或单个平台级别。当前 iOS 与 macOS 使用同一 Universal Purchase App 记录，主应用 Bundle ID 均为 `com.kiki.agentisland`；应按两个平台中最全面的实际数据处理方式回答，而不是只看 iPhone App。
 
 当前工作表基于以下候选功能：
 

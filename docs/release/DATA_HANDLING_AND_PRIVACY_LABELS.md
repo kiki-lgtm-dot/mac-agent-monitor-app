@@ -61,7 +61,7 @@ Mac 隐私化快照 ─[默认关闭；显式同意]─> Mac CloudKit producer
 
 按当前代码，开发者没有接收数据的服务器或遥测通道。周期性本机监控不联网。业务网络路径只有两类：用户明确开启的私有 CloudKit 快照同步，以及用户主动使用翻译器时直接连接到设置中显示的第三方或本机端点。
 
-Mac producer、固定私有 CloudKit 记录契约、iPhone receiver、按账号隔离的缓存和 Live Activity 代码链路已实现，producer 的本地 CLI/回归已通过。当前仍未完成真实 Developer ID CloudKit entitlement/provisioning profile、正式 Container 与 Production schema、同一 iCloud 账号的 Mac→iPhone 真机验证和可提交 Archive，因此不得把“代码完成”写成“已上线同步”。
+Mac producer、固定私有 CloudKit 记录契约、iPhone receiver、按账号隔离的缓存和 Live Activity 代码链路已实现，producer 的本地 CLI/回归已通过。正式 App ID、CloudKit Container、Production schema 和分发 provisioning profiles 已在 Apple 后台建立；当前仍未完成同一 iCloud 账号的 Mac→iPhone 真机验证、真实 Live Activity 验收和可提交 Archive，因此不得把“后台配置/代码完成”写成“已上线同步”。
 
 上线前仍应使用正式签名构建重做数据流审计：验证默认关闭和两级同意、固定记录覆盖/删除、账号切换隔离、项目路径/prompt/回复/API Key/备忘录/学习条目排除、可选标题的实际过滤，并将结果与 Privacy Manifest 和 App Privacy 回答对齐。
 
@@ -119,7 +119,7 @@ Mac App Store 版的主目录读取属于独立的 App Sandbox 文件授权问�
 
 macOS 的 `Resources/PrivacyInfo.xcprivacy` 与 iOS App Target 的 `Config/PrivacyInfo.xcprivacy` 都已声明 `NSPrivacyCollectedDataTypeOtherUsageData` 和条件性的 `NSPrivacyCollectedDataTypeOtherUserContent`：与用户关联，用于 App Functionality，不用于追踪；`NSPrivacyTracking` 为 `false`，没有 tracking domains。后者覆盖用户单独同意后可能进入私有 CloudKit 的对话标题；即使默认关闭，也按 Apple 对持续性可选功能的口径申报。两份主 App 清单目前都包含 UserDefaults `CA92.1`；它在原生 macOS 清单中只是与现有 NSUserDefaults 行为一致的保守声明，不是 Apple 当前对移动平台 Required Reason API 门禁的延伸，仓库校验也不把它当作 macOS 上线条件。iOS 主 App 则用它覆盖离线示例模式状态，并由 iOS 清单合同强制验证。iOS Widget Extension 使用独立的 `WidgetExtension/PrivacyInfo.xcprivacy`，其 collected data、accessed API、tracking domains 均为空，tracking 为 false；Widget 不拥有 CloudKit entitlement，只接收主 App 生成的不含标题 ActivityKit 状态。
 
-上述 App Target 披露与私有 CloudKit 中的 Agent/工具状态、时长、Token 摘要及条件性标题一致，但仍必须在正式 Container/schema、签名和真机链路确定后使用 Xcode Privacy Report 复核，并在 App Store Connect 中采用相同口径。加入 APNs、认证 HTTPS、崩溃报告或分析时同样重审。
+上述 App Target 披露与私有 CloudKit 中的 Agent/工具状态、时长、Token 摘要及条件性标题一致。正式 Container 和 Production schema 已配置，但仍必须在正式签名候选构建与真机链路确定后使用 Xcode Privacy Report 复核，并在 App Store Connect 中采用相同口径。加入 APNs、认证 HTTPS、崩溃报告或分析时同样重审。
 
 ## 7. 翻译供应商上线决策表
 

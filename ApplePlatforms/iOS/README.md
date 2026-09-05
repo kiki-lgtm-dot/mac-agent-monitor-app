@@ -108,23 +108,23 @@ Use Xcode 26 or newer with the iOS 26 SDK or newer. Xcode 26 itself requires
 macOS Sequoia 15.6 or newer. The project deployment target remains iOS 17.0.
 
 1. Open `AgentIsland.xcodeproj`.
-2. Edit `Config/Project.xcconfig` and verify:
+2. Review `Config/Project.xcconfig` and verify the locked production identity:
    - `AGENT_ISLAND_DISPLAY_NAME = MAC版灵动岛--Agent运行监测` is available for your target stores
      and jurisdictions, or replace it with the final cleared name.
    - `AGENT_ISLAND_WIDGET_DISPLAY_NAME = Agent运行监测` remains short enough for
      the Widget and Dynamic Island surfaces.
-   - `com.example.agentisland` with an App ID registered to your account.
-   - `iCloud.com.example.agentisland` with a CloudKit container registered to
-     that App ID.
-   - the empty `AGENT_ISLAND_DEVELOPMENT_TEAM` with your 10-character Team ID.
+   - the iOS/macOS Universal Purchase App ID is `com.kiki.agentisland`.
+   - the Widget App ID is `com.kiki.agentisland.liveactivity`.
+   - the CloudKit container is `iCloud.com.kiki.agentisland`.
+   - the Apple Developer Team ID is `AW4HMBZN7M`.
    - the configured GitHub Pages privacy-policy and support destinations remain
      public, accurate, and controlled by you. Keep the existing split-slash
      expression (`https:$(AGENT_ISLAND_URL_SLASH)...`) so xcconfig does not
      interpret a literal `//` as a comment.
    - `MARKETING_VERSION = 0.6.1` and `CURRENT_PROJECT_VERSION = 8` still match
      the macOS release candidate and release environment.
-3. Register the Widget bundle ID as the app bundle ID plus `.liveactivity` and
-   keep that exact child identifier; the release validator enforces it.
+3. Keep the registered Widget bundle ID equal to the app bundle ID plus
+   `.liveactivity`; the release validator enforces that exact relationship.
 4. Select the `AgentIslandMobile` shared scheme and your iPhone or a simulator.
 5. Xcode uses automatic signing for both targets. Confirm that the same team is
    selected under Signing & Capabilities before installing or archiving.
@@ -138,9 +138,9 @@ macOS Sequoia 15.6 or newer. The project deployment target remains iOS 17.0.
    production brand artwork changes.
 
 The app target includes `Config/AgentIslandMobile.entitlements`; its CloudKit
-container value comes from `Project.xcconfig`. The placeholder container does
-not grant access by itself—you must register the exact identifier in the Apple
-Developer portal and enable it for the production App ID.
+container value comes from `Project.xcconfig`. The configured production
+container is registered in the Apple Developer portal and enabled for the
+production App ID. The Widget remains outside this entitlement boundary.
 
 The App target and Widget Extension have separate privacy manifests. The App's
 `Config/PrivacyInfo.xcprivacy` declares linked Other Usage Data and conditional
@@ -157,7 +157,8 @@ CloudKit or receive an iCloud entitlement.
 ## Private CloudKit record contract
 
 The receiver reads one record from the **private database** and default record
-zone. All names are configurable in `Project.xcconfig`; the defaults are:
+zone. All names are configurable in `Project.xcconfig`; the locked production
+contract is:
 
 ```text
 Record type: AgentIslandSnapshot
@@ -173,18 +174,19 @@ shown as the unpaired empty state and clears only the current CloudKit
 account's cache. The Mac producer validates the same privacy field whitelist
 and caps its encoded upload at 512 KB.
 
-Before TestFlight, create this record type in the development environment and
-deploy the CloudKit schema to production. Both Mac and iPhone must be signed
-into the same iCloud account because the record lives in that user's private
+The `AgentIslandSnapshot` / `latest` / `payloadJSON` schema is deployed to the
+Production environment of `iCloud.com.kiki.agentisland`. The public-database
+fallback grants `_icloud` create and `_creator` read/write access, with no
+`_world` read grant; the shipping sync path uses each user's private database.
+Both Mac and iPhone must still be signed into the same iCloud account for
+end-to-end device validation because the record lives in that user's private
 database.
 
-> **Code path implemented; production validation pending:** the Mac application
-> now produces and uploads the fixed private-CloudKit record, and its local
-> CLI/regression checks pass. The iPhone receiver also isolates caches by the
-> verified CloudKit account. This is not yet a release-ready sync claim: the
-> Mac must still be signed with the real Developer ID CloudKit entitlement and
-> provisioning profile, the exact container and schema must be deployed to
-> Production, and the Mac-to-iPhone flow must pass same-iCloud-account tests on
+> **Production schema deployed; device validation pending:** the Mac producer
+> and account-isolated iPhone receiver are implemented, local CLI/regression
+> checks pass, and the distribution profiles have been generated. This is not
+> yet a release-ready sync claim: a formal signed archive/upload has not been
+> completed, and the Mac-to-iPhone flow must pass same-iCloud-account tests on
 > real devices before TestFlight or App Store marketing says sync is available.
 
 ## Source map
@@ -251,15 +253,31 @@ corresponding title-sync consent flag. It also verifies that example mode does
 not consume the production provider, persists only its Boolean switch, rejects
 unlabelled provider data, and returns to the real provider after reset.
 
-Before archiving, run the release-mode check as well. It intentionally fails
-while the App/Widget identifiers, Team ID, or CloudKit container are still
-placeholders; with full Xcode it also verifies both targets' resolved settings:
+Before archiving, run the release-mode check as well. It intentionally fails if
+the App/Widget identifiers, Team ID, or CloudKit container drift from the
+locked production identity; with full Xcode it also verifies both targets'
+resolved settings:
 
 ```bash
 ./scripts/validate-project.sh --release
 ```
 
 ## Create and inspect a release archive
+
+Every command that inspects a real provisioning profile must run with an
+explicit isolated keychain. The keychain must be an absolute, regular,
+non-symlink file owned by the current user with mode `0600`, and it must already
+be unlocked. A local wrapper or CI step should unlock it before the command and
+lock it again afterwards:
+
+```bash
+export AGENT_ISLAND_CMS_KEYCHAIN="/absolute/path/AgentIslandRelease.keychain-db"
+export AGENT_ISLAND_SIGNING_KEYCHAIN="$AGENT_ISLAND_CMS_KEYCHAIN"
+```
+
+CMS verification never falls back to the default/login keychain or to an
+unverified OpenSSL decode. Simulator and other local preview builds that do not
+inspect a provisioning profile do not require this keychain.
 
 After the production identifiers, URLs, team, CloudKit container/schema, and
 signing identities are configured on a Mac with full Xcode 26 or newer, create

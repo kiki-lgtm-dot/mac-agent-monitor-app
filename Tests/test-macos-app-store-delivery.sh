@@ -111,9 +111,46 @@ EOF
 /bin/cat >"$STUB_DIRECTORY/security" <<'EOF'
 #!/bin/zsh
 set -euo pipefail
-[[ "$1" == "cms" && "$2" == "-D" && "$3" == "-i" && "$5" == "-o" ]] \
-  || exit 64
-/bin/cp "$4" "$6"
+[[ "$1" == "cms" && "$2" == "-D" ]] || exit 64
+if [[ " $* " == *" -h 0 "* && " $* " == *" -n "* ]]; then
+  print -r -- 'nsigners=1; signer0.id="Mac OS X Provisioning Profile Signing"; signer0.status=GoodSignature; '
+  exit 0
+fi
+input_path=""
+output_path=""
+for (( index = 1; index <= $#; index++ )); do
+  case "${argv[$index]}" in
+    -i) input_path="${argv[$(( index + 1 ))]}" ;;
+    -o) output_path="${argv[$(( index + 1 ))]}" ;;
+  esac
+done
+[[ -n "$input_path" && -n "$output_path" ]] || exit 65
+/bin/cp "$input_path" "$output_path"
+EOF
+
+/bin/cat >"$STUB_DIRECTORY/openssl" <<'EOF'
+#!/bin/zsh
+set -euo pipefail
+case "${1:-}" in
+  cms)
+    signer_path=""
+    while (( $# > 0 )); do
+      if [[ "$1" == "-signer" ]]; then signer_path="$2"; break; fi
+      shift
+    done
+    [[ -n "$signer_path" ]] || exit 64
+    print -r -- '-----BEGIN CERTIFICATE-----' >"$signer_path"
+    print -r -- 'QUJD' >>"$signer_path"
+    print -r -- '-----END CERTIFICATE-----' >>"$signer_path"
+    print -u2 -- 'Verification successful'
+    ;;
+  x509)
+    print -r -- 'subject= C=US,O=Apple Inc.,CN=Mac OS X Provisioning Profile Signing'
+    print -r -- 'issuer= C=US,O=Apple Inc.,OU=G5,CN=Apple Worldwide Developer Relations Certification Authority'
+    print -r -- 'SHA256 Fingerprint=08:84:FC:02:63:65:E1:4A:91:CE:C7:75:83:B5:B4:AE:04:1B:E4:9B:C9:90:E7:4F:4A:15:E2:B4:2B:50:DC:55'
+    ;;
+  *) exit 64 ;;
+esac
 EOF
 
 /bin/cat >"$STUB_DIRECTORY/lipo" <<'EOF'
@@ -239,10 +276,17 @@ EOF
   -e "s#/bin/ln#$STUB_DIRECTORY/ln#g" \
   -e 's#${HOME}#'"$TEST_USER_ROOT"'#g' \
   "$SUBMIT_SCRIPT" >"$INSTRUMENTED_SUBMIT"
+/usr/bin/sed \
+  -e "s#/usr/bin/security#$STUB_DIRECTORY/security#g" \
+  -e "s#/usr/bin/openssl#$STUB_DIRECTORY/openssl#g" \
+  "$PROJECT_ROOT/scripts/apple-cms-profile.zsh" \
+  >"$INSTRUMENTED_PRODUCT_ROOT/scripts/apple-cms-profile.zsh"
 /bin/cp "$CONFIRM_SCRIPT" "$INSTRUMENTED_CONFIRM"
 /bin/cp "$DELIVERY_VERIFY_SCRIPT" "$INSTRUMENTED_DELIVERY_VERIFY"
 /bin/cp "$VERIFY_SCRIPT" "$INSTRUMENTED_VERIFY"
 /bin/cp "$PREFLIGHT_SOURCE" "$INSTRUMENTED_PREFLIGHT"
+/bin/cp "$PROJECT_ROOT/scripts/cloudkit-profile-authorization.jq" \
+  "$INSTRUMENTED_PRODUCT_ROOT/scripts/cloudkit-profile-authorization.jq"
 /bin/cat >"$INSTRUMENTED_READINESS" <<'EOF'
 #!/bin/zsh
 set -euo pipefail
@@ -300,6 +344,10 @@ SIGNING_IDENTITY="Apple Distribution: Release Fixture ($TEAM_ID)"
 INSTALLER_IDENTITY="Mac Installer Distribution: Release Fixture ($TEAM_ID)"
 VERSION="1.2.3"
 BUILD_NUMBER="42"
+CMS_KEYCHAIN="$TEST_ROOT/cms-test.keychain-db"
+print -n -r -- 'isolated CMS test keychain' >"$CMS_KEYCHAIN"
+/bin/chmod 0600 "$CMS_KEYCHAIN"
+export AGENT_ISLAND_CMS_KEYCHAIN="$CMS_KEYCHAIN"
 
 /bin/cat >"$INSTRUMENTED_IOS_ROOT/Config/Project.xcconfig" <<EOF
 AGENT_ISLAND_DISPLAY_NAME = $DISPLAY_NAME
@@ -362,6 +410,7 @@ SIGNING_CERTIFICATE_SHA1="$(LC_ALL=C LANG=C /usr/bin/shasum -a 1 \
   --arg uuid "$PROFILE_UUID" \
   --arg name "$PROFILE_NAME" \
   --arg certificate "$LEAF_CERTIFICATE_BASE64" \
+  --arg container "$CLOUD_CONTAINER_ID" \
   --slurpfile entitlements "$APP_ENTITLEMENTS" '{
     ApplicationIdentifierPrefix: [$prefix],
     TeamIdentifier: [$team],
@@ -370,7 +419,16 @@ SIGNING_CERTIFICATE_SHA1="$(LC_ALL=C LANG=C /usr/bin/shasum -a 1 \
     UUID: $uuid,
     Name: $name,
     DeveloperCertificates: [$certificate],
-    Entitlements: $entitlements[0]
+    Entitlements: ($entitlements[0] + {
+      "com.apple.developer.icloud-services": "*",
+      "com.apple.developer.icloud-container-environment":
+        ["Production", "Development"],
+      "com.apple.developer.icloud-container-development-container-identifiers":
+        [$container],
+      "com.apple.developer.ubiquity-container-identifiers": [$container],
+      "com.apple.developer.ubiquity-kvstore-identifier": ($prefix + ".*"),
+      "keychain-access-groups": [($team + ".*")]
+    })
   }' >"$PROFILE_PATH"
 
 /usr/bin/jq -n \

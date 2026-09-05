@@ -263,7 +263,7 @@ for submission_marker in \
   'IPA App signature/profile failed exact production CloudKit entitlement validation' \
   'IPA Widget signature/profile identifiers are wrong or an iCloud entitlement leaked' \
   'embedded.mobileprovision' \
-  '/usr/bin/security cms -D -i' \
+  'agent_island_decode_apple_signed_profile' \
   'extract_profile_entitlements_json' \
   'validate_app_store_profile_shape' \
   'profile_authorizes_certificate_sha1' \

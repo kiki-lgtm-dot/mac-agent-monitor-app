@@ -1,6 +1,6 @@
 # iOS App Store 截图清单
 
-> 状态：计划稿。Mac producer 与 iPhone receiver 代码链路已实现，但真实 Developer ID CloudKit entitlement/profile、Production schema、同一 iCloud 账号 Mac→iPhone 真机链路和可提交 Archive 尚未验收。不能用 SwiftUI Preview 或手工放入 `latest-snapshot.json` 的画面冒充已上线的跨设备功能。只有最终提交 Build 能通过真实同账号同步，或随包提供且明确标记的审核演示模式重现画面后，才可生成商店截图。
+> 状态：计划稿。Mac producer 与 iPhone receiver 代码链路已实现，所需分发 Profile 已生成，`iCloud.com.kiki.agentisland` 的 Production Schema 已部署；但正式签名 Archive/上传和同一 iCloud 账号 Mac→iPhone 真机链路尚未验收。不能用 SwiftUI Preview 或手工放入 `latest-snapshot.json` 的画面冒充已上线的跨设备功能。只有最终提交 Build 能通过真实同账号同步，或随包提供且明确标记的审核演示模式重现画面后，才可生成商店截图。
 
 ## 1. Apple 当前技术要求
 
@@ -16,7 +16,8 @@
 
 ## 2. 截图前 Go/No-Go
 
-- [ ] Mac producer 使用真实 Developer ID CloudKit entitlement/profile 签名，精确 Container 的 Production schema 已部署，并已通过同一 iCloud 账号 Mac→iPhone 真机验证，不再只有 `notConfigured` 空状态。
+- [x] 精确 Container `iCloud.com.kiki.agentisland` 的 Production Schema 已部署。
+- [ ] Mac producer 使用真实 Developer ID CloudKit entitlement/profile 的最终候选包完成签名验收，并已通过同一 iCloud 账号 Mac→iPhone 真机验证，不再只有 `notConfigured` 空状态。
 - [ ] 完整 Xcode+iOS SDK Build、真机安装和 App Store Archive 已通过。
 - [ ] 截图所用 Build 与准备提交的 Build 相同，或只有无行为差异的版本号变化。
 - [ ] 截图数据来自无敏感测试账号/审核演示数据，且用户可在最终 App 中复现。

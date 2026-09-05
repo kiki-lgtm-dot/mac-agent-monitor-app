@@ -5,7 +5,7 @@
 
 // apply-release-identity.sh owns this value. Do not point the Mac target at
 // AGENT_ISLAND_APP_BUNDLE_ID, which is the iOS App identifier.
-AGENT_ISLAND_MAC_APP_BUNDLE_ID = com.example.agentisland
+AGENT_ISLAND_MAC_APP_BUNDLE_ID = com.kiki.agentisland
 
 MACOSX_DEPLOYMENT_TARGET = 13.0
 MARKETING_VERSION = 0.6.1

@@ -34,11 +34,23 @@ fi
 
 PROJECT_DIR="${0:A:h:h}"
 SIGNING_IDENTITIES_HELPER="$PROJECT_DIR/scripts/apple-signing-identities.zsh"
+CMS_PROFILE_HELPER="$PROJECT_DIR/scripts/apple-cms-profile.zsh"
+CLOUDKIT_PROFILE_AUTHORIZATION="$PROJECT_DIR/scripts/cloudkit-profile-authorization.jq"
 [[ -f "$SIGNING_IDENTITIES_HELPER" && ! -L "$SIGNING_IDENTITIES_HELPER" ]] || {
   print -u2 -- "Apple signing identity helper is missing or unsafe"
   exit 66
 }
+[[ -f "$CMS_PROFILE_HELPER" && ! -L "$CMS_PROFILE_HELPER" ]] || {
+  print -u2 -- "Apple CMS profile helper is missing or unsafe"
+  exit 66
+}
+[[ -f "$CLOUDKIT_PROFILE_AUTHORIZATION" && \
+  ! -L "$CLOUDKIT_PROFILE_AUTHORIZATION" ]] || {
+  print -u2 -- "CloudKit profile authorization contract is missing or unsafe"
+  exit 66
+}
 source "$SIGNING_IDENTITIES_HELPER"
+source "$CMS_PROFILE_HELPER"
 READINESS_ROOT="$(mktemp -d /private/tmp/agentisland-readiness.XXXXXX)"
 trap '[[ "$READINESS_ROOT" == /private/tmp/agentisland-readiness.* ]] && /bin/rm -rf "$READINESS_ROOT"' EXIT HUP INT TERM
 trap 'rc=$?; print -u2 -- "release-readiness.sh failed at line $LINENO (exit $rc)"; trap - ZERR; exit $rc' ZERR
@@ -376,7 +388,9 @@ if [[ "$ENTITLEMENTS_READY" == true && "$PROVISIONING_PROFILE" == /* && \
     -f "$PROVISIONING_PROFILE" && ! -L "$PROVISIONING_PROFILE" && \
     "$PROVISIONING_PROFILE" == "${PROVISIONING_PROFILE:A}" ]]; then
   PROFILE_PLIST="$READINESS_ROOT/provisioning-profile.plist"
-  if /usr/bin/security cms -D -i "$PROVISIONING_PROFILE" -o "$PROFILE_PLIST" >/dev/null 2>&1 && \
+  VERIFIED_PROVISIONING_PROFILE="$READINESS_ROOT/provisioning-profile.cms"
+  if agent_island_decode_apple_signed_profile \
+      "$PROVISIONING_PROFILE" "$PROFILE_PLIST" "$VERIFIED_PROVISIONING_PROFILE" && \
       /usr/bin/plutil -lint "$PROFILE_PLIST" >/dev/null 2>&1; then
     PROFILE_ENTITLEMENTS_PLIST="$READINESS_ROOT/provisioning-profile-entitlements.plist"
     PROFILE_ENTITLEMENTS_JSON="$READINESS_ROOT/provisioning-profile-entitlements.json"
@@ -395,14 +409,11 @@ if [[ "$ENTITLEMENTS_READY" == true && "$PROVISIONING_PROFILE" == /* && \
       PROFILE_NAME="$(/usr/bin/plutil -extract Name raw -o - "$PROFILE_PLIST" 2>/dev/null || true)"
       PROFILE_EXPIRATION_EPOCH="$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$PROFILE_EXPIRATION" '+%s' 2>/dev/null || true)"
       if /usr/bin/jq -e \
-          --arg container "$CLOUDKIT_CONTAINER_ID" --arg sourceAppIdentifier "$SOURCE_APP_IDENTIFIER" --arg team "$CONFIGURED_TEAM_ID" '
-          (."com.apple.application-identifier" == $sourceAppIdentifier) and
-          (."com.apple.developer.team-identifier" == $team) and
-          ((."com.apple.developer.icloud-services" // []) | index("CloudKit") != null) and
-          ((."com.apple.developer.icloud-container-identifiers" // []) == [$container]) and
-          (."com.apple.developer.icloud-container-environment" == "Production") and
-          ((."com.apple.security.get-task-allow" // false) == false)
-        ' "$PROFILE_ENTITLEMENTS_JSON" >/dev/null 2>&1 && \
+          --arg applicationIdentifier "$SOURCE_APP_IDENTIFIER" \
+          --arg team "$CONFIGURED_TEAM_ID" \
+          --arg container "$CLOUDKIT_CONTAINER_ID" \
+          -f "$CLOUDKIT_PROFILE_AUTHORIZATION" \
+          "$PROFILE_ENTITLEMENTS_JSON" >/dev/null 2>&1 && \
           [[ "$PROFILE_APP_ID_PREFIX_COUNT" == "1" && \
             "$PROFILE_APP_ID_PREFIX" == [A-Z0-9]## && \
             "$SOURCE_APP_IDENTIFIER" == "$PROFILE_APP_ID_PREFIX.$MAC_BUNDLE_ID" && \
@@ -656,7 +667,7 @@ if [[ -f "$RELEASE_IDENTITY_LOCK_PATH" && ! -L "$RELEASE_IDENTITY_LOCK_PATH" && 
             "$PROVISIONING_PROFILE" == /* && \
             -f "$PROVISIONING_PROFILE" && ! -L "$PROVISIONING_PROFILE" && \
             "$PROVISIONING_PROFILE" == "${PROVISIONING_PROFILE:A}" && \
-            "$(file_sha256 "$PROVISIONING_PROFILE")" == "$LOCK_PROFILE_SHA256" && \
+            "$(file_sha256 "$VERIFIED_PROVISIONING_PROFILE")" == "$LOCK_PROFILE_SHA256" && \
             "$(file_sha256 "$LOCK_ENTITLEMENTS_ABSOLUTE_PATH")" == \
               "$LOCK_ENTITLEMENTS_SHA256" && \
             "$PROFILE_UUID" == "$LOCK_PROFILE_UUID" && \

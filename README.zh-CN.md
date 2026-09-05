@@ -16,7 +16,7 @@
 
 ![MAC版灵动岛--Agent运行监测 English interface](docs/media/mac-agent-monitor-overview-en.png)
 
-> **当前状态：**源码预览版。macOS 版可供本地构建使用；iPhone 伴侣、私有 CloudKit 同步、正式签名、公证和 App Store 配置仍需使用你自己的 Apple Developer 标识并完成真机验证。
+> **当前状态：**上线准备中。iOS 与 macOS 主应用已使用 Universal Purchase 注册标识 `com.kiki.agentisland`，Live Activity Extension 使用 `com.kiki.agentisland.liveactivity`，`iCloud.com.kiki.agentisland` 的 CloudKit Production Schema 已部署，分发 Profile 已生成。正式 Archive/上传、同账号 Mac→iPhone 真机 QA、截图、App Privacy 发布、DSA 和审核仍未完成。
 
 ## 主要功能
 

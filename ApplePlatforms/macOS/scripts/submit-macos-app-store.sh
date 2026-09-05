@@ -10,6 +10,8 @@ SHARED_CONFIG_FILE="$PRODUCT_ROOT/ApplePlatforms/iOS/Config/Project.xcconfig"
 SOURCE_PRIVACY_MANIFEST="$PRODUCT_ROOT/Resources/PrivacyInfo.xcprivacy"
 PREFLIGHT_ASSERTION="$PRODUCT_ROOT/scripts/assert-release-preflight.sh"
 READINESS_SCRIPT="$PRODUCT_ROOT/scripts/release-readiness.sh"
+CMS_PROFILE_HELPER="$PRODUCT_ROOT/scripts/apple-cms-profile.zsh"
+CLOUDKIT_PROFILE_AUTHORIZATION="$PRODUCT_ROOT/scripts/cloudkit-profile-authorization.jq"
 PUBLIC_APP_NAME="MAC版灵动岛--Agent运行监测"
 APP_CATEGORY="public.app-category.developer-tools"
 MINIMUM_XCODE_MAJOR=14
@@ -144,6 +146,12 @@ done
   || fail "shared Config/Project.xcconfig is missing or is a symlink"
 [[ -f "$SOURCE_PRIVACY_MANIFEST" && ! -L "$SOURCE_PRIVACY_MANIFEST" ]] \
   || fail "reviewed source PrivacyInfo.xcprivacy is missing or is a symlink"
+[[ -f "$CMS_PROFILE_HELPER" && ! -L "$CMS_PROFILE_HELPER" ]] \
+  || fail "Apple CMS profile helper is missing or unsafe"
+source "$CMS_PROFILE_HELPER"
+[[ -f "$CLOUDKIT_PROFILE_AUTHORIZATION" && \
+  ! -L "$CLOUDKIT_PROFILE_AUTHORIZATION" ]] \
+  || fail "CloudKit profile authorization contract is missing or unsafe"
 
 METADATA_PATH="$RELEASE_DIRECTORY/release-metadata.json"
 [[ -f "$METADATA_PATH" && ! -L "$METADATA_PATH" ]] \
@@ -556,8 +564,8 @@ validate_signature_and_profile() {
     || fail "$label signed entitlements are not a valid plist"
   [[ -f "$profile" && ! -L "$profile" ]] \
     || fail "$label is missing Contents/embedded.provisionprofile"
-  /usr/bin/security cms -D -i "$profile" -o "$profile_plist" >/dev/null 2>&1 \
-    || fail "$label provisioning profile is not a decodable Apple-signed CMS profile"
+  agent_island_decode_apple_signed_profile "$profile" "$profile_plist" \
+    || fail "$label provisioning profile failed Apple CMS signer verification"
   /usr/bin/plutil -extract Entitlements xml1 -o "$profile_entitlements" "$profile_plist" \
     || fail "$label provisioning profile has no Entitlements dictionary"
   /usr/bin/plutil -convert json -o "$profile_entitlements_json" "$profile_entitlements" \
@@ -622,6 +630,14 @@ validate_signature_and_profile() {
   [[ "$profile_certificate_matches" == true ]] \
     || fail "$label profile does not authorize the actual signing certificate"
 
+  /usr/bin/jq -e \
+    --arg applicationIdentifier "$APPLICATION_IDENTIFIER" \
+    --arg team "$TEAM_ID" \
+    --arg container "$CLOUD_CONTAINER_ID" \
+    -f "$CLOUDKIT_PROFILE_AUTHORIZATION" \
+    "$profile_entitlements_json" >/dev/null \
+    || fail "$label profile does not authorize the exact App ID, Team, and production CloudKit capability"
+
   /usr/bin/jq -e -s \
     --arg applicationIdentifier "$APPLICATION_IDENTIFIER" \
     --arg expectedIdentifier "$profile_prefix.$APP_BUNDLE_ID" \
@@ -665,11 +681,8 @@ validate_signature_and_profile() {
       $signed."com.apple.security.files.bookmarks.app-scope" == true and
       $signed."com.apple.security.network.client" == true and
       $signed."com.apple.developer.icloud-container-identifiers" == [$container] and
-      $profile."com.apple.developer.icloud-container-identifiers" == [$container] and
       $signed."com.apple.developer.icloud-services" == ["CloudKit"] and
-      $profile."com.apple.developer.icloud-services" == ["CloudKit"] and
-      $signed."com.apple.developer.icloud-container-environment" == "Production" and
-      $profile."com.apple.developer.icloud-container-environment" == "Production"
+      $signed."com.apple.developer.icloud-container-environment" == "Production"
     ' "$signed_entitlements_json" "$profile_entitlements_json" >/dev/null \
     || fail "$label signature/profile failed exact sandbox, identity, Team, or Production CloudKit validation"
 }

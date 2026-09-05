@@ -2,9 +2,25 @@
 
 正式 Bundle ID、Team ID 和 iCloud Container 一旦进入 Apple 后台或上传构建，后续修改成本很高。工程用 `scripts/apply-release-identity.sh` 把这组不可逆标识作为一个整体校验、应用和锁定；它不会修改产品显示名，也不会接触 `release-site`。
 
+## 当前已锁定身份
+
+| 字段 | 当前值 |
+| --- | --- |
+| `appStoreRecordMode` | `universal-purchase` |
+| `macOSAppBundleIdentifier` | `com.kiki.agentisland` |
+| `iOSAppBundleIdentifier` | `com.kiki.agentisland` |
+| `iOSWidgetBundleIdentifier` | `com.kiki.agentisland.liveactivity` |
+| `teamIdentifier` | `AW4HMBZN7M` |
+| `iCloudContainerIdentifier` | `iCloud.com.kiki.agentisland` |
+| `cloudKit` | `private` / `Production` / `AgentIslandSnapshot` / `latest` / `payloadJSON` |
+
+该身份已应用并由 Git 忽略目录中的本地锁保护。Apple Developer 已生成 iOS App Store、Widget App Store、Mac App Store 与 Developer ID CloudKit 四份 profile；profile 仅存放于 Git 忽略的本地发布目录，不在本文记录绝对路径、证书、联系人或凭据。Production schema 已部署，公共数据库兜底权限仅 `_icloud` CREATE、`_creator` READ + WRITE，无 `_world` READ；应用运行时固定使用私有数据库。
+
+对应的 App Store Connect Universal Purchase 记录名称为 `MAC版灵动岛--Agent运行监测`，App ID 为 `6808917414`，SKU 为 `AGENTISLAND-UNIVERSAL`，iOS/macOS 版本均为 `0.6.1`。App ID 与 SKU 属于提交记录引用，不写入 `Config/ReleaseIdentity.json`。
+
 ## 1. 身份文件只允许这些字段
 
-复制示例，但先不要运行 `--apply`：
+以下复制步骤仅用于尚未建立身份的新 checkout；当前仓库不得用另一套值重新应用：
 
 ```bash
 cp Config/ReleaseIdentity.example.json Config/ReleaseIdentity.json
@@ -31,7 +47,7 @@ cp Config/ReleaseIdentity.example.json Config/ReleaseIdentity.json
 
 省略模式时就是 `--check`。输出 JSON 会列出计划修改项、锁状态和 profile 状态；`writesPerformed` 必须为 `false`。检查模式只使用系统临时目录，不会创建 `.release`，也不会修改 plist 或 xcconfig。
 
-确认 Apple 后台中的 macOS App ID、iPhone App ID、Widget App ID、记录模式、Team 和 Container 拼写一致后，才运行：
+新环境仅在确认 Apple 后台中的 macOS App ID、iPhone App ID、Widget App ID、记录模式、Team 和 Container 拼写一致后，才运行：
 
 ```bash
 ./scripts/apply-release-identity.sh --apply
@@ -63,14 +79,18 @@ generatedEntitlements: null
 
 并且不会创建 `.release/CloudKit.entitlements`。
 
-在 Apple Developer 后台为正式 macOS App ID 启用 CloudKit、只绑定身份文件中的 Container，并下载未过期的 Developer ID provisioning profile 后，先检查：
+当前 Developer ID CloudKit profile 已生成、验签并应用，本机 Git 忽略目录已生成 `.release/CloudKit.entitlements`。在其他机器重建或重新复核时，带 profile 的任何命令都必须指定一个隔离的受控钥匙串：
 
 ```bash
+export AGENT_ISLAND_CMS_KEYCHAIN="/absolute/path/AgentIslandRelease.keychain-db"
+export AGENT_ISLAND_SIGNING_KEYCHAIN="$AGENT_ISLAND_CMS_KEYCHAIN"
 ./scripts/apply-release-identity.sh --check \
   --profile /absolute/path/AgentIsland_Developer_ID.provisionprofile
 ```
 
-脚本要求 profile 是 Apple 签名 CMS、属于同一 Team，并要求 profile 顶层 `ApplicationIdentifierPrefix` 与 entitlement 中的 `com.apple.application-identifier` 精确组成 `前缀.macOSAppBundleIdentifier`；它还必须只授权指定 CloudKit Container、环境为 Production、`ProvisionsAllDevices=true`、未开启 `get-task-allow` 且未过期。脚本不会假设 App ID Prefix 等于 Team ID。通过后再应用：
+钥匙串文件必须是当前用户拥有、权限 `0600`、非符号链接、已解锁的绝对路径。建议用本地包装器在命令前解锁并置于搜索首位，命令后恢复搜索顺序并重新锁定。此要求适用于真实 profile 的验证、Archive 和提交预检；不带 profile 的本地预览或模拟器构建不需要它。
+
+脚本要求 profile 是单签名且状态为 `GoodSignature` 的 Apple CMS、属于同一 Team，并要求 profile 顶层 `ApplicationIdentifierPrefix` 与 entitlement 中的 `com.apple.application-identifier` 精确组成 `前缀.macOSAppBundleIdentifier`；profile 必须授权目标 CloudKit Container 和 Production 环境，可同时包含 Apple 签发的更宽 profile-only 授权，但不得开启 `get-task-allow`，必须 `ProvisionsAllDevices=true` 且未过期。脚本不会假设 App ID Prefix 等于 Team ID。通过后再应用：
 
 ```bash
 ./scripts/apply-release-identity.sh --apply \
@@ -91,19 +111,22 @@ generatedEntitlements: null
 正式公证前，将安全身份与凭据分别传给原有发布脚本：
 
 ```bash
-export AGENT_ISLAND_APP_STORE_RECORD_MODE="已锁定的 appStoreRecordMode"
-export AGENT_ISLAND_BUNDLE_ID="已锁定的 macOSAppBundleIdentifier"
-export AGENT_ISLAND_IOS_BUNDLE_ID="已锁定的 iOSAppBundleIdentifier"
-export AGENT_ISLAND_IOS_WIDGET_BUNDLE_ID="已锁定的 iOSWidgetBundleIdentifier"
-export AGENT_ISLAND_DEVELOPMENT_TEAM="已锁定的 teamIdentifier"
-export AGENT_ISLAND_ICLOUD_CONTAINER_ID="已锁定的 iCloudContainerIdentifier"
-export AGENT_ISLAND_DISPLAY_NAME="已完成名称清查的 2–30 字符正式名称"
+export AGENT_ISLAND_APP_STORE_RECORD_MODE="universal-purchase"
+export AGENT_ISLAND_BUNDLE_ID="com.kiki.agentisland"
+export AGENT_ISLAND_IOS_BUNDLE_ID="com.kiki.agentisland"
+export AGENT_ISLAND_IOS_WIDGET_BUNDLE_ID="com.kiki.agentisland.liveactivity"
+export AGENT_ISLAND_DEVELOPMENT_TEAM="AW4HMBZN7M"
+export AGENT_ISLAND_ICLOUD_CONTAINER_ID="iCloud.com.kiki.agentisland"
+export AGENT_ISLAND_DISPLAY_NAME="MAC版灵动岛--Agent运行监测"
 export AGENT_ISLAND_ENTITLEMENTS="$PWD/.release/CloudKit.entitlements"
 export AGENT_ISLAND_PROVISIONING_PROFILE="/absolute/path/AgentIsland_Developer_ID.provisionprofile"
-# 可选：只从独立发布钥匙串解析证书，避免登录钥匙串中的同证书副本造成重复。
+# 必需：profile CMS 验签与签名身份解析使用同一受控钥匙串。
+export AGENT_ISLAND_CMS_KEYCHAIN="/absolute/path/AgentIslandRelease.keychain-db"
 export AGENT_ISLAND_SIGNING_KEYCHAIN="/absolute/path/AgentIslandRelease.keychain-db"
 ```
 
-正式显示名、版本、Build、公开隐私/支持 URL、Developer ID 签名身份和 Keychain 中的 notarytool profile 继续按 `Config/Release.example.env` 设置。显示名只在已完成名称清查后配置；当前公开名称虽然通过字数门禁，仍须另行完成 App Store 可用性与 Apple 商标规范核验。密码、App 专用密码、API Key、证书私钥和 App Store Connect API 私钥始终只进入系统 Keychain、权限锁定的本地密钥存储或受控 CI Secret，不进入身份 JSON、锁、Git 或构建日志。
+版本、Build、公开隐私/支持 URL、Developer ID 签名身份和 Keychain 中的 notarytool profile 继续按 `Config/Release.example.env` 设置。当前名称已用于 App Store Connect 记录，但仍须独立完成商标规范核验。密码、App 专用密码、API Key、证书私钥和 App Store Connect API 私钥始终只进入系统 Keychain、权限锁定的本地密钥存储或受控 CI Secret，不进入身份 JSON、锁、Git 或构建日志。
 
-如果同一证书同时存在于登录钥匙串和独立发布钥匙串，发布脚本会按“证书 SHA-1 + 完整身份名”去重；相同名称但不同 SHA-1 的证书仍会保留为歧义并失败关闭。`AGENT_ISLAND_SIGNING_KEYCHAIN` 只限制身份解析范围，不负责解锁或改变系统搜索顺序；本地/CI 包装器必须在命令开始前解锁该钥匙串并将其临时置于搜索首位，在命令结束后恢复原顺序并重新锁定。
+如果同一证书同时存在于登录钥匙串和独立发布钥匙串，发布脚本会按“证书 SHA-1 + 完整身份名”去重；相同名称但不同 SHA-1 的证书仍会保留为歧义并失败关闭。`AGENT_ISLAND_CMS_KEYCHAIN` 与 `AGENT_ISLAND_SIGNING_KEYCHAIN` 只指定受控范围，不负责解锁或改变系统搜索顺序；本地/CI 包装器必须在命令开始前解锁该钥匙串并将其临时置于搜索首位，在命令结束后恢复原顺序并重新锁定。CMS 帮助器不会回退到默认或登录钥匙串。
+
+当前门禁还会将同一份不可变 CMS 快照中的实际单一 signer 绑定到经复核的 Apple iPhone OS / Mac OS X Provisioning Profile Signing 叶证书 SHA-256。OpenSSL 只用于二次验证 CMS 内容签名并提取该实际 signer，不代替 Security.framework 的信任判定。这两张当前叶证书均在 2030 年到期；Apple 轮换签名证书后，脚本会按设计失败关闭。维护者必须从 Apple 官方新 profile 提取新证书、独立复核主体/颁发者/指纹并补充负例测试，不得通过移除 allowlist 恢复发布。

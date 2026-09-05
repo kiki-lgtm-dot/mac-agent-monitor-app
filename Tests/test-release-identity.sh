@@ -4,6 +4,10 @@ set -euo pipefail
 PROJECT_DIR="${0:A:h:h}"
 TEST_ROOT="$(mktemp -d /private/tmp/agentisland-identity-test.XXXXXX)"
 trap '/bin/rm -rf "$TEST_ROOT"' EXIT
+CMS_TEST_KEYCHAIN="$TEST_ROOT/cms-test.keychain-db"
+print -n -r -- 'isolated CMS test keychain' >"$CMS_TEST_KEYCHAIN"
+/bin/chmod 0600 "$CMS_TEST_KEYCHAIN"
+export AGENT_ISLAND_CMS_KEYCHAIN="$CMS_TEST_KEYCHAIN"
 
 sha256_file() {
   LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$1" | /usr/bin/awk '{print $1}'
@@ -39,8 +43,12 @@ new_sandbox() {
     "$root/Tests/Fixtures"
   /bin/cp "$PROJECT_DIR/scripts/apply-release-identity.sh" "$root/scripts/apply-release-identity.sh"
   /bin/cp "$PROJECT_DIR/scripts/release-readiness.sh" "$root/scripts/release-readiness.sh"
+  /bin/cp "$PROJECT_DIR/scripts/cloudkit-profile-authorization.jq" \
+    "$root/scripts/cloudkit-profile-authorization.jq"
   /bin/cp "$PROJECT_DIR/scripts/apple-signing-identities.zsh" \
     "$root/scripts/apple-signing-identities.zsh"
+  /bin/cp "$PROJECT_DIR/scripts/apple-cms-profile.zsh" \
+    "$root/scripts/apple-cms-profile.zsh"
   /bin/chmod 755 "$root/scripts/apply-release-identity.sh" \
     "$root/scripts/release-readiness.sh"
   /bin/cp "$PROJECT_DIR/Resources/Info.plist" "$root/Resources/Info.plist"
@@ -80,6 +88,7 @@ release_identity_report() {
   local -a environment
   environment=(
     "PATH=/usr/bin:/bin:/usr/sbin:/sbin"
+    "AGENT_ISLAND_CMS_KEYCHAIN=$CMS_TEST_KEYCHAIN"
     "DEVELOPER_DIR=/nonexistent"
     "AGENT_ISLAND_BUNDLE_ID=com.agentisland.release"
     "AGENT_ISLAND_DEVELOPER_ID_APPLICATION=Developer ID Application: AgentIsland Fixture (ABCDE12345)"
@@ -112,6 +121,7 @@ release_identity_report() {
 install_security_stub() {
   local root="$1"
   local stub="$root/Tests/security-stub"
+  local openssl_stub="$root/Tests/openssl-stub"
   local xcrun_stub="$root/Tests/xcrun-stub"
   /bin/mkdir -p "$root/Tests"
   /bin/cat > "$stub" <<'STUB'
@@ -122,7 +132,11 @@ if [[ "${1:-}" == "find-identity" ]]; then
   print -r -- '     1 valid identities found'
   exit 0
 fi
-if [[ "${1:-}" == "cms" && "${2:-}" == "-D" ]]; then
+  if [[ "${1:-}" == "cms" && "${2:-}" == "-D" ]]; then
+    if [[ " $* " == *" -h 0 "* && " $* " == *" -n "* ]]; then
+    print -r -- 'nsigners=1; signer0.id="Mac OS X Provisioning Profile Signing"; signer0.status=GoodSignature; '
+    exit 0
+  fi
   output_path=""
   shift 2
   while (( $# > 0 )); do
@@ -145,6 +159,35 @@ if [[ "${1:-}" == "cms" && "${2:-}" == "-D" ]]; then
 fi
 exit 1
 STUB
+  /bin/cat > "$openssl_stub" <<'STUB'
+#!/bin/zsh
+set -euo pipefail
+case "${1:-}" in
+  cms)
+    signer_path=""
+    while (( $# > 0 )); do
+      if [[ "$1" == "-signer" ]]; then
+        signer_path="$2"
+        break
+      fi
+      shift
+    done
+    [[ -n "$signer_path" ]] || exit 64
+    print -r -- '-----BEGIN CERTIFICATE-----' >"$signer_path"
+    print -r -- 'QUJD' >>"$signer_path"
+    print -r -- '-----END CERTIFICATE-----' >>"$signer_path"
+    print -u2 -- 'Verification successful'
+    ;;
+  x509)
+    print -r -- 'subject= C=US,O=Apple Inc.,CN=Mac OS X Provisioning Profile Signing'
+    print -r -- 'issuer= C=US,O=Apple Inc.,OU=G5,CN=Apple Worldwide Developer Relations Certification Authority'
+    print -r -- 'SHA256 Fingerprint=08:84:FC:02:63:65:E1:4A:91:CE:C7:75:83:B5:B4:AE:04:1B:E4:9B:C9:90:E7:4F:4A:15:E2:B4:2B:50:DC:55'
+    ;;
+  *)
+    exit 64
+    ;;
+esac
+STUB
   /bin/cat > "$xcrun_stub" <<'STUB'
 #!/bin/zsh
 set -euo pipefail
@@ -158,13 +201,17 @@ if [[ "${1:-}" == "--find" && -n "${2:-}" ]]; then
 fi
 exit 1
 STUB
-  /bin/chmod 755 "$stub" "$xcrun_stub"
+  /bin/chmod 755 "$stub" "$openssl_stub" "$xcrun_stub"
   /usr/bin/sed -i '' \
     -e "s#/usr/bin/security#$stub#g" \
     -e "s#/usr/bin/xcrun#$xcrun_stub#g" \
     "$root/scripts/apply-release-identity.sh" \
     "$root/scripts/release-readiness.sh" \
-    "$root/scripts/apple-signing-identities.zsh"
+    "$root/scripts/apple-signing-identities.zsh" \
+    "$root/scripts/apple-cms-profile.zsh"
+  /usr/bin/sed -i '' \
+    -e "s#/usr/bin/openssl#$openssl_stub#g" \
+    "$root/scripts/apple-cms-profile.zsh"
 }
 
 # Default --check validates and describes changes but cannot touch the tree.
@@ -469,7 +516,7 @@ expect_failure 'use schemaVersion 2 from Config/ReleaseIdentity.example.json' \
 # A profile is never treated as a plist fixture or trusted path. Until an
 # Apple-signed CMS profile validates, no final entitlements can be produced.
 PROFILE_ROOT="$(new_sandbox profile)"
-expect_failure 'not a decodable Apple-signed CMS profile' \
+expect_failure 'did not pass the Apple CMS signer trust gate' \
   "$PROFILE_ROOT/scripts/apply-release-identity.sh" --apply --profile \
   "$PROFILE_ROOT/Config/ReleaseIdentity.json"
 [[ ! -e "$PROFILE_ROOT/.release" ]]
@@ -519,6 +566,17 @@ print -r -- "$READINESS_WRONG_IOS_WIDGET_REPORT" | /usr/bin/jq -e '
 PROFILE_BIND_ROOT="$(new_sandbox readiness-profile-binding)"
 $PROFILE_BIND_ROOT/scripts/apply-release-identity.sh --apply >/dev/null
 install_security_stub "$PROFILE_BIND_ROOT"
+/bin/cp "$PROJECT_DIR/scripts/release-macos.sh" \
+  "$PROFILE_BIND_ROOT/scripts/release-macos.sh"
+/bin/cp "$PROJECT_DIR/scripts/developer-id-entitlements-contract.jq" \
+  "$PROFILE_BIND_ROOT/scripts/developer-id-entitlements-contract.jq"
+/bin/cp "$PROJECT_DIR/scripts/assert-release-preflight.sh" \
+  "$PROFILE_BIND_ROOT/scripts/assert-release-preflight.sh"
+/bin/chmod 755 "$PROFILE_BIND_ROOT/scripts/release-macos.sh" \
+  "$PROFILE_BIND_ROOT/scripts/assert-release-preflight.sh"
+/usr/bin/sed -i '' \
+  "s#/usr/bin/security#$PROFILE_BIND_ROOT/Tests/security-stub#g" \
+  "$PROFILE_BIND_ROOT/scripts/release-macos.sh"
 PROFILE_DECODED_JSON="$PROFILE_BIND_ROOT/Tests/Fixtures/profile-decoded.json"
 PROFILE_DECODED_GOOD="$PROFILE_BIND_ROOT/Tests/Fixtures/profile-decoded.plist"
 PROFILE_FILE="$PROFILE_BIND_ROOT/Tests/Fixtures/DeveloperID.provisionprofile"
@@ -539,10 +597,15 @@ LOCK_BASELINE="$PROFILE_BIND_ROOT/Tests/Fixtures/identity.lock.profile-bound.jso
     "com.apple.application-identifier":
       "LEGACY1234.com.agentisland.release",
     "com.apple.developer.team-identifier": "ABCDE12345",
-    "com.apple.developer.icloud-services": ["CloudKit"],
+    "com.apple.developer.icloud-services": "*",
     "com.apple.developer.icloud-container-identifiers":
       ["iCloud.com.agentisland.releasefixture"],
-    "com.apple.developer.icloud-container-environment": "Production"
+    "com.apple.developer.icloud-container-environment":
+      ["Production", "Development"],
+    "com.apple.developer.ubiquity-container-identifiers":
+      ["iCloud.com.agentisland.releasefixture"],
+    "com.apple.developer.ubiquity-kvstore-identifier": "LEGACY1234.*",
+    "keychain-access-groups": ["LEGACY1234.*"]
   }
 }' > "$PROFILE_DECODED_JSON"
 /usr/bin/plutil -convert xml1 -o "$PROFILE_DECODED_GOOD" "$PROFILE_DECODED_JSON"
@@ -672,6 +735,41 @@ print -r -- "$PROFILE_BOUND_REPORT" | /usr/bin/jq -e '
   .releaseIdentityReady == true and
   .readyForDeveloperIDRelease == true
 ' >/dev/null
+
+# The Developer ID entrypoint must use the profile's authoritative App ID
+# prefix, which can legitimately differ from its TeamIdentifier. Reaching the
+# build sentinel proves the LEGACY1234 App ID passed while the Team remained
+# ABCDE12345 throughout profile, readiness, and preflight validation.
+/bin/cat > "$PROFILE_BIND_ROOT/scripts/build-app.sh" <<'STUB'
+#!/bin/zsh
+print -u2 -r -- "legacy-prefix-release-reached-build"
+exit 73
+STUB
+/bin/chmod 755 "$PROFILE_BIND_ROOT/scripts/build-app.sh"
+LEGACY_PREFIX_RELEASE_OUTPUT="$(/usr/bin/env -i \
+  PATH="$PATH" \
+  DEVELOPER_DIR=/nonexistent \
+  AGENT_ISLAND_CMS_KEYCHAIN="$CMS_TEST_KEYCHAIN" \
+  AGENT_ISLAND_TEST_DECODED_PROFILE="$PROFILE_DECODED_GOOD" \
+  AGENT_ISLAND_DEVELOPER_ID_APPLICATION='Developer ID Application: AgentIsland Fixture (ABCDE12345)' \
+  AGENT_ISLAND_DEVELOPMENT_TEAM=ABCDE12345 \
+  AGENT_ISLAND_NOTARY_KEYCHAIN_PROFILE=fixture-notary-profile \
+  AGENT_ISLAND_BUNDLE_ID=com.agentisland.release \
+  AGENT_ISLAND_VERSION=1.0.0 \
+  AGENT_ISLAND_BUILD_NUMBER=1 \
+  AGENT_ISLAND_DISPLAY_NAME='MAC版灵动岛--Agent运行监测' \
+  AGENT_ISLAND_ENTITLEMENTS="$LOCKED_ENTITLEMENTS" \
+  AGENT_ISLAND_PROVISIONING_PROFILE="$PROFILE_FILE" \
+  AGENT_ISLAND_ICLOUD_CONTAINER_ID=iCloud.com.agentisland.releasefixture \
+  AGENT_ISLAND_PRIVACY_POLICY_URL=https://agentisland.app/privacy \
+  AGENT_ISLAND_SUPPORT_URL=https://agentisland.app/support \
+  AGENT_ISLAND_APP_STORE_RECORD_MODE=universal-purchase \
+  "$PROFILE_BIND_ROOT/scripts/release-macos.sh" 2>&1 || true)"
+[[ "$LEGACY_PREFIX_RELEASE_OUTPUT" == *"legacy-prefix-release-reached-build"* ]] || {
+  print -u2 -- "Developer ID release rejected a profile App ID prefix that differs from TeamIdentifier"
+  print -u2 -- "$LEGACY_PREFIX_RELEASE_OUTPUT"
+  exit 1
+}
 
 # The profile bytes and generated entitlement bytes are both content-addressed.
 # Semantically valid replacements with different bytes cannot satisfy the lock.

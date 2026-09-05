@@ -3,14 +3,14 @@
 AGENT_ISLAND_DISPLAY_NAME = MAC版灵动岛--Agent运行监测
 AGENT_ISLAND_WIDGET_DISPLAY_NAME = Agent运行监测
 
-// Replace these identifiers with values registered to your Apple account.
-AGENT_ISLAND_APP_BUNDLE_ID = com.example.agentisland
+// Registered production identifiers for the Universal Purchase app record.
+AGENT_ISLAND_APP_BUNDLE_ID = com.kiki.agentisland
 AGENT_ISLAND_WIDGET_BUNDLE_ID = $(AGENT_ISLAND_APP_BUNDLE_ID).liveactivity
 
 // Register this exact private CloudKit container in Certificates, Identifiers
 // & Profiles, then enable it for the App ID. The Widget target has no iCloud
 // entitlement and never reads CloudKit itself.
-AGENT_ISLAND_ICLOUD_CONTAINER_ID = iCloud.com.example.agentisland
+AGENT_ISLAND_ICLOUD_CONTAINER_ID = iCloud.com.kiki.agentisland
 
 // The Mac producer and iPhone consumer must use the same private-database
 // record contract. These values are injected into App-Info.plist at build time.
@@ -24,10 +24,8 @@ AGENT_ISLAND_URL_SLASH = /
 AGENT_ISLAND_PRIVACY_POLICY_URL = https:$(AGENT_ISLAND_URL_SLASH)$(AGENT_ISLAND_URL_SLASH)kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/
 AGENT_ISLAND_SUPPORT_URL = https:$(AGENT_ISLAND_URL_SLASH)$(AGENT_ISLAND_URL_SLASH)kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/
 
-// Enter the 10-character Team ID from developer.apple.com/account.
-// Leaving this empty still permits unsigned simulator builds; Xcode will ask
-// you to select a team before installing on a device or archiving.
-AGENT_ISLAND_DEVELOPMENT_TEAM =
+// Registered 10-character Team ID from developer.apple.com/account.
+AGENT_ISLAND_DEVELOPMENT_TEAM = AW4HMBZN7M
 
 DEVELOPMENT_TEAM = $(AGENT_ISLAND_DEVELOPMENT_TEAM)
 IPHONEOS_DEPLOYMENT_TARGET = 17.0

@@ -58,7 +58,7 @@ for marker in \
   'IPA App privacy policy URL does not match release metadata' \
   'IPA App support URL does not match release metadata' \
   'embedded.mobileprovision' \
-  '/usr/bin/security cms -D -i' \
+  'agent_island_decode_apple_signed_profile' \
   'validate_app_store_profile_shape' \
   'ProvisionedDevices' \
   'ProvisionsAllDevices' \
@@ -167,8 +167,46 @@ EOF
 /bin/cat >"$STUB_DIRECTORY/security" <<'EOF'
 #!/bin/zsh
 set -euo pipefail
-[[ "$1" == "cms" && "$2" == "-D" && "$3" == "-i" ]] || exit 64
-/bin/cat "$4"
+[[ "$1" == "cms" && "$2" == "-D" ]] || exit 64
+if [[ " $* " == *" -h 0 "* && " $* " == *" -n "* ]]; then
+  print -r -- 'nsigners=1; signer0.id="Apple iPhone OS Provisioning Profile Signing"; signer0.status=GoodSignature; '
+  exit 0
+fi
+input_path=""
+output_path=""
+for (( index = 1; index <= $#; index++ )); do
+  case "${argv[$index]}" in
+    -i) input_path="${argv[$(( index + 1 ))]}" ;;
+    -o) output_path="${argv[$(( index + 1 ))]}" ;;
+  esac
+done
+[[ -n "$input_path" && -n "$output_path" ]] || exit 65
+/bin/cp "$input_path" "$output_path"
+EOF
+
+/bin/cat >"$STUB_DIRECTORY/openssl" <<'EOF'
+#!/bin/zsh
+set -euo pipefail
+case "${1:-}" in
+  cms)
+    signer_path=""
+    while (( $# > 0 )); do
+      if [[ "$1" == "-signer" ]]; then signer_path="$2"; break; fi
+      shift
+    done
+    [[ -n "$signer_path" ]] || exit 64
+    print -r -- '-----BEGIN CERTIFICATE-----' >"$signer_path"
+    print -r -- 'QUJD' >>"$signer_path"
+    print -r -- '-----END CERTIFICATE-----' >>"$signer_path"
+    print -u2 -- 'Verification successful'
+    ;;
+  x509)
+    print -r -- 'subject= C=US,O=Apple Inc.,CN=Apple iPhone OS Provisioning Profile Signing'
+    print -r -- 'issuer= C=US,O=Apple Inc.,OU=Certification Authority,CN=Apple iPhone Certification Authority'
+    print -r -- 'SHA256 Fingerprint=C0:AB:BB:34:42:7F:88:10:28:F3:C1:A7:19:4C:9C:2B:02:02:E6:6F:CB:7D:26:16:AC:C6:FF:77:63:51:B0:E9'
+    ;;
+  *) exit 64 ;;
+esac
 EOF
 
 /bin/cat >"$STUB_DIRECTORY/lipo" <<'EOF'
@@ -243,6 +281,7 @@ else
 fi
 EOF
 /bin/chmod 0755 "$STUB_DIRECTORY/codesign" "$STUB_DIRECTORY/security" \
+  "$STUB_DIRECTORY/openssl" \
   "$STUB_DIRECTORY/lipo" "$STUB_DIRECTORY/xcodebuild" \
   "$STUB_DIRECTORY/date" "$STUB_DIRECTORY/xcrun"
 
@@ -255,6 +294,11 @@ EOF
   -e "s#/bin/date#$STUB_DIRECTORY/date#g" \
   -e 's#\${HOME}/.appstoreconnect/private_keys#'"$TEST_ROOT/private_keys"'#g' \
   "$SCRIPT" >"$INSTRUMENTED_SCRIPT"
+/usr/bin/sed \
+  -e "s#/usr/bin/security#$STUB_DIRECTORY/security#g" \
+  -e "s#/usr/bin/openssl#$STUB_DIRECTORY/openssl#g" \
+  "$PROJECT_ROOT/scripts/apple-cms-profile.zsh" \
+  >"$TEST_ROOT/scripts/apple-cms-profile.zsh"
 /bin/chmod 0755 "$INSTRUMENTED_SCRIPT"
 
 TEAM_ID="ABCDE12345"
@@ -269,6 +313,10 @@ PRIVACY_POLICY_URL="https://agentisland.test/privacy"
 SUPPORT_URL="https://agentisland.test/support"
 PROFILE_EXPIRATION="2099-01-01T00:00:00Z"
 SIGNING_IDENTITY="Apple Distribution: Release Fixture ($TEAM_ID)"
+CMS_KEYCHAIN="$TEST_ROOT/cms-test.keychain-db"
+print -n -r -- 'isolated CMS test keychain' >"$CMS_KEYCHAIN"
+/bin/chmod 0600 "$CMS_KEYCHAIN"
+export AGENT_ISLAND_CMS_KEYCHAIN="$CMS_KEYCHAIN"
 
 /bin/cat >"$INSTRUMENTED_ROOT/Config/Project.xcconfig" <<EOF
 AGENT_ISLAND_DISPLAY_NAME = $DISPLAY_NAME

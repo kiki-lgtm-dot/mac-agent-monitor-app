@@ -13,16 +13,31 @@
 
 ## 先准备 Apple 签名资产
 
+当前已锁定 Universal Purchase 生产身份：macOS/iOS 主应用为
+`com.kiki.agentisland`，Team 为 `AW4HMBZN7M`，CloudKit Container 为
+`iCloud.com.kiki.agentisland`。Production Schema 已部署，Mac App Store 与
+Developer ID CloudKit Profile 已生成；下列各项仍是正式候选包的必经校验，
+不代表 Archive 或上传已完成。
+
 开始前必须满足：
 
 1. 安装并选中完整 Xcode 14 或更新版（仅 Command Line Tools 不足够）。Apple 的 2026 通用上传门槛是 Xcode 14+；Xcode 26 + 26 SDK 的 Upcoming Requirements 条款列出了 iOS/iPadOS/tvOS/visionOS/watchOS，未列 macOS，因此本渠道不再误设 macOS 26 SDK 或 macOS Sequoia 15.6 门槛。若同时构建 iOS 伴侣，仍须按 iOS 渠道使用 Xcode 26 + iOS 26 SDK，并满足 Xcode 26 的主机要求。
-2. 在 Apple Developer 后台注册最终 Mac App ID，为它开启 CloudKit，并仅绑定本项目的 Production Container。
+2. 复核 Apple Developer 后台已注册的 Mac App ID，确认 CloudKit 只绑定本项目的 Production Container。
 3. 用 schemaVersion 2 `Config/ReleaseIdentity.json` 声明并用 `scripts/apply-release-identity.sh` 应用已确认的身份。`appStoreRecordMode=universal-purchase` 时 macOS/iOS 主 App Bundle ID 必须相同；`separate-records` 时必须不同。旧 schemaVersion 1 只能规范化为 Universal Purchase，不能表示分开记录。
 4. 确认 `.release/identity.lock.json` 已锁定同一模式和标识；`AGENT_ISLAND_APP_STORE_RECORD_MODE`、`AGENT_ISLAND_BUNDLE_ID` 和 `AGENT_ISLAND_IOS_BUNDLE_ID` 必须分别等于锁中的模式、macOS App ID 和 iOS App ID。Mac Target 使用独立的 `AGENT_ISLAND_MAC_APP_BUNDLE_ID`，分开记录时不得误用 iOS App ID。
 5. 在 Keychain 中安装同一 Team 的 `Apple Distribution` 或旧版 `3rd Party Mac Developer Application` 证书。
 6. 准备未过期、非设备限定、非 `ProvisionsAllDevices` 的 Mac App Store provisioning profile。它必须包含本次使用的分发证书。
 7. 如果要导出 `.pkg`，还要安装同 Team 的 `Mac Installer Distribution` 或旧版 `3rd Party Mac Developer Installer` 证书。
 8. 确定 App Store 中使用的最终版权文字。Apple 要求 macOS 应用在 `Info.plist` 包含 `NSHumanReadableCopyright`，所以脚本不会为你编造法定姓名或版权主体。
+
+任何会读取真实 provisioning profile 的 Archive、导出或提交预检都必须在隔离的受控钥匙串中运行。钥匙串必须是当前用户拥有、权限 `0600`、非符号链接、已解锁的绝对路径；命令结束后应重新锁定。本地包装器或 CI 应设置：
+
+```bash
+export AGENT_ISLAND_CMS_KEYCHAIN="/absolute/path/AgentIslandRelease.keychain-db"
+export AGENT_ISLAND_SIGNING_KEYCHAIN="$AGENT_ISLAND_CMS_KEYCHAIN"
+```
+
+CMS 验签不会回退到默认/`login` 钥匙串，也不接受未验证的 OpenSSL 解码作为替代。不带 profile 的本地预览构建不受此限制。
 
 实际 Archive 入口会重新生成 `release-readiness.sh --json` 报告，并以 `mac-app-store` 档案门禁校验 identity lock、已应用配置、Xcode 工程/资源/权限和当前 Mac 工具链。只有在文档中勾选、但报告未通过时，脚本不会开始 Archive。
 
@@ -241,7 +256,7 @@ export AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE="$PWD/dist/macos-app-store
 1. 将 `AGENT_ISLAND_MAC_APP_STORE_RELEASE_METADATA` 指向该目录的 `release-metadata.json`，先运行 `submit-macos-app-store.sh --check`，再运行 `scripts/release-readiness.sh --json`。readiness 会要求 metadata 中的 `version`/`build` 与当前 macOS Target 的 `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` 一致，并重新计算 Archive ZIP 与 PKG 哈希。
 2. 在 Xcode Organizer 生成并审查 Privacy Report，处理全部 validation 警告；将 App Privacy 证据按平台、记录模式、Bundle ID、版本、Build 和候选包 SHA-256 绑定。
 3. 用真实签名包完成五项 QA，并将 `confirm-functional-qa-evidence.sh` 生成的 `macos-functional-verification-*.json` 填入 `AGENT_ISLAND_MAC_APP_STORE_FUNCTIONAL_QA_EVIDENCE`。每次重新构建都必须重做 QA 和五份附件，不得手抄哈希或自由布尔值代替。
-4. 完成 Production CloudKit schema 部署和同 iCloud 账号的 Mac→iPhone 真机检查。确认 `macStoreSubmissionAssetsReady: true`；它只要求 Mac 中英文元数据、Mac 截图和两端共用的隐私/支持材料，不会因 iOS 独有素材未完成而失败。只有 `readyForMacAppStoreUpload: true` 才表示该本地候选通过上传前门禁；它不表示已经上传。
+4. 生产 CloudKit Schema 已部署；仍需完成同 iCloud 账号的 Mac→iPhone 真机检查。确认 `macStoreSubmissionAssetsReady: true`；它只要求 Mac 中英文元数据、Mac 截图和两端共用的隐私/支持材料，不会因 iOS 独有素材未完成而失败。只有 `readyForMacAppStoreUpload: true` 才表示该本地候选通过上传前门禁；它不表示已经上传。
 5. 需要时先执行 `--validate`，仅在核对精确四段式确认值后显式执行 `--upload`。复验 delivery record 后将它填入 `AGENT_ISLAND_MAC_APP_STORE_DELIVERY_EVIDENCE`；`uploadAccepted: true` 不等于 Apple 处理完成。
 6. 上传后在 App Store Connect 人工确认该 Build 为 `Complete`，检查全部 errors/warnings/information，用 `confirm-macos-app-store-evidence.sh` 生成并复验 processing evidence，再填入 `AGENT_ISLAND_MAC_APP_STORE_PROCESSING_EVIDENCE`。这是人工观察的本地证据，不是 Apple 状态的自动回查。
 7. 账号授权人在 App Store Connect 为正确 macOS version 关联该精确 Build，然后采集提交元数据快照。采集脚本只读验证这一关系，不会选择或更改 Build。

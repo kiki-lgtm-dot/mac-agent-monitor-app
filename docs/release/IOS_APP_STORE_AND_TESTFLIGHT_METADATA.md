@@ -1,18 +1,20 @@
-# iOS App Store 与 TestFlight 元数据草案
+# iOS App Store 与 TestFlight 元数据（已保存值与待补字段）
 
-> 状态：**不可提交**。当前 iOS 工程已与 macOS 统一为 0.6.1（Build 8），SwiftUI 看板、Widget/Live Activity Extension、按 iCloud 账号隔离的私有 CloudKit receiver、离线缓存、双语资源和图标已经存在；Mac producer 也已实现并通过本地 CLI/回归。但 Bundle/Container ID 与 Team 仍为占位配置，真实 Developer ID CloudKit entitlement/profile、Production schema、同一 iCloud 账号 Mac→iPhone 真机链路以及完整 Xcode+iOS SDK 编译、真机 Live Activity 和 Archive 验证均未完成。以下产品文案只可在这些发布门槛通过后使用。
+> 状态：**尚不可提交审核**。iOS 与 macOS 已建立 Universal Purchase 记录并统一为 `0.6.1`。下文的双语名称、副标题、推广文本、描述、关键词、URL、TestFlight Beta App Description 与手动发布方式均已保存到 App Store Connect。尚未完成的范围只包括截图、法律/版权信息、联系人、DSA、价格/地区、Content Rights、年龄分级、Build、App Privacy 问卷和审核；不得把已保存元数据写成 Build 已上传、TestFlight 已发布或审核已提交。
 
 ## 1. App Store 全局信息
 
-| 字段 | 建议值 |
+| 字段 | App Store Connect 当前值 |
 | --- | --- |
 | App 名称 | MAC版灵动岛--Agent运行监测 |
 | 平台 | iOS |
-| iOS Bundle ID | `[正式iOS Bundle ID]`（替换 `com.example.agentisland`） |
-| Widget Bundle ID | `[正式iOS Widget Bundle ID]`（建议为 App ID + `.liveactivity`） |
-| Team ID | `[10位Team ID]` |
-| SKU | `[iOS SKU]` |
-| 主语言 | 简体中文（可按实际市场调整） |
+| App Store 记录模式 | Universal Purchase（与 macOS 共用记录） |
+| App Store Connect App ID | `6808917414` |
+| iOS Bundle ID | `com.kiki.agentisland` |
+| Widget Bundle ID | `com.kiki.agentisland.liveactivity` |
+| Team ID | `AW4HMBZN7M` |
+| SKU | `AGENTISLAND-UNIVERSAL` |
+| 主语言 | 简体中文 |
 | 主类别 | Developer Tools |
 | 次类别 | Productivity |
 | 年龄分级 | `[根据最终构建完成问卷并记录结果]` |
@@ -21,23 +23,26 @@
 | DSA 交易者状态 | `[由 Account Holder 确认 trader / non-trader 及所需联系验证]` |
 | 价格 | `[免费或具体价格档位]` |
 | 上架国家/地区 | `[最终可用范围；另行完成中国大陆、韩国、越南等区域要求]` |
-| 版本发布方式 | `[审核通过后手动、自动或指定日期发布]` |
+| 版本发布方式 | 审核通过后手动发布（Manual） |
 | 版权 | `[年份] [版权所有者]` |
 | 隐私政策 URL | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/` |
+| 隐私选择 URL（简体中文） | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/#delete-data` |
+| Privacy Choices URL（English U.S.） | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/#delete-data-en` |
 | 支持 URL | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/support/` |
 | 支持页公开联系方式 | `[可验证的邮箱、国际电话或法律联系地址]`；仅 GitHub Issues 不应作为最终联系资料 |
-| 营销 URL | `[营销URL，可选]` |
-| 无障碍营养标签 | 当前可自愿填写；只能在 iPhone 上按完整常用任务验证后如实发布，不能只凭使用 SwiftUI 推断支持 |
-| Accessibility URL | `[无障碍说明页，可选]` |
-| 实际提交版本 | `0.6.1`（Build `8`） |
+| 营销 URL | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/` |
+| App Store 版本 | `0.6.1`；工程当前 Build `8`，尚未上传 |
 | 最低系统 | iOS 17.0（当前工程配置） |
 | 支持设备 | iPhone；是否开放 iPad 兼容安装须以最终 Target/QA 决定 |
 | 登录/IAP | 当前无应用账号、订阅或 App 内购买 |
 | 加密出口合规 | 代码当前声明 `ITSAppUsesNonExemptEncryption = false`；仍由提交者按最终构建与所在地要求确认 |
+| CloudKit | `iCloud.com.kiki.agentisland`；Private / Production / `AgentIslandSnapshot` / `latest` / `payloadJSON` |
 
-如果 iOS 与 macOS 放在同一个 App Store Connect App 记录中，应确认平台名称、价格、隐私标签和通用购买策略一致；各平台版本仍需分别提交审核。
+iOS 与 macOS 已放在 App Store Connect App ID `6808917414` 的同一个 Universal Purchase 记录中；平台名称、价格和 App Privacy 回答必须保持兼容，各平台版本仍需分别配置和提交审核。
 
-App Store Connect 的 Content Rights、年龄分级、DSA 状态、地区合规和发布方式是账号/业务决策，不能从 Xcode 工程自动推导。无障碍营养标签目前可自愿提供，但发布过的声明也必须经过完整常用任务验证并保持准确。上表任一方括号项未由有权提交者完成时，即使 IPA 已通过本地预检也仍不应进入 App Review。
+Production schema 已部署。公共数据库的兜底权限仅 `_icloud` CREATE、`_creator` READ + WRITE，没有 `_world` READ；iOS App 仍固定读取用户私有数据库。iOS App Store 与 Widget App Store profiles 已生成并存放在 Git 忽略的本地发布目录，但尚未绑定最终 Archive 验证。
+
+App Store Connect 的 Content Rights、年龄分级、DSA 状态和地区范围是账号/业务决策，不能从 Xcode 工程自动推导。上表任一方括号项未由有权提交者完成时，即使 IPA 已通过本地预检也仍不应进入 App Review。
 
 ## 2. 简体中文（zh-Hans）
 
@@ -47,50 +52,19 @@ MAC版灵动岛--Agent运行监测
 
 ### 副标题（最多 30 个字符）
 
-Mac AI Agent 随身看板
+Mac AI Agent 运行看板
 
 ### 推广文本（最多 170 个字符）
 
-在 Mac 明确启用私有同步后，于 iPhone 刷新查看 AI Agent、活跃对话、时长与 Token 摘要，并把最近刷新的状态带到锁屏和灵动岛。
+在 Mac 明确启用私有同步后，于 iPhone 刷新查看 AI Agent、活跃对话、时长与 Token 摘要，并把最近状态带到锁屏和灵动岛。
 
 ### 描述（最多 4,000 个字符）
 
-“MAC版灵动岛--Agent运行监测”的 iPhone 伴侣版是一款隐私优先看板。在 Mac 与 iPhone 使用同一 iCloud 账户并启用同步后，无需回到电脑前，也能查看经过精简的 AI Agent 工作摘要。
-
-刷新查看运行状态
-• 查看相关 Agent、正在运行数量和活跃对话数量
-• 保留 Mac producer 主动筛选纳入的全部工具，即使它当前无会话或无可验证 Token，也会用真实空闲/完成状态显示
-• 查看每个 Agent 的状态、工具、工作时长与同步 Token 摘要
-• 按工作状态和更新时间优先展示真正相关的 Agent
-• 下拉刷新并查看数据更新时间与缓存状态
-
-锁屏与灵动岛
-• 主动开启或停止 Live Activity
-• 在锁屏查看运行状态、工作时长和 Token
-• 在支持的 iPhone 灵动岛查看 Agent 数、活跃对话和 Token
-• Live Activity 不显示完整对话标题
-• 状态仅在 App 启动、回到前台或手动刷新时更新，不是 APNs 后台实时监控
-• App 重启后会恢复已存在 Live Activity 的控制状态；两分钟无主 App 更新时会明确标记为过期
-
-隐私优先
-iPhone 不会直接读取或浏览 Mac 文件。Mac 私有同步默认关闭，只有用户阅读字段范围并明确开启后，才会向其 iCloud 私有数据库写入为手机设计的状态摘要。数据模型不包含 prompt、任务摘要、回复、模型名、API Key、进程 ID、备忘录、翻译内容、Mac 文件路径或工作区路径。完整对话标题默认不发送，需要单独明确同意；即使用户选择同步标题，iPhone 在应用离开前台时也会重新隐藏，重新启动后同样保持隐藏。用户在 Mac 关闭同步时，应用会停止上传并删除云端“latest”快照。
-
-Token 来自 Mac 端可验证的本地数据源摘要，可能受工具支持、日志保留和来源质量影响，不代表服务商账单。
-
-需要 iOS 17.0 或更高版本。查看真实 Mac 数据时，需要安装兼容的 Mac 版应用，在两台设备使用同一 iCloud 账户并启用同步。没有同步时，iPhone 会显示明确的未配置状态，不会生成或猜测真实 Agent 数据。用户也可主动打开带“示例模式 · 非真实数据”标识的内置离线样例来了解界面；样例不访问 CloudKit，不写入同步缓存，可随时“退出并重置”。
+MAC版灵动岛--Agent运行监测的 iPhone 伴侣版是一款隐私优先看板。在 Mac 与 iPhone 使用同一 iCloud 账户并明确启用私有同步后，可查看经过精简的 Agent 状态、活跃对话数、工作时长和 Token 摘要。它支持锁屏 Live Activity 与灵动岛，不直接浏览 Mac 文件，并在未配置同步时显示明确空状态。
 
 ### 关键词（不超过 100 字节；提交前复核）
 
 智能体,令牌用量,开发工具,实时活动,效率工具,状态看板
-
-### 首版“此版本的新功能”
-
-• 在 iPhone 查看 Mac 上的 Agent 状态摘要
-• 展示运行中 Agent、活跃对话、工作时长和 Token
-• 支持锁屏 Live Activity 与灵动岛状态
-• 提供带明确标识、可退出重置的离线示例模式
-• 默认隐藏完整对话标题并排除 prompt、回复和 Mac 路径
-• 支持简体中文与 English
 
 ## 3. English (U.S.)
 
@@ -108,49 +82,20 @@ Enable private sync on Mac, then refresh iPhone to see agents, conversations, ti
 
 ### Description (4,000 characters maximum)
 
-The iPhone companion for MAC版灵动岛--Agent运行监测 is a privacy-first dashboard. After enabling sync under the same iCloud account on both devices, it lets you check a minimized summary of AI-agent activity without returning to your computer.
-
-See current activity
-• View relevant agents, running-agent count, and active-conversation count
-• Preserve every tool deliberately included by the Mac producer, even when it currently has no conversation or verified token usage, while showing its true idle/completed state
-• See each agent's state, tool, active time, and synced token summary
-• Keep working agents and recently updated activity in focus
-• Pull to refresh and see when data was generated or loaded from cache
-
-Lock Screen and Dynamic Island
-• Start or stop a Live Activity explicitly
-• See status, active time, and tokens on the Lock Screen
-• See agent count, active conversations, and tokens on supported Dynamic Island devices
-• Live Activities never display full conversation titles
-• Status updates only when the app launches, returns to the foreground, or is manually refreshed; this build has no APNs background real-time updates
-• Relaunching the app restores the control state of an existing Live Activity; two minutes without a host-app update is visibly marked stale
-
-Privacy first
-The iPhone app never browses or reads files on your Mac. Private sync is off by default on the Mac and starts only after the user reviews the field scope and expressly opts in. The Mac then writes a mobile-specific status summary to the user's private iCloud database. The schema has no fields for prompts, task summaries, responses, model names, API keys, process identifiers, notes, translation content, Mac file paths, or workspace paths. Full conversation titles are excluded by default and require a separate opt-in. Even then, the iPhone hides them whenever the app leaves the foreground and after every relaunch. Turning sync off on the Mac stops uploads and deletes the cloud “latest” snapshot.
-
-Token values come from verifiable local-source summaries on the Mac. They may be incomplete because of tool support, log retention, or source quality and are not provider billing totals.
-
-Requires iOS 17.0 or later. Viewing real Mac data requires the compatible Mac app and sync enabled under the same iCloud account on both devices. Without sync, the iPhone shows a clear unconfigured state and never invents real agent data. Users can deliberately open a built-in offline sample marked EXAMPLE MODE · SAMPLE DATA to learn the interface; it does not access CloudKit or the synced cache and can be exited and reset at any time.
+The iPhone companion for MAC版灵动岛--Agent运行监测 is a privacy-first dashboard. After explicit private sync under the same iCloud account is enabled on both devices, it shows a minimized summary of agent status, active conversations, working time, and token usage. It supports Lock Screen Live Activities and Dynamic Island, never browses Mac files directly, and presents a clear empty state when sync is not configured.
 
 ### Keywords (100 bytes maximum; recheck before submission)
 
-AI monitor,token usage,developer tools,Live Activity,Mac companion,productivity
-
-### Initial What's New
-
-• View privacy-minimized Mac agent status on iPhone
-• See running agents, active conversations, active time, and tokens
-• Use a Lock Screen Live Activity and Dynamic Island status
-• Explore a clearly labelled offline example mode that can be exited and reset
-• Keep full conversation titles hidden by default and exclude prompts, responses, and Mac paths
-• Use the app in English or Simplified Chinese
+AI monitor,token usage,developer tools,Live Activity,Mac companion
 
 ## 4. TestFlight 信息
 
-### 必填公共字段
+### 已保存 URL 与待补联系人
 
-| 字段 | 草案 |
+| 字段 | App Store Connect 当前值 |
 | --- | --- |
+| Marketing URL | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/` |
+| Privacy Policy URL | `https://kiki-lgtm-dot.github.io/mac-agent-monitor-app/privacy/` |
 | Feedback Email | `[TestFlight反馈邮箱]` |
 | Contact First Name | `[审核联系人名]` |
 | Contact Last Name | `[审核联系人姓]` |
@@ -159,17 +104,17 @@ AI monitor,token usage,developer tools,Live Activity,Mac companion,productivity
 | Sign-in required | 无独立应用账号；当前设计要求两台设备使用同一系统 iCloud 账户。按 TestFlight 当时字段口径如实填写 |
 | Beta App Review Notes | 见 `IOS_APP_REVIEW_NOTES.md` |
 
-外部测试前这些字段和 Beta App Description 必须填写。首个外部测试 Build 可能需要 Beta App Review。当前代码链路已实现，但在正式签名、Production schema、同账号真机和 Archive 验证通过前，仍只适合内部开发，不应邀请外部测试者。
+Beta App Description 和两个 URL 已保存。联系人、Build 和 Beta App Review 仍未完成；首个外部测试 Build 可能需要 Beta App Review。
 
 ### Beta App Description — 简体中文
 
-MAC版灵动岛--Agent运行监测 iPhone Beta 是 Mac Agent 状态的隐私化伴侣看板。在 Mac 与 iPhone 使用同一 iCloud 账户，并在 Mac 上阅读范围后明确开启私有同步，可查看运行中 Agent、活跃对话、工作时长和 Token 摘要，并测试锁屏 Live Activity 与灵动岛。也可从同步卡片下方主动进入“示例模式 · 非真实数据”；该离线样例无需 Mac/iCloud、不写同步缓存，可退出并重置，且在看板与实时活动中持续显示示例标识。同步摘要不包含 prompt、任务摘要、回复、模型名、API Key、备忘录、翻译内容或 Mac 路径，完整对话标题默认不发送，并在 App 离开前台时重新隐藏。Live Activity 仅在 App 启动、回前台或手动刷新时更新。
+在 iPhone 查看 Mac 产生的隐私化 Agent 状态摘要，并验证锁屏 Live Activity 与灵动岛展示。
 
 ### Beta App Description — English
 
-MAC版灵动岛--Agent运行监测 for iPhone Beta is a privacy-minimized companion for Mac agent status. After reviewing the scope and expressly enabling private sync on a Mac that uses the same iCloud account, it shows running agents, active conversations, active time, and token summaries and lets testers exercise the Lock Screen Live Activity and Dynamic Island. Testers may also deliberately enter EXAMPLE MODE · SAMPLE DATA below the sync card; this offline sample needs no Mac or iCloud, never writes the synced cache, can be exited and reset, and remains visibly labelled in the dashboard and Live Activity. Synced summaries exclude prompts, task summaries, responses, model names, API keys, notes, translation content, and Mac paths. Full titles are excluded by default and hidden again whenever the app leaves the foreground. Live Activity updates occur only on app launch, foreground return, or manual refresh.
+View privacy-minimized Mac agent status on iPhone and verify the Lock Screen Live Activity and Dynamic Island presentation.
 
-### What to Test — 简体中文
+### What to Test — 简体中文（待 Build 关联/审核时使用）
 
 请重点测试：
 
@@ -183,7 +128,7 @@ MAC版灵动岛--Agent运行监测 for iPhone Beta is a privacy-minimized compan
 
 反馈时请注明 iPhone 型号、iOS 版本、Mac 版本、是否使用缓存，以及问题发生前的操作。不要在反馈截图中包含真实项目名、会话标题或密钥。
 
-### What to Test — English
+### What to Test — English (for Build association/review)
 
 Please focus on:
 
@@ -201,14 +146,14 @@ Include the iPhone model, iOS version, Mac app version, cache status, and steps 
 
 - 当前功能无广告、公开用户内容、社交发布、购买、赌博、医疗或位置功能；仍须按提交当日完整问卷作答。
 - App 不内嵌网页浏览或翻译模型；iOS 只展示同步摘要和 Live Activity。
-- iOS App Target 的 Privacy Manifest 已同时声明与用户关联的 Other Usage Data 和 Other User Content，用于 App Functionality、不用于追踪，且无 tracking domains；后者覆盖当前候选版中默认关闭、需单独同意的完整标题同步。它还为应用自身的示例模式布尔开关声明 UserDefaults `CA92.1` 理由。Widget Extension 有独立清单，collected data/accessed API/tracking domains 均为空，tracking 为 false。正式签名/Container/schema 验收后必须通过 Xcode Privacy Report 复核，并在 App Store Connect 采用相同口径；加入 APNs 或其他网络路径时再次更新。
+- iOS App Target 的 Privacy Manifest 已同时声明与用户关联的 Other Usage Data 和 Other User Content，用于 App Functionality、不用于追踪，且无 tracking domains；后者覆盖当前候选版中默认关闭、需单独同意的完整标题同步。它还为应用自身的示例模式布尔开关声明 UserDefaults `CA92.1` 理由。Widget Extension 有独立清单，collected data/accessed API/tracking domains 均为空，tracking 为 false。最终签名构建仍必须通过 Xcode Privacy Report 复核，并在 App Store Connect 采用相同口径；加入 APNs 或其他网络路径时再次更新。
 - 若 iOS 与 macOS 共用同一 App Store Connect 记录，App Privacy 回答应覆盖该记录中所有平台的最全面实际行为。
 - 不把同步 Token 描述为账单、每日趋势或跨工具绝对精确值。
 
 ## 6. 提交前删除/替换
 
-- 替换所有方括号占位符和开发 Bundle ID。
-- 删除“不可提交”“草案”等内部提示。
+- 补齐年龄分级、Content Rights、DSA、价格/地区、版权、支持联系方式与审核联系人等人工字段；正式 Bundle ID、Widget ID、SKU、版本和 App Store Connect App ID 不得改回占位值。
+- 在真正可提交时更新顶部状态，不得只删除“尚不可提交审核”提示而跳过门禁。
 - 只有生产同步、配对、缓存和错误恢复都可审核时，才保留“连接 Mac 后查看”的产品描述。
 - 最终 Build 若不支持横屏或 iPad，应让元数据与实际一致；当前 Live Activity 明确不支持 APNs 远程更新，元数据、截图和审核说明不得暗示后台实时监控。
 - 可以展示最终构建中带持续“示例/非真实数据”标识的内置示例 UI，但不得裁掉标识，也不得将示例或 Preview 数据写成真实同步已完成；若截图声称跨设备同步，必须来自已验收的真实生产链路。

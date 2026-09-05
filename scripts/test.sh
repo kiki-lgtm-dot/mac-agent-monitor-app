@@ -64,9 +64,12 @@ fi
 /bin/zsh -n "$PROJECT_DIR/scripts/build-app.sh" "$PROJECT_DIR/scripts/release-macos.sh" \
   "$PROJECT_DIR/scripts/release-readiness.sh" \
   "$PROJECT_DIR/scripts/apple-signing-identities.zsh" \
+  "$PROJECT_DIR/scripts/apple-cms-profile.zsh" \
   "$PROJECT_DIR/scripts/assert-release-preflight.sh" \
   "$PROJECT_DIR/scripts/render-app-icons.sh" \
   "$PROJECT_DIR/scripts/apply-release-identity.sh" "$PROJECT_DIR/Tests/test-release-identity.sh" \
+  "$PROJECT_DIR/Tests/test-apple-security-gates.sh" \
+  "$PROJECT_DIR/Tests/test-cloudkit-profile-authorization.sh" \
   "$PROJECT_DIR/Tests/test-release-entrypoint-hardening.sh" \
   "$PROJECT_DIR/Tests/test-app-store-submission.sh" \
   "$PROJECT_DIR/Tests/test-public-pages-evidence.sh" \
@@ -97,9 +100,13 @@ node --check "$PROJECT_DIR/scripts/capture-asc-submission-metadata.mjs"
 [[ -x "$PROJECT_DIR/scripts/release-macos.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/release-readiness.sh" ]]
 [[ -f "$PROJECT_DIR/scripts/apple-signing-identities.zsh" ]]
+[[ -f "$PROJECT_DIR/scripts/apple-cms-profile.zsh" ]]
 [[ -x "$PROJECT_DIR/scripts/assert-release-preflight.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/apply-release-identity.sh" ]]
+[[ -f "$PROJECT_DIR/scripts/cloudkit-profile-authorization.jq" ]]
 [[ -x "$PROJECT_DIR/Tests/test-release-identity.sh" ]]
+[[ -x "$PROJECT_DIR/Tests/test-apple-security-gates.sh" ]]
+[[ -x "$PROJECT_DIR/Tests/test-cloudkit-profile-authorization.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-release-entrypoint-hardening.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/validate-app-store-submission.mjs" ]]
 [[ -x "$PROJECT_DIR/scripts/capture-public-pages-evidence.mjs" ]]
@@ -207,6 +214,8 @@ for marker in '--check' '--apply' 'identity.lock.json' 'identity-backup' \
   rg -q --fixed-strings -- "$marker" "$PROJECT_DIR/scripts/apply-release-identity.sh"
 done
 "$PROJECT_DIR/Tests/test-release-identity.sh"
+"$PROJECT_DIR/Tests/test-apple-security-gates.sh"
+"$PROJECT_DIR/Tests/test-cloudkit-profile-authorization.sh"
 "$PROJECT_DIR/Tests/test-release-entrypoint-hardening.sh"
 "$PROJECT_DIR/Tests/test-store-submission.sh"
 "$PROJECT_DIR/Tests/test-app-store-submission.sh"
@@ -419,8 +428,10 @@ rg -q --fixed-strings 'embedded.provisionprofile' "$PROJECT_DIR/scripts/build-ap
 rg -q --fixed-strings 'com.apple.application-identifier' "$PROJECT_DIR/scripts/build-app.sh"
 rg -q --fixed-strings 'com.apple.application-identifier' "$PROJECT_DIR/scripts/release-macos.sh"
 rg -q --fixed-strings 'com.apple.application-identifier' "$PROJECT_DIR/scripts/release-readiness.sh"
-rg -q --fixed-strings 'com.apple.developer.team-identifier' "$PROJECT_DIR/scripts/release-macos.sh"
-rg -q --fixed-strings 'com.apple.security.get-task-allow' "$PROJECT_DIR/scripts/release-macos.sh"
+rg -q --fixed-strings 'com.apple.developer.team-identifier' \
+  "$PROJECT_DIR/scripts/developer-id-entitlements-contract.jq"
+rg -q --fixed-strings '(keys | sort)' \
+  "$PROJECT_DIR/scripts/developer-id-entitlements-contract.jq"
 rg -q --fixed-strings 'ProvisionsAllDevices' "$PROJECT_DIR/scripts/release-macos.sh"
 rg -q --fixed-strings "date -j -u -f '%Y-%m-%dT%H:%M:%SZ'" "$PROJECT_DIR/scripts/release-macos.sh"
 if rg -q --fixed-strings 'plutil -convert json -o - "$PROFILE_PLIST"' \
@@ -549,7 +560,7 @@ PROFILE_OUTPUT="$(/usr/bin/env \
   AGENT_ISLAND_PRIVACY_POLICY_URL='https://agentisland.app/privacy' \
   AGENT_ISLAND_SUPPORT_URL='https://agentisland.app/support' \
   "$PROJECT_DIR/scripts/release-macos.sh" 2>&1 || true)"
-[[ "$PROFILE_OUTPUT" == *'AGENT_ISLAND_PROVISIONING_PROFILE is not a decodable signed provisioning profile'* ]]
+[[ "$PROFILE_OUTPUT" == *'AGENT_ISLAND_PROVISIONING_PROFILE did not pass the Apple CMS signer trust gate'* ]]
 RELEASE_GATE_LINE="$(rg -n 'Set AGENT_ISLAND_ENTITLEMENTS' "$PROJECT_DIR/scripts/release-macos.sh" | head -1 | cut -d: -f1)"
 NOTARY_SUBMIT_LINE="$(rg -n 'notarytool submit' "$PROJECT_DIR/scripts/release-macos.sh" | head -1 | cut -d: -f1)"
 (( RELEASE_GATE_LINE < NOTARY_SUBMIT_LINE ))
@@ -745,6 +756,40 @@ for UNSAFE_RELEASE_BOOLEAN in \
   fi
 done
 
+# Run the environment-clean case against an isolated project root. A real
+# operator may legitimately have an ignored .release/identity.lock.json and
+# installed certificates; neither may change this deterministic baseline.
+CLEAN_READINESS_ROOT="$VERIFY_ROOT/release-readiness-clean-project"
+/bin/mkdir -p "$CLEAN_READINESS_ROOT/scripts" "$CLEAN_READINESS_ROOT/dist"
+/bin/cp "$PROJECT_DIR/scripts/release-readiness.sh" \
+  "$CLEAN_READINESS_ROOT/scripts/release-readiness.sh"
+/bin/cp "$PROJECT_DIR/scripts/apple-cms-profile.zsh" \
+  "$CLEAN_READINESS_ROOT/scripts/apple-cms-profile.zsh"
+/bin/cp "$PROJECT_DIR/scripts/cloudkit-profile-authorization.jq" \
+  "$CLEAN_READINESS_ROOT/scripts/cloudkit-profile-authorization.jq"
+for CLEAN_READINESS_HELPER in \
+    validate-app-privacy.mjs validate-store-submission.mjs \
+    validate-app-store-submission.mjs capture-public-pages-evidence.mjs \
+    capture-asc-build-snapshot.mjs; do
+  /bin/ln -s "$PROJECT_DIR/scripts/$CLEAN_READINESS_HELPER" \
+    "$CLEAN_READINESS_ROOT/scripts/$CLEAN_READINESS_HELPER"
+done
+/bin/cat >"$CLEAN_READINESS_ROOT/scripts/apple-signing-identities.zsh" <<'STUB'
+#!/bin/zsh
+agent_island_find_identities() {
+  [[ "${1:-codesigning}" == "codesigning" ]] || return 64
+  print -r -- '     0 valid identities found'
+}
+STUB
+/bin/cp -R "$PROJECT_DIR/ApplePlatforms" "$CLEAN_READINESS_ROOT/ApplePlatforms"
+/bin/cp -R "$PROJECT_DIR/Resources" "$CLEAN_READINESS_ROOT/Resources"
+/bin/cp "$PROJECT_DIR/THIRD_PARTY_NOTICES.md" \
+  "$CLEAN_READINESS_ROOT/THIRD_PARTY_NOTICES.md"
+for CLEAN_READINESS_ITEM in Native docs Web Config; do
+  /bin/ln -s "$PROJECT_DIR/$CLEAN_READINESS_ITEM" \
+    "$CLEAN_READINESS_ROOT/$CLEAN_READINESS_ITEM"
+done
+CLEAN_READINESS_SCRIPT="$CLEAN_READINESS_ROOT/scripts/release-readiness.sh"
 CLEAN_READINESS_RESULT="$VERIFY_ROOT/release-readiness-clean.json"
 /usr/bin/env \
   -u AGENT_ISLAND_BUNDLE_ID \
@@ -789,7 +834,7 @@ CLEAN_READINESS_RESULT="$VERIFY_ROOT/release-readiness-clean.json"
   -u AGENT_ISLAND_MAC_APP_STORE_PROFILE_CERTIFICATE_VERIFIED \
   -u AGENT_ISLAND_MAC_APP_STORE_PRIVACY_REPORT_VERIFIED \
   -u AGENT_ISLAND_MAC_APP_STORE_REVIEW_PATH_VERIFIED \
-  "$PROJECT_DIR/scripts/release-readiness.sh" | \
+  "$CLEAN_READINESS_SCRIPT" | \
   /usr/bin/tee "$CLEAN_READINESS_RESULT" | jq -e '
   ((.hostMacOSVersion == null) or (.hostMacOSVersion | type == "string" and test("^[0-9]+(\\.[0-9]+){1,2}$"))) and
   (.minimumHostMacOSForXcode26 == "15.6") and
@@ -1065,12 +1110,12 @@ CLEAN_READINESS_RESULT="$VERIFY_ROOT/release-readiness-clean.json"
       .iosTestFlightProcessingState == "Complete") and
     (.iosTestFlightAppStoreConnectBuildID | type == "string" and length > 0)
   )) and
-  (.iosDevelopmentTeamConfigured == false) and
+  (.iosDevelopmentTeamConfigured == true) and
   (.developerIDIdentityConfigured == false) and
   (.productionDisplayNameConfigured == false) and
   (.provisioningProfileSigningCertificateConfigured == false) and
-  (.cloudKitContainerConfigured == false) and
-  (.iosCloudKitContainerConfigured == false) and
+  (.cloudKitContainerConfigured == true) and
+  (.iosCloudKitContainerConfigured == true) and
   (.iosPrivacyPolicyURLConfigured == true) and
   (.iosSupportURLConfigured == true) and
   (.cloudKitProductionSchemaVerified == false) and
@@ -1385,8 +1430,12 @@ RECORD_FIXTURE_ROOT="$VERIFY_ROOT/release-readiness-record-fixture"
 /bin/mkdir -p "$RECORD_FIXTURE_ROOT/scripts" "$RECORD_FIXTURE_ROOT/ApplePlatforms" \
   "$RECORD_FIXTURE_ROOT/.release"
 /bin/cp "$PROJECT_DIR/scripts/release-readiness.sh" "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh"
+/bin/cp "$PROJECT_DIR/scripts/cloudkit-profile-authorization.jq" \
+  "$RECORD_FIXTURE_ROOT/scripts/cloudkit-profile-authorization.jq"
 /bin/cp "$PROJECT_DIR/scripts/apple-signing-identities.zsh" \
   "$RECORD_FIXTURE_ROOT/scripts/apple-signing-identities.zsh"
+/bin/cp "$PROJECT_DIR/scripts/apple-cms-profile.zsh" \
+  "$RECORD_FIXTURE_ROOT/scripts/apple-cms-profile.zsh"
 /bin/cp -R "$PROJECT_DIR/ApplePlatforms/iOS" "$RECORD_FIXTURE_ROOT/ApplePlatforms/iOS"
 /bin/cp -R "$PROJECT_DIR/ApplePlatforms/macOS" "$RECORD_FIXTURE_ROOT/ApplePlatforms/macOS"
 /bin/cp -R "$PROJECT_DIR/Resources" "$RECORD_FIXTURE_ROOT/Resources"
@@ -1404,11 +1453,13 @@ RECORD_FIXTURE_XCCONFIG="$RECORD_FIXTURE_ROOT/ApplePlatforms/iOS/Config/Project.
 RECORD_FIXTURE_MAC_XCCONFIG="$RECORD_FIXTURE_ROOT/ApplePlatforms/macOS/Config/Project.xcconfig"
 RECORD_FIXTURE_INFO_PLIST="$RECORD_FIXTURE_ROOT/Resources/Info.plist"
 /usr/bin/sed -i '' \
-  -e 's/com\.example\.agentisland/com.agentisland.mobile/g' \
+  -e 's/^AGENT_ISLAND_APP_BUNDLE_ID =.*$/AGENT_ISLAND_APP_BUNDLE_ID = com.agentisland.mobile/' \
+  -e 's/^AGENT_ISLAND_WIDGET_BUNDLE_ID =.*$/AGENT_ISLAND_WIDGET_BUNDLE_ID = $(AGENT_ISLAND_APP_BUNDLE_ID).liveactivity/' \
+  -e 's/^AGENT_ISLAND_ICLOUD_CONTAINER_ID =.*$/AGENT_ISLAND_ICLOUD_CONTAINER_ID = iCloud.com.agentisland.mobile/' \
   -e 's/^AGENT_ISLAND_DEVELOPMENT_TEAM =.*$/AGENT_ISLAND_DEVELOPMENT_TEAM = ABCDE12345/' \
   "$RECORD_FIXTURE_XCCONFIG"
 /usr/bin/sed -i '' \
-  -e 's/com\.example\.agentisland/com.agentisland.mobile/g' \
+  -e 's/^AGENT_ISLAND_MAC_APP_BUNDLE_ID =.*$/AGENT_ISLAND_MAC_APP_BUNDLE_ID = com.agentisland.mobile/' \
   "$RECORD_FIXTURE_MAC_XCCONFIG"
 /usr/bin/plutil -replace CFBundleIdentifier -string 'com.agentisland.mobile' \
   "$RECORD_FIXTURE_INFO_PLIST"
@@ -2495,12 +2546,12 @@ fi
     (.provisioningProfileSigningCertificateConfigured == false) and
     (.privacyPolicyURLConfigured == true) and
     (.supportURLConfigured == true) and
-    (.iosAppBundleID == "com.example.agentisland") and
-    (.iosWidgetBundleID == "com.example.agentisland.liveactivity") and
-    (.iosAppBundleIDConfigured == false) and
-    (.iosWidgetBundleIDConfigured == false) and
-    (.iosDevelopmentTeamConfigured == false) and
-    (.iosCloudKitContainerConfigured == false) and
+    (.iosAppBundleID == "com.kiki.agentisland") and
+    (.iosWidgetBundleID == "com.kiki.agentisland.liveactivity") and
+    (.iosAppBundleIDConfigured == true) and
+    (.iosWidgetBundleIDConfigured == true) and
+    (.iosDevelopmentTeamConfigured == true) and
+    (.iosCloudKitContainerConfigured == true) and
     (.iosPrivacyPolicyURLConfigured == true) and
     (.iosSupportURLConfigured == true) and
     (.iosBuildSettingsMatchEnvironment == false) and

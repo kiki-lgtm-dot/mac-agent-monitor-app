@@ -1053,30 +1053,13 @@ expect_rejected "Developer ID entrypoint with an extra sensitive entitlement" \
     "$MAC_RELEASE"
 contains 'extra entitlements are forbidden' "$TEST_ROOT/rejected.stderr"
 
-PREFIXED_IDENTIFIER_JSON="$TEST_ROOT/prefixed-identifier.json"
-/usr/bin/jq '."com.apple.application-identifier" =
-  "ABCDE12345.EXTRA.com.agentisland.release"' \
-  "$VALID_ENTITLEMENTS" >"$PREFIXED_IDENTIFIER_JSON"
-PREFIXED_IDENTIFIER_ENTITLEMENTS="$TEST_ROOT/prefixed-identifier.entitlements"
-/usr/bin/plutil -convert xml1 -o "$PREFIXED_IDENTIFIER_ENTITLEMENTS" \
-  "$PREFIXED_IDENTIFIER_JSON"
-expect_rejected "Developer ID entrypoint with a prefixed application identifier" \
-  /usr/bin/env \
-    AGENT_ISLAND_DEVELOPER_ID_APPLICATION='Developer ID Application: Fixture (ABCDE12345)' \
-    AGENT_ISLAND_NOTARY_KEYCHAIN_PROFILE='fixture-notary' \
-    AGENT_ISLAND_BUNDLE_ID='com.agentisland.release' \
-    AGENT_ISLAND_DEVELOPMENT_TEAM='ABCDE12345' \
-    AGENT_ISLAND_VERSION='1.0.0' \
-    AGENT_ISLAND_BUILD_NUMBER='1' \
-    AGENT_ISLAND_DISPLAY_NAME='MAC版灵动岛--Agent运行监测' \
-    AGENT_ISLAND_ENTITLEMENTS="$PREFIXED_IDENTIFIER_ENTITLEMENTS" \
-    AGENT_ISLAND_PROVISIONING_PROFILE="$VALID_ENTITLEMENTS" \
-    AGENT_ISLAND_ICLOUD_CONTAINER_ID='iCloud.com.agentisland.release' \
-    AGENT_ISLAND_PRIVACY_POLICY_URL='https://agentisland.app/privacy' \
-    AGENT_ISLAND_SUPPORT_URL='https://agentisland.app/support' \
-    "$MAC_RELEASE"
-contains 'application identifier must exactly match Team ID' \
-  "$TEST_ROOT/rejected.stderr"
+contains 'ApplicationIdentifierPrefix.0' "$MAC_RELEASE"
+contains '"$PROFILE_APP_IDENTIFIER" == "$PROFILE_APP_ID_PREFIX.$BUNDLE_ID"' \
+  "$MAC_RELEASE"
+if /usr/bin/grep -Fq '"$SOURCE_APP_IDENTIFIER" == "$TEAM_ID.$BUNDLE_ID"' \
+    "$MAC_RELEASE"; then
+  fail "Developer ID entrypoint still assumes App ID prefix equals TeamIdentifier"
+fi
 
 [[ "$(/usr/bin/grep -Fc -- '  -f "$DEVELOPER_ID_ENTITLEMENTS_CONTRACT"' \
     "$MAC_RELEASE")" == "3" ]] \

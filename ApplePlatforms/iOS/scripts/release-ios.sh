@@ -4,11 +4,17 @@ set -euo pipefail
 IOS_ROOT="${0:A:h:h}"
 PRODUCT_ROOT="${IOS_ROOT:h:h}"
 SIGNING_IDENTITIES_HELPER="$PRODUCT_ROOT/scripts/apple-signing-identities.zsh"
+CMS_PROFILE_HELPER="$PRODUCT_ROOT/scripts/apple-cms-profile.zsh"
 [[ -f "$SIGNING_IDENTITIES_HELPER" && ! -L "$SIGNING_IDENTITIES_HELPER" ]] || {
   print -u2 -- "Apple signing identity helper is missing or unsafe"
   exit 66
 }
+[[ -f "$CMS_PROFILE_HELPER" && ! -L "$CMS_PROFILE_HELPER" ]] || {
+  print -u2 -- "Apple CMS profile helper is missing or unsafe"
+  exit 66
+}
 source "$SIGNING_IDENTITIES_HELPER"
+source "$CMS_PROFILE_HELPER"
 DIST_ROOT="$PRODUCT_ROOT/dist/ios"
 PRIVACY_CONTRACT="$IOS_ROOT/scripts/privacy-manifest-contract.jq"
 IOS_ENTITLEMENTS_CONTRACT="$IOS_ROOT/scripts/ios-entitlements-contract.jq"
@@ -519,8 +525,10 @@ APP_PROFILE_PLIST="$WORK_DIR/app-profile.plist"
 WIDGET_PROFILE_PLIST="$WORK_DIR/widget-profile.plist"
 APP_PROFILE_ENTITLEMENTS_JSON="$WORK_DIR/app-profile-entitlements.json"
 WIDGET_PROFILE_ENTITLEMENTS_JSON="$WORK_DIR/widget-profile-entitlements.json"
-/usr/bin/security cms -D -i "$APP_PROFILE" >"$APP_PROFILE_PLIST"
-/usr/bin/security cms -D -i "$WIDGET_PROFILE" >"$WIDGET_PROFILE_PLIST"
+agent_island_decode_apple_signed_profile "$APP_PROFILE" "$APP_PROFILE_PLIST" \
+  || fail "archived App provisioning profile failed Apple CMS signer verification"
+agent_island_decode_apple_signed_profile "$WIDGET_PROFILE" "$WIDGET_PROFILE_PLIST" \
+  || fail "archived Widget provisioning profile failed Apple CMS signer verification"
 extract_profile_entitlements_json "$APP_PROFILE_PLIST" "$APP_PROFILE_ENTITLEMENTS_JSON"
 extract_profile_entitlements_json "$WIDGET_PROFILE_PLIST" "$WIDGET_PROFILE_ENTITLEMENTS_JSON"
 
@@ -703,10 +711,12 @@ if [[ "$EXPORT_IPA" == true ]]; then
   EXPORTED_WIDGET_PROFILE_PLIST="$WORK_DIR/exported-widget-profile.plist"
   EXPORTED_APP_PROFILE_ENTITLEMENTS_JSON="$WORK_DIR/exported-app-profile-entitlements.json"
   EXPORTED_WIDGET_PROFILE_ENTITLEMENTS_JSON="$WORK_DIR/exported-widget-profile-entitlements.json"
-  /usr/bin/security cms -D -i "$EXPORTED_APP_PATH/embedded.mobileprovision" \
-    >"$EXPORTED_APP_PROFILE_PLIST"
-  /usr/bin/security cms -D -i "$EXPORTED_WIDGET_PATH/embedded.mobileprovision" \
-    >"$EXPORTED_WIDGET_PROFILE_PLIST"
+  agent_island_decode_apple_signed_profile \
+    "$EXPORTED_APP_PATH/embedded.mobileprovision" "$EXPORTED_APP_PROFILE_PLIST" \
+    || fail "exported App provisioning profile failed Apple CMS signer verification"
+  agent_island_decode_apple_signed_profile \
+    "$EXPORTED_WIDGET_PATH/embedded.mobileprovision" "$EXPORTED_WIDGET_PROFILE_PLIST" \
+    || fail "exported Widget provisioning profile failed Apple CMS signer verification"
   extract_profile_entitlements_json \
     "$EXPORTED_APP_PROFILE_PLIST" "$EXPORTED_APP_PROFILE_ENTITLEMENTS_JSON"
   extract_profile_entitlements_json \

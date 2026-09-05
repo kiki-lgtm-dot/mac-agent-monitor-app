@@ -6,11 +6,23 @@ umask 077
 MAC_ROOT="${0:A:h:h}"
 PRODUCT_ROOT="${MAC_ROOT:h:h}"
 SIGNING_IDENTITIES_HELPER="$PRODUCT_ROOT/scripts/apple-signing-identities.zsh"
+CMS_PROFILE_HELPER="$PRODUCT_ROOT/scripts/apple-cms-profile.zsh"
+CLOUDKIT_PROFILE_AUTHORIZATION="$PRODUCT_ROOT/scripts/cloudkit-profile-authorization.jq"
 [[ -f "$SIGNING_IDENTITIES_HELPER" && ! -L "$SIGNING_IDENTITIES_HELPER" ]] || {
   print -u2 -- "Apple signing identity helper is missing or unsafe"
   exit 66
 }
+[[ -f "$CMS_PROFILE_HELPER" && ! -L "$CMS_PROFILE_HELPER" ]] || {
+  print -u2 -- "Apple CMS profile helper is missing or unsafe"
+  exit 66
+}
+[[ -f "$CLOUDKIT_PROFILE_AUTHORIZATION" && \
+  ! -L "$CLOUDKIT_PROFILE_AUTHORIZATION" ]] || {
+  print -u2 -- "CloudKit profile authorization contract is missing or unsafe"
+  exit 66
+}
 source "$SIGNING_IDENTITIES_HELPER"
+source "$CMS_PROFILE_HELPER"
 PROJECT_PATH="$MAC_ROOT/AgentIslandMac.xcodeproj"
 PREFLIGHT_ASSERTION="$PRODUCT_ROOT/scripts/assert-release-preflight.sh"
 READINESS_SCRIPT="$PRODUCT_ROOT/scripts/release-readiness.sh"
@@ -502,8 +514,8 @@ validate_signature_and_profile() {
 
   [[ -f "$profile" && ! -L "$profile" ]] \
     || fail "$label is missing Contents/embedded.provisionprofile"
-  /usr/bin/security cms -D -i "$profile" -o "$profile_plist" >/dev/null 2>&1 \
-    || fail "$label provisioning profile is not a decodable Apple-signed CMS profile"
+  agent_island_decode_apple_signed_profile "$profile" "$profile_plist" \
+    || fail "$label provisioning profile failed Apple CMS signer verification"
   /usr/bin/plutil -lint "$profile_plist" >/dev/null \
     || fail "$label provisioning profile plist is invalid"
   /usr/bin/plutil -extract Entitlements xml1 -o "$profile_entitlements" \
@@ -567,6 +579,14 @@ validate_signature_and_profile() {
   [[ "$profile_certificate_matches" == true ]] \
     || fail "$label profile does not authorize the selected App Distribution certificate"
 
+  /usr/bin/jq -e \
+    --arg applicationIdentifier "$profile_prefix.$APP_BUNDLE_ID" \
+    --arg team "$TEAM_ID" \
+    --arg container "$CLOUD_CONTAINER_ID" \
+    -f "$CLOUDKIT_PROFILE_AUTHORIZATION" \
+    "$profile_entitlements_json" >/dev/null \
+    || fail "$label profile does not authorize the exact App ID, Team, and production CloudKit capability"
+
   /usr/bin/jq -e -s \
     --arg applicationIdentifier "$profile_prefix.$APP_BUNDLE_ID" \
     --arg team "$TEAM_ID" \
@@ -610,11 +630,8 @@ validate_signature_and_profile() {
         and $signed."com.apple.security.files.bookmarks.app-scope" == true
         and $signed."com.apple.security.network.client" == true
         and $signed."com.apple.developer.icloud-container-identifiers" == [$container]
-        and $profile."com.apple.developer.icloud-container-identifiers" == [$container]
         and $signed."com.apple.developer.icloud-services" == ["CloudKit"]
-        and $profile."com.apple.developer.icloud-services" == ["CloudKit"]
         and $signed."com.apple.developer.icloud-container-environment" == "Production"
-        and $profile."com.apple.developer.icloud-container-environment" == "Production"
     ' "$signed_entitlements_json" "$profile_entitlements_json" >/dev/null \
     || fail "$label signature/profile failed exact sandbox, identifier, Team, or Production CloudKit validation"
 
