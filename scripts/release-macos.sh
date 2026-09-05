@@ -3,6 +3,12 @@ set -euo pipefail
 setopt EXTENDED_GLOB
 
 PROJECT_DIR="${0:A:h:h}"
+SIGNING_IDENTITIES_HELPER="$PROJECT_DIR/scripts/apple-signing-identities.zsh"
+[[ -f "$SIGNING_IDENTITIES_HELPER" && ! -L "$SIGNING_IDENTITIES_HELPER" ]] || {
+  print -u2 -- "Apple signing identity helper is missing or unsafe"
+  exit 66
+}
+source "$SIGNING_IDENTITIES_HELPER"
 DIST_DIR="$PROJECT_DIR/dist"
 PUBLIC_APP_NAME="MAC版灵动岛--Agent运行监测"
 SOURCE_ARCHIVE="$DIST_DIR/$PUBLIC_APP_NAME-macOS-universal.zip"
@@ -256,9 +262,9 @@ PROFILE_EXPIRATION_EPOCH="$(/bin/date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$PROFILE_EX
 }
 
 [[ "$SIGN_IDENTITY" == *"($TEAM_ID)" ]] || { echo "Developer ID identity does not belong to AGENT_ISLAND_DEVELOPMENT_TEAM" >&2; exit 2; }
-IDENTITY_OUTPUT="$(/usr/bin/security find-identity -v -p codesigning)"
+IDENTITY_OUTPUT="$(agent_island_find_identities codesigning)"
 IDENTITY_MATCH_COUNT="$(print -r -- "$IDENTITY_OUTPUT" | /usr/bin/grep -Fc "\"$SIGN_IDENTITY\"" || true)"
-[[ "$IDENTITY_MATCH_COUNT" == "1" ]] || { echo "Expected exactly one matching Developer ID identity in the login keychain" >&2; exit 2; }
+[[ "$IDENTITY_MATCH_COUNT" == "1" ]] || { echo "Expected exactly one matching Developer ID certificate in the selected signing keychain scope" >&2; exit 2; }
 IDENTITY_SHA1="$(print -r -- "$IDENTITY_OUTPUT" | /usr/bin/grep -F "\"$SIGN_IDENTITY\"" | /usr/bin/awk '{print toupper($2); exit}')"
 [[ "$IDENTITY_SHA1" == [0-9A-F]## && ${#IDENTITY_SHA1} -eq 40 ]] || {
   echo "Could not resolve the SHA-1 fingerprint for AGENT_ISLAND_DEVELOPER_ID_APPLICATION" >&2

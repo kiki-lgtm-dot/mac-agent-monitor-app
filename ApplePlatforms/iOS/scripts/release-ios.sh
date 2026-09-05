@@ -3,6 +3,12 @@ set -euo pipefail
 
 IOS_ROOT="${0:A:h:h}"
 PRODUCT_ROOT="${IOS_ROOT:h:h}"
+SIGNING_IDENTITIES_HELPER="$PRODUCT_ROOT/scripts/apple-signing-identities.zsh"
+[[ -f "$SIGNING_IDENTITIES_HELPER" && ! -L "$SIGNING_IDENTITIES_HELPER" ]] || {
+  print -u2 -- "Apple signing identity helper is missing or unsafe"
+  exit 66
+}
+source "$SIGNING_IDENTITIES_HELPER"
 DIST_ROOT="$PRODUCT_ROOT/dist/ios"
 PRIVACY_CONTRACT="$IOS_ROOT/scripts/privacy-manifest-contract.jq"
 IOS_ENTITLEMENTS_CONTRACT="$IOS_ROOT/scripts/ios-entitlements-contract.jq"
@@ -288,7 +294,7 @@ print -r -- "$VERSION" | /usr/bin/grep -Eq '^[0-9]+(\.[0-9]+){1,2}$' \
 print -r -- "$BUILD_NUMBER" | /usr/bin/grep -Eq '^[1-9][0-9]*$' \
   || fail "CURRENT_PROJECT_VERSION must be a positive integer without leading zeroes"
 
-IDENTITY_OUTPUT="$(/usr/bin/security find-identity -v -p codesigning 2>/dev/null || true)"
+IDENTITY_OUTPUT="$(agent_island_find_identities codesigning)"
 REQUESTED_IDENTITY="${AGENT_ISLAND_IOS_DISTRIBUTION_IDENTITY:-}"
 if [[ -n "$REQUESTED_IDENTITY" ]]; then
   [[ "$REQUESTED_IDENTITY" == "Apple Distribution: "* ]] \

@@ -39,6 +39,8 @@ new_sandbox() {
     "$root/Tests/Fixtures"
   /bin/cp "$PROJECT_DIR/scripts/apply-release-identity.sh" "$root/scripts/apply-release-identity.sh"
   /bin/cp "$PROJECT_DIR/scripts/release-readiness.sh" "$root/scripts/release-readiness.sh"
+  /bin/cp "$PROJECT_DIR/scripts/apple-signing-identities.zsh" \
+    "$root/scripts/apple-signing-identities.zsh"
   /bin/chmod 755 "$root/scripts/apply-release-identity.sh" \
     "$root/scripts/release-readiness.sh"
   /bin/cp "$PROJECT_DIR/Resources/Info.plist" "$root/Resources/Info.plist"
@@ -161,7 +163,8 @@ STUB
     -e "s#/usr/bin/security#$stub#g" \
     -e "s#/usr/bin/xcrun#$xcrun_stub#g" \
     "$root/scripts/apply-release-identity.sh" \
-    "$root/scripts/release-readiness.sh"
+    "$root/scripts/release-readiness.sh" \
+    "$root/scripts/apple-signing-identities.zsh"
 }
 
 # Default --check validates and describes changes but cannot touch the tree.

@@ -5,6 +5,12 @@ umask 077
 
 MAC_ROOT="${0:A:h:h}"
 PRODUCT_ROOT="${MAC_ROOT:h:h}"
+SIGNING_IDENTITIES_HELPER="$PRODUCT_ROOT/scripts/apple-signing-identities.zsh"
+[[ -f "$SIGNING_IDENTITIES_HELPER" && ! -L "$SIGNING_IDENTITIES_HELPER" ]] || {
+  print -u2 -- "Apple signing identity helper is missing or unsafe"
+  exit 66
+}
+source "$SIGNING_IDENTITIES_HELPER"
 PROJECT_PATH="$MAC_ROOT/AgentIslandMac.xcodeproj"
 PREFLIGHT_ASSERTION="$PRODUCT_ROOT/scripts/assert-release-preflight.sh"
 READINESS_SCRIPT="$PRODUCT_ROOT/scripts/release-readiness.sh"
@@ -286,7 +292,7 @@ production_https_url "$SUPPORT_URL" \
 [[ "$(build_setting CODE_SIGN_ENTITLEMENTS)" == "Config/AgentIslandMac.entitlements" ]] \
   || fail "Mac App Store target resolved the wrong entitlement file"
 
-IDENTITY_OUTPUT="$(/usr/bin/security find-identity -v -p codesigning 2>/dev/null || true)"
+IDENTITY_OUTPUT="$(agent_island_find_identities codesigning)"
 REQUESTED_IDENTITY="${AGENT_ISLAND_MAC_APP_STORE_DISTRIBUTION_IDENTITY:-}"
 valid_app_distribution_identity_name() {
   local value="$1"
@@ -345,7 +351,7 @@ SELECTED_IDENTITY_SHA1="$(print -r -- "$IDENTITY_OUTPUT" \
 
 SELECTED_INSTALLER_IDENTITY=""
 if [[ "$EXPORT_PACKAGE" == true ]]; then
-  INSTALLER_IDENTITY_OUTPUT="$(/usr/bin/security find-identity -v 2>/dev/null || true)"
+  INSTALLER_IDENTITY_OUTPUT="$(agent_island_find_identities all)"
   REQUESTED_INSTALLER_IDENTITY="${AGENT_ISLAND_MAC_APP_STORE_INSTALLER_IDENTITY:-}"
   valid_installer_identity_name() {
     local value="$1"

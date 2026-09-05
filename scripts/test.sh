@@ -63,6 +63,7 @@ if ARBITRARY_LOADS="$(plutil -extract NSAppTransportSecurity.NSAllowsArbitraryLo
 fi
 /bin/zsh -n "$PROJECT_DIR/scripts/build-app.sh" "$PROJECT_DIR/scripts/release-macos.sh" \
   "$PROJECT_DIR/scripts/release-readiness.sh" \
+  "$PROJECT_DIR/scripts/apple-signing-identities.zsh" \
   "$PROJECT_DIR/scripts/assert-release-preflight.sh" \
   "$PROJECT_DIR/scripts/render-app-icons.sh" \
   "$PROJECT_DIR/scripts/apply-release-identity.sh" "$PROJECT_DIR/Tests/test-release-identity.sh" \
@@ -95,6 +96,7 @@ node --check "$PROJECT_DIR/scripts/app-store-connect-submission-metadata.mjs"
 node --check "$PROJECT_DIR/scripts/capture-asc-submission-metadata.mjs"
 [[ -x "$PROJECT_DIR/scripts/release-macos.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/release-readiness.sh" ]]
+[[ -f "$PROJECT_DIR/scripts/apple-signing-identities.zsh" ]]
 [[ -x "$PROJECT_DIR/scripts/assert-release-preflight.sh" ]]
 [[ -x "$PROJECT_DIR/scripts/apply-release-identity.sh" ]]
 [[ -x "$PROJECT_DIR/Tests/test-release-identity.sh" ]]
@@ -144,6 +146,13 @@ if "$PROJECT_DIR/scripts/release-readiness.sh" --json extra \
 fi
 rg -q --fixed-strings 'Unexpected arguments: --json extra' \
   "$VERIFY_ROOT/release-readiness-extra.err"
+source "$PROJECT_DIR/scripts/apple-signing-identities.zsh"
+IDENTITY_DEDUP_FIXTURE=$'  1) AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA "Apple Distribution: Fixture (ABCDE12345)"\n  2) AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA "Apple Distribution: Fixture (ABCDE12345)"\n  3) BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB "Developer ID Application: Fixture (ABCDE12345)"\n  4) BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB "Developer ID Application: Fixture (ABCDE12345)"\n  5) CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC "Apple Distribution: Fixture (ABCDE12345)"'
+IDENTITY_DEDUP_RESULT="$(print -r -- "$IDENTITY_DEDUP_FIXTURE" \
+  | agent_island_deduplicate_identity_output)"
+[[ "$(print -r -- "$IDENTITY_DEDUP_RESULT" | /usr/bin/awk 'NF {count++} END {print count + 0}')" == "3" ]]
+[[ "$(print -r -- "$IDENTITY_DEDUP_RESULT" | /usr/bin/grep -c 'Apple Distribution:' || true)" == "2" ]]
+[[ "$(print -r -- "$IDENTITY_DEDUP_RESULT" | /usr/bin/grep -c 'Developer ID Application:' || true)" == "1" ]]
 "$PROJECT_DIR/ApplePlatforms/macOS/scripts/validate-project.sh"
 "$PROJECT_DIR/Tests/test-macos-app-store-release.sh"
 "$PROJECT_DIR/Tests/test-macos-app-store-delivery.sh"
@@ -1376,6 +1385,8 @@ RECORD_FIXTURE_ROOT="$VERIFY_ROOT/release-readiness-record-fixture"
 /bin/mkdir -p "$RECORD_FIXTURE_ROOT/scripts" "$RECORD_FIXTURE_ROOT/ApplePlatforms" \
   "$RECORD_FIXTURE_ROOT/.release"
 /bin/cp "$PROJECT_DIR/scripts/release-readiness.sh" "$RECORD_FIXTURE_ROOT/scripts/release-readiness.sh"
+/bin/cp "$PROJECT_DIR/scripts/apple-signing-identities.zsh" \
+  "$RECORD_FIXTURE_ROOT/scripts/apple-signing-identities.zsh"
 /bin/cp -R "$PROJECT_DIR/ApplePlatforms/iOS" "$RECORD_FIXTURE_ROOT/ApplePlatforms/iOS"
 /bin/cp -R "$PROJECT_DIR/ApplePlatforms/macOS" "$RECORD_FIXTURE_ROOT/ApplePlatforms/macOS"
 /bin/cp -R "$PROJECT_DIR/Resources" "$RECORD_FIXTURE_ROOT/Resources"

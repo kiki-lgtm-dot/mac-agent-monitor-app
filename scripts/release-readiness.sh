@@ -33,6 +33,12 @@ if (( $# == 1 )); then
 fi
 
 PROJECT_DIR="${0:A:h:h}"
+SIGNING_IDENTITIES_HELPER="$PROJECT_DIR/scripts/apple-signing-identities.zsh"
+[[ -f "$SIGNING_IDENTITIES_HELPER" && ! -L "$SIGNING_IDENTITIES_HELPER" ]] || {
+  print -u2 -- "Apple signing identity helper is missing or unsafe"
+  exit 66
+}
+source "$SIGNING_IDENTITIES_HELPER"
 READINESS_ROOT="$(mktemp -d /private/tmp/agentisland-readiness.XXXXXX)"
 trap '[[ "$READINESS_ROOT" == /private/tmp/agentisland-readiness.* ]] && /bin/rm -rf "$READINESS_ROOT"' EXIT HUP INT TERM
 trap 'rc=$?; print -u2 -- "release-readiness.sh failed at line $LINENO (exit $rc)"; trap - ZERR; exit $rc' ZERR
@@ -172,7 +178,7 @@ if [[ "$FULL_XCODE" == true ]]; then
   [[ "$IPHONE_SDK" == <->* ]] && IPHONE_SDK_MAJOR="${IPHONE_SDK%%.*}"
 fi
 
-IDENTITY_OUTPUT="$(/usr/bin/security find-identity -v -p codesigning 2>/dev/null || true)"
+IDENTITY_OUTPUT="$(agent_island_find_identities codesigning)"
 VALID_IDENTITIES="$(print -r -- "$IDENTITY_OUTPUT" | /usr/bin/grep -Ec '^[[:space:]]*[0-9]+\)' || true)"
 DEVELOPER_ID_IDENTITIES="$(print -r -- "$IDENTITY_OUTPUT" | /usr/bin/grep -c 'Developer ID Application:' || true)"
 APPLE_DEVELOPMENT_IDENTITIES="$(print -r -- "$IDENTITY_OUTPUT" | /usr/bin/grep -Ec 'Apple Development:|iPhone Developer:' || true)"

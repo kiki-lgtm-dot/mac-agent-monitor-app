@@ -100,6 +100,10 @@ export AGENT_ISLAND_ICLOUD_CONTAINER_ID="已锁定的 iCloudContainerIdentifier"
 export AGENT_ISLAND_DISPLAY_NAME="已完成名称清查的 2–30 字符正式名称"
 export AGENT_ISLAND_ENTITLEMENTS="$PWD/.release/CloudKit.entitlements"
 export AGENT_ISLAND_PROVISIONING_PROFILE="/absolute/path/AgentIsland_Developer_ID.provisionprofile"
+# 可选：只从独立发布钥匙串解析证书，避免登录钥匙串中的同证书副本造成重复。
+export AGENT_ISLAND_SIGNING_KEYCHAIN="/absolute/path/AgentIslandRelease.keychain-db"
 ```
 
-正式显示名、版本、Build、公开隐私/支持 URL、Developer ID 签名身份和 Keychain 中的 notarytool profile 继续按 `Config/Release.example.env` 设置。显示名只在已完成名称清查后配置；当前公开名称虽然通过字数门禁，仍须另行完成 App Store 可用性与 Apple 商标规范核验。密码、App 专用密码、API Key、证书私钥和 App Store Connect API 私钥始终只进入系统 Keychain 或受控 CI Secret，不进入身份 JSON、锁或构建日志。
+正式显示名、版本、Build、公开隐私/支持 URL、Developer ID 签名身份和 Keychain 中的 notarytool profile 继续按 `Config/Release.example.env` 设置。显示名只在已完成名称清查后配置；当前公开名称虽然通过字数门禁，仍须另行完成 App Store 可用性与 Apple 商标规范核验。密码、App 专用密码、API Key、证书私钥和 App Store Connect API 私钥始终只进入系统 Keychain、权限锁定的本地密钥存储或受控 CI Secret，不进入身份 JSON、锁、Git 或构建日志。
+
+如果同一证书同时存在于登录钥匙串和独立发布钥匙串，发布脚本会按“证书 SHA-1 + 完整身份名”去重；相同名称但不同 SHA-1 的证书仍会保留为歧义并失败关闭。`AGENT_ISLAND_SIGNING_KEYCHAIN` 只限制身份解析范围，不负责解锁或改变系统搜索顺序；本地/CI 包装器必须在命令开始前解锁该钥匙串并将其临时置于搜索首位，在命令结束后恢复原顺序并重新锁定。
